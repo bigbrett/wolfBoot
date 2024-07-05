@@ -193,6 +193,9 @@ IDE/Renesas/e2studio/RZN2L/wolfboot/.cache/*
 IDE/Renesas/e2studio/RZN2L/flash_app/.cache/*
 IDE/Release/e2studio/RZN2L/app_RZ/.cache/*
 
+# IDE AURIX generated
+IDE/AURIX/tc3xx/TriCore* (GCC)/*
+IDE/AURIX/tc3xx/TriCore* (TASKING)/*
 
 tpm_seal_key.key
 
