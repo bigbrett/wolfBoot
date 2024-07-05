@@ -229,7 +229,12 @@ static int wolfBoot_swap_and_final_erase(int resume)
     wolfBoot_get_partition_state(PART_UPDATE, &st);
 
     /* read trailer */
+#if defined(EXT_FLASH) && PARTN_IS_EXT(PART_BOOT)
+    ext_flash_read((uintptr_t)(boot->hdr + tmpBootPos), (void*)tmpBuffer,
+        sizeof(tmpBuffer));
+#else
     memcpy(tmpBuffer, boot->hdr + tmpBootPos, sizeof(tmpBuffer));
+#endif
 
     /* check for trailing magic (BOOT) */
     /* final swap and erase flag is WOLFBOOT_MAGIC_TRAIL */
@@ -501,9 +506,9 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
     uint32_t up_v;
 #endif
     uint32_t cur_ver, upd_ver;
+    size_t remainderBytes;
 
     wolfBoot_printf("Staring Update (fallback allowed %d)\n", fallback_allowed);
-
 
     /* No Safety check on open: we might be in the middle of a broken update */
     wolfBoot_open_image(&update, PART_UPDATE);
@@ -657,17 +662,19 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
             total_size = wolfBoot_get_total_size(&boot, &update);
         }
     }
-    /* erase to the last sector, writeonce has 2 sectors */
-    while((sector * sector_size) < WOLFBOOT_PARTITION_SIZE -
-        sector_size
-    #ifdef NVM_FLASH_WRITEONCE
-        * 2
-    #endif
-    ) {
-        wb_flash_erase(&boot, sector * sector_size, sector_size);
-        wb_flash_erase(&update, sector * sector_size, sector_size);
-        sector++;
-    }
+
+#ifdef NVM_FLASH_WRITEONCE
+   /* erase up until the start of the second-to-last sector for writeonce */
+    remainderBytes =
+        WOLFBOOT_PARTITION_SIZE - (sector * sector_size) - (2 * sector_size);
+#else
+   /* erase up until the start of the last sector */
+    remainderBytes =
+        WOLFBOOT_PARTITION_SIZE - (sector * sector_size) - sector_size;
+#endif
+    wb_flash_erase(&boot, sector * sector_size, remainderBytes);
+    wb_flash_erase(&update, sector * sector_size, remainderBytes);
+
     /* start re-entrant final erase, return code is only for resumption in
      * wolfBoot_start*/
     wolfBoot_swap_and_final_erase(0);
