@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#include "Ifx_Ssw_Infra.h"
+
 /*This function is called by the bootloader at the very beginning of the
  * execution. Ideally, the implementation provided configures the clock settings
  * for the target microcontroller, to ensure that it runs at at the required
@@ -46,3 +48,10 @@ void hal_prepare_boot(void) {}
 
 void hal_flash_lock(void) {}
 void hal_flash_unlock(void) {}
+
+
+
+void do_boot(const uint32_t *app_offset)
+{
+    Ifx_Ssw_jumpToFunction((void (*)(void))app_offset);
+}
