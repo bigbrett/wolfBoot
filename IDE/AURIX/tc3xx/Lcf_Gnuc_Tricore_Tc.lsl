@@ -109,8 +109,12 @@ MEMORY
     
     psram_local (w!xp): org = 0xc0000000, len = 64K
     
-    pfls0 (rx!p): org = 0x80000000, len = 3M
-    pfls0_nc (rx!p): org = 0xa0000000, len = 3M
+    pfls0 (rx!p): org    = 0x80000000, len = 64K /* 0x10_000 : wolfBoot */
+    pfls0_nc (rx!p): org = 0xa0000000, len = 64K /* 0x10_000 : wolfBoot */
+    
+    pfls0_boot (rwx!p): org = 0x80010000, len = 128K /* 0x20_000 : Boot partition */
+    pfls0_updt (rwx!p): org = 0x80030000, len = 128K /* 0x20_000 : Update partition */
+    pfls0_swap (rwx!p): org = 0x80050000, len = 4K   /* 0x1_000  : Swap sector */
     
     pfls1 (rx!p): org = 0x80300000, len = 3M
     pfls1_nc (rx!p): org = 0xa0300000, len = 3M
@@ -1564,6 +1568,8 @@ SECTIONS
         *(.psram_text_cpu0.*)
         *(.cpu0_psram)
         *(.cpu0_psram.*)
+        *(.ramcode)   /* wolfBoot RAM function section, for RAM_CODE=1 */
+        *(.ramcode.*) /* future proof subsection matching for wolfBoot RAM function section, for RAM_CODE=1 */
         . = ALIGN(2);
     } > psram0 AT> pfls0
 }
