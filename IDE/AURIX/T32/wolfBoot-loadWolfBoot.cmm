@@ -3,7 +3,7 @@ system.up
 
 
 LOCAL &elfFile
-&elfFile="..\TriCore Debug (GCC)\wolfBoot-tc3xx.elf"
+&elfFile="..\tc3xx\TriCore Debug (GCC)\wolfBoot-tc3xx.elf"
 PRINT "Using ELF File: &elfFile"
 
 
