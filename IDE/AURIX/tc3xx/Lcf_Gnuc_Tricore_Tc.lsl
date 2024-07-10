@@ -71,25 +71,25 @@ LCF_HEAP0_OFFSET =   (LCF_USTACK0_OFFSET - LCF_HEAP_SIZE);
 LCF_HEAP1_OFFSET =   (LCF_USTACK1_OFFSET - LCF_HEAP_SIZE);
 LCF_HEAP2_OFFSET =   (LCF_USTACK2_OFFSET - LCF_HEAP_SIZE);
 
-LCF_INTVEC0_START = 0x802FE000;
-LCF_INTVEC1_START = 0x805FC000;
-LCF_INTVEC2_START = 0x805FE000;
+LCF_INTVEC0_START = 0x80000400;
+LCF_INTVEC1_START = 0x80002400;
+LCF_INTVEC2_START = 0x80004400;
 
 __INTTAB_CPU0 = LCF_INTVEC0_START;
 __INTTAB_CPU1 = LCF_INTVEC1_START;
 __INTTAB_CPU2 = LCF_INTVEC2_START;
 
 LCF_TRAPVEC0_START = 0x80000100;
-LCF_TRAPVEC1_START = 0x80300000;
-LCF_TRAPVEC2_START = 0x80300100;
+LCF_TRAPVEC1_START = 0x80000200;
+LCF_TRAPVEC2_START = 0x80000300;
 
 LCF_STARTPTR_CPU0 = 0x80000000;
-LCF_STARTPTR_CPU1 = 0x80300200;
-LCF_STARTPTR_CPU2 = 0x80300220;
+LCF_STARTPTR_CPU1 = 0x80006400;  /* after last intvec */
+LCF_STARTPTR_CPU2 = 0x80006420;
 
 LCF_STARTPTR_NC_CPU0 = 0xA0000000;
-LCF_STARTPTR_NC_CPU1 = 0xA0300200;
-LCF_STARTPTR_NC_CPU2 = 0xA0300220;
+LCF_STARTPTR_NC_CPU1 = 0xA0006400;  /* after last intvec */
+LCF_STARTPTR_NC_CPU2 = 0xA0006420;
 
 RESET = LCF_STARTPTR_NC_CPU0;
 
@@ -111,13 +111,15 @@ MEMORY
     
     pfls0 (rx!p): org    = 0x80000000, len = 64K /* 0x10_000 : wolfBoot */
     pfls0_nc (rx!p): org = 0xa0000000, len = 64K /* 0x10_000 : wolfBoot */
-    
-    pfls0_boot (rwx!p): org = 0x80010000, len = 128K /* 0x20_000 : Boot partition */
-    pfls0_updt (rwx!p): org = 0x80030000, len = 128K /* 0x20_000 : Update partition */
     pfls0_swap (rwx!p): org = 0x80050000, len = 4K   /* 0x1_000  : Swap sector */
     
-    pfls1 (rx!p): org = 0x80300000, len = 3M
-    pfls1_nc (rx!p): org = 0xa0300000, len = 3M
+    /* reserved for wolfBoot BOOT partition */
+    pfls1_boot (rx!p):    org = 0x80300000, len = 0x180000 /* 1.5MiB */ 
+    pfls1_boot_nc (rx!p): org = 0xa0300000, len = 0x180000 /* 1.5MiB */
+    
+    /* reserved for wolfBoot UPDATE partition */
+    pfls1_update (rx!p):    org = 0x80480000, len = 0x180000 /* 1.5MiB */
+    pfls1_update_nc (rx!p): org = 0xa0480000, len = 0x180000 /* 1.5MiB */
     
     dfls0 (rx!p): org = 0xaf000000, len = 256K
     
@@ -139,7 +141,6 @@ REGION_MAP( CPU1 , ORIGIN(dsram1_local), LENGTH(dsram1_local), ORIGIN(dsram1))
 REGION_MAP( CPU2 , ORIGIN(dsram2_local), LENGTH(dsram2_local), ORIGIN(dsram2))
 /* map cached and non cached addresses */
 REGION_MIRROR("pfls0", "pfls0_nc")
-REGION_MIRROR("pfls1", "pfls1_nc")
 REGION_MIRROR("cpu0_dlmu", "cpu0_dlmu_nc")
 REGION_MIRROR("cpu1_dlmu", "cpu1_dlmu_nc")
 REGION_MIRROR("cpu2_dlmu", "cpu2_dlmu_nc")
@@ -214,17 +215,37 @@ REGION_ALIAS( default_ram , dsram2)
     CORE_ID = GLOBAL;
     SECTIONS
     {
-        .traptab_tc0 (LCF_TRAPVEC0_START) : { PROVIDE(__TRAPTAB_CPU0 = .); KEEP (*(.traptab_cpu0)); } > pfls0
-        .traptab_tc1 (LCF_TRAPVEC1_START) : { PROVIDE(__TRAPTAB_CPU1 = .); KEEP (*(.traptab_cpu1)); } > pfls1
-        .traptab_tc2 (LCF_TRAPVEC2_START) : { PROVIDE(__TRAPTAB_CPU2 = .); KEEP (*(.traptab_cpu2)); } > pfls1
+        .traptab_tc0 (LCF_TRAPVEC0_START) :
+        {
+            . = ALIGN(8);
+            PROVIDE(__TRAPTAB_CPU0 = .); 
+            KEEP (*(.traptab_cpu0));
+            PROVIDE(__TRAPTAB_CPU0_END = .);
+        } > pfls0
+
+        .traptab_tc1 (__TRAPTAB_CPU0_END) : 
+        {
+            . = ALIGN(8);
+            PROVIDE(__TRAPTAB_CPU1 = .); 
+            KEEP (*(.traptab_cpu1)); 
+            PROVIDE(__TRAPTAB_CPU1_END = .); 
+        } > pfls0
+
+        .traptab_tc2 (__TRAPTAB_CPU1_END) : 
+        {
+            . = ALIGN(8);
+            PROVIDE(__TRAPTAB_CPU2 = .); 
+            KEEP (*(.traptab_cpu2)); 
+            PROVIDE(__TRAPTAB_CPU2_END = .); 
+        } > pfls0
     }
     
     /*Fixed memory Allocations for _START1 to 2*/
     CORE_ID = GLOBAL ;
     SECTIONS
     {
-        .start_tc1 (LCF_STARTPTR_NC_CPU1) : FLAGS(rxl) { KEEP (*(.start_cpu1)); } > pfls1_nc
-        .start_tc2 (LCF_STARTPTR_NC_CPU2) : FLAGS(rxl) { KEEP (*(.start_cpu2)); } > pfls1_nc
+        .start_tc1 (LCF_STARTPTR_NC_CPU1) : FLAGS(rxl) { KEEP (*(.start_cpu1)); } > pfls0_nc
+        .start_tc2 (LCF_STARTPTR_NC_CPU2) : FLAGS(rxl) { KEEP (*(.start_cpu2)); } > pfls0_nc
         PROVIDE(__START1 = LCF_STARTPTR_NC_CPU1);
         PROVIDE(__START2 = LCF_STARTPTR_NC_CPU2);
     }
@@ -1441,7 +1462,7 @@ SECTIONS
         *Cpu1_Main.* (.rodata)
         *(.rodata_cpu1)
         *(.rodata_cpu1.*)
-    } > pfls1
+    } > pfls0
 }
 
 CORE_ID = CPU2;
@@ -1453,7 +1474,7 @@ SECTIONS
         *Cpu2_Main.* (.rodata)
         *(.rodata_cpu2)
         *(.rodata_cpu2.*)
-    } > pfls1
+    } > pfls0
 }
 
 /*Far Const Sections, selectable by toolchain*/
@@ -1586,7 +1607,7 @@ SECTIONS
         *Cpu1_Main.*(.text.*)
         *(.text_cpu1)
         *(.text_cpu1.*)
-    } > pfls1
+    } > pfls0
 
     CORE_SEC(.psram_text)  : FLAGS(awx)
     {
@@ -1596,7 +1617,7 @@ SECTIONS
         *(.cpu1_psram)
         *(.cpu1_psram.*)
         . = ALIGN(2);
-    } > psram1 AT> pfls1
+    } > psram1 AT> pfls0
 }
 
 CORE_ID = CPU2;
@@ -1611,7 +1632,7 @@ SECTIONS
         *Cpu2_Main.*(.text.*)
         *(.text_cpu2)
         *(.text_cpu2.*)
-    } > pfls1
+    } > pfls0
 
     CORE_SEC(.psram_text)  : FLAGS(awx)
     {
@@ -1621,7 +1642,7 @@ SECTIONS
         *(.cpu2_psram)
         *(.cpu2_psram.*)
         . = ALIGN(2);
-    } > psram2 AT> pfls1
+    } > psram2 AT> pfls0
 }
 
 /*Code Sections, selectable by toolchain*/
