@@ -10,6 +10,7 @@ RM := rm -rf
 -include sources.mk
 -include Libraries/iLLD/TC37A/Tricore/_PinMap/subdir.mk
 -include Libraries/iLLD/TC37A/Tricore/_Impl/subdir.mk
+-include Libraries/iLLD/TC37A/Tricore/Stm/Std/subdir.mk
 -include Libraries/iLLD/TC37A/Tricore/Src/Std/subdir.mk
 -include Libraries/iLLD/TC37A/Tricore/Scu/Std/subdir.mk
 -include Libraries/iLLD/TC37A/Tricore/Port/Std/subdir.mk
@@ -19,6 +20,7 @@ RM := rm -rf
 -include Libraries/iLLD/TC37A/Tricore/Cpu/Trap/subdir.mk
 -include Libraries/iLLD/TC37A/Tricore/Cpu/Std/subdir.mk
 -include Libraries/iLLD/TC37A/Tricore/Cpu/Irq/subdir.mk
+-include Libraries/Service/CpuGeneric/SysSe/Bsp/subdir.mk
 -include Libraries/Infra/Ssw/TC37A/Tricore/subdir.mk
 -include Libraries/Infra/Platform/Tricore/Compilers/subdir.mk
 -include Configurations/Debug/subdir.mk
@@ -64,7 +66,7 @@ main-build: test-app.elf secondary-outputs
 test-app.elf: $(OBJS) ../Lcf_Gnuc_Tricore_Tc.lsl makefile $(OPTIONAL_TOOL_DEPS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: AURIX GCC Linker'
-	tricore-elf-gcc -T"../Lcf_Gnuc_Tricore_Tc.lsl" -Wl,--gc-sections -mtc162 -o "test-app.elf" $(OBJS)
+	tricore-elf-gcc -T"../Lcf_Gnuc_Tricore_Tc.lsl" -Wl,--gc-sections -Wl,-Map,output.map -mtc162 -o "test-app.elf" $(OBJS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
