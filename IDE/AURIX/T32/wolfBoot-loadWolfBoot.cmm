@@ -1,0 +1,34 @@
+system.down
+system.up
+
+
+LOCAL &elfFile
+&elfFile="..\TriCore Debug (GCC)\wolfBoot-tc3xx.elf"
+PRINT "Using ELF File: &elfFile"
+
+
+DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
+
+; Uncomment when HSM is active
+; flash.CHANGEtype 0xA0004000--0xA0007FFF NOP
+
+; erase flash (get rid of this when HSM is active)
+
+
+flash.reprogram all /erase
+data.load.elf "&elfFile"
+flash.reprogram off
+
+break.set core0_main
+
+
+system.down
+system.up
+go
+
+; Bring up the important views
+SYStem
+Frame /Locals /Caller
+List
+
+
