@@ -157,13 +157,26 @@ ifeq ($(TARGET),stm32h5)
   ifeq ($(TZEN),1)
     LSCRIPT_TEMPLATE=ARM-stm32h5-ns.ld
     APP_OBJS+=wcs/wolfcrypt_secure.o
+    ifeq ($(WOLFCRYPT_TZ),1)
+      APP_OBJS+=../lib/wolfssl/wolfcrypt/src/logging.o
+      APP_OBJS+=../lib/wolfssl/wolfcrypt/benchmark/benchmark.o
+      APP_OBJS+=../lib/wolfssl/wolfcrypt/test/test.o
+    endif
   else
     LSCRIPT_TEMPLATE=ARM-stm32h5.ld
   endif
+  CFLAGS+=-DAPP_HAS_SYSTICK
+  CFLAGS+=-DRAMFUNCTION='__attribute__((used,section(".ramcode")))'
   CFLAGS+=-mcpu=cortex-m33 -ffunction-sections -fdata-sections -fno-common
   LDFLAGS+=-mcpu=cortex-m33
   LDFLAGS+=-Wl,-gc-sections -Wl,-Map=image.map
   CFLAGS+=-I..
+  APP_OBJS+=../hal/uart/uart_drv_$(UART_TARGET).o
+  ifeq ($(FLASH_OTP_KEYSTORE),1)
+    APP_OBJS+=../src/flash_otp_keystore.o
+  else
+    APP_OBJS+=../src/keystore.o
+  endif
 endif
 
 ifeq ($(TARGET),stm32u5)
@@ -262,6 +275,7 @@ ifeq ($(TARGET),imx_rt)
   ifeq ($(MCUXSDK),1)
     APP_OBJS+=\
       $(MCUXPRESSO)/drivers/igpio/fsl_gpio.o \
+      $(MCUXPRESSO)/drivers/cache/armv7-m7/fsl_cache.o \
       $(MCUXPRESSO)/drivers/common/fsl_common.o \
       $(MCUXPRESSO)/drivers/common/fsl_common_arm.o \
       $(MCUXPRESSO)/drivers/flexspi/fsl_flexspi.o \
@@ -271,6 +285,7 @@ ifeq ($(TARGET),imx_rt)
   else
     APP_OBJS+=\
       $(MCUXPRESSO_DRIVERS)/drivers/fsl_gpio.o \
+      $(MCUXPRESSO_DRIVERS)/drivers/fsl_cache.o \
       $(MCUXPRESSO_DRIVERS)/drivers/fsl_common.o \
       $(MCUXPRESSO_DRIVERS)/drivers/fsl_common_arm.o \
       $(MCUXPRESSO_DRIVERS)/drivers/fsl_flexspi.o \
@@ -291,6 +306,11 @@ ifeq ($(TARGET),imx_rt)
     ifeq ($(MCUXPRESSO_CPU),MIMXRT1062DVL6A)
       CFLAGS+=-I$(MCUXPRESSO_DRIVERS)/project_template/ \
               -I$(MCUXPRESSO)/boards/evkmimxrt1060/xip/
+      APP_OBJS+=$(MCUXPRESSO_DRIVERS)/system_MIMXRT1062.o
+    endif
+    ifeq ($(MCUXPRESSO_CPU),MIMXRT1062DVL6B)
+      CFLAGS+=-I$(MCUXPRESSO_DRIVERS)/project_template/ \
+              -I$(MCUXPRESSO)/boards/evkbmimxrt1060/xip/
       APP_OBJS+=$(MCUXPRESSO_DRIVERS)/system_MIMXRT1062.o
     endif
     ifeq ($(MCUXPRESSO_CPU),MIMXRT1064DVL6A)
