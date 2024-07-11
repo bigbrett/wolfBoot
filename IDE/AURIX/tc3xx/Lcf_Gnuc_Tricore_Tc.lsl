@@ -203,7 +203,11 @@ REGION_ALIAS( default_ram , dsram2)
     CORE_ID = GLOBAL ;
     SECTIONS
     {
-        .start_tc0 (LCF_STARTPTR_NC_CPU0) : FLAGS(rxl) { KEEP (*(.start)); } > pfls0_nc
+        .start_tc0 (LCF_STARTPTR_NC_CPU0) : FLAGS(rxl)
+        {
+            PROVIDE(_start_text = .); /* needed by wolfBoot for self update when -DRAM_CODE */
+            KEEP (*(.start));
+        } > pfls0_nc
         .interface_const (0x80000020) : { __IF_CONST = .; KEEP (*(.interface_const)); } > pfls0
         PROVIDE(__START0 = LCF_STARTPTR_NC_CPU0);
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU0 = 0); /* Not used */

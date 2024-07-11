@@ -7,6 +7,7 @@
 /* ILLD headers */
 #include "Ifx_Ssw_Infra.h" /* for Ifx_Ssw_jumpToFunction */
 #include "IfxFlash.h" /* for IfxFlash_eraseMultipleSectors, */
+#include "IfxScuRcu.h" /* for IfxScuRcu_performReset */
 
 
 /* TODO: This is just to make eclipse happy, remove */
@@ -107,4 +108,11 @@ void do_boot(const uint32_t* app_offset)
     /* TODO need to do anything with stack pointer, CSA, etc? */
 
     Ifx_Ssw_jumpToFunction((void (*)(void))app_offset);
+}
+
+
+void arch_reboot(void)
+{
+    /* TODO implement custom reset reason (e.g. "self update") for wolfBoot if needed */
+    IfxScuRcu_performReset(IfxScuRcu_ResetType_system, 0);
 }

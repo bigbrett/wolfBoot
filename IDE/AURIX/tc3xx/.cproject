@@ -475,17 +475,18 @@
 								</option>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.option.preprocessor.def.symbols.2021414389" name="Defined symbols (-D)" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="__WOLFBOOT"/>
+									<listOptionValue builtIn="false" value="ARCH_FLASH_OFFSET=0xA0000000"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_SECTOR_SIZE=0x4000"/>
-									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_SIZE=0x20000"/>
-									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_BOOT_ADDRESS=0x80010000"/>
-									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_UPDATE_ADDRESS=0x80030000"/>
-									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_SWAP_ADDRESS=0x80050000"/>
+									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_SIZE=0x180000"/>
+									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_BOOT_ADDRESS=0xA0300000"/>
+									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_UPDATE_ADDRESS=0xA0480000"/>
+									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_SWAP_ADDRESS=0xA0050000"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_HASH_SHA256"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_NO_SIGN"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_LOADER_MAIN"/>
+									<listOptionValue builtIn="false" value="RAM_CODE"/>
 									<listOptionValue builtIn="false" value="FLAGS_INVERT=1"/>
 									<listOptionValue builtIn="false" value="WOLFSSL_USER_SETTINGS"/>
-									<listOptionValue builtIn="false" value="RAMFUNCTION='__attribute__((used,section(&quot;.ramcode&quot;)))'"/>
 								</option>
 								<inputType id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType.1768062788" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType"/>
 							</tool>
@@ -497,7 +498,7 @@
 								<inputType id="com.infineon.aurix.buildsystem.managed.tool.assembler.inputType.678458224" name="Assembler Input" superClass="com.infineon.aurix.buildsystem.managed.tool.assembler.inputType"/>
 							</tool>
 							<tool id="com.infineon.aurix.buildsystem.managed.tool.c.linker.1470542959" name="AURIX GCC Linker" superClass="com.infineon.aurix.buildsystem.managed.tool.c.linker">
-								<option id="com.infineon.aurix.buildsystem.managed.tool.c.link.option.ldflags.341171241" name="Linker flags" superClass="com.infineon.aurix.buildsystem.managed.tool.c.link.option.ldflags" useByScannerDiscovery="false" value="-Wl,--gc-sections -Wl,-Map,output.map" valueType="string"/>
+								<option id="com.infineon.aurix.buildsystem.managed.tool.c.link.option.ldflags.341171241" name="Linker flags" superClass="com.infineon.aurix.buildsystem.managed.tool.c.link.option.ldflags" useByScannerDiscovery="false" value="-Wl,--gc-sections -Wl,-Map,wolfBoot-tc3xx.map" valueType="string"/>
 								<inputType id="com.infineon.aurix.buildsystem.managed.c.linker.inputType.1357120707" superClass="com.infineon.aurix.buildsystem.managed.c.linker.inputType"/>
 							</tool>
 							<tool id="com.infineon.aurix.buildsystem.managed.tool.cpp.linker.500011979" name="AURIX G++ Linker" superClass="com.infineon.aurix.buildsystem.managed.tool.cpp.linker"/>
