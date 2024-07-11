@@ -13,8 +13,9 @@ DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 
 ; erase flash (get rid of this when HSM is active)
 
-
-flash.reprogram all /erase
+; BODGE: manually write 0s to memory to fix ECC
+;flash.reprogram all /erase
+flash.reprogram all /erase /fill
 data.load.elf "&testApp"
 data.load.elf "&wolfBoot"
 flash.reprogram off
