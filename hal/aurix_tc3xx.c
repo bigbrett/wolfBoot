@@ -12,18 +12,40 @@
 
 #define FLASH_MODULE (0)
 
+static IfxFlash_FlashType getFlashTypeFromAddr(uint32_t addr)
+{
+    IfxFlash_FlashType type = 0;
+
+    if (addr >= IFXFLASH_DFLASH_START && addr <= IFXFLASH_DFLASH_END) {
+        type = IfxFlash_FlashType_D0;  /* Assuming D0 for simplicity */
+    }
+    else if (addr >= IFXFLASH_PFLASH_P0_START && addr <= IFXFLASH_PFLASH_P0_END) {
+        type = IfxFlash_FlashType_P0;
+    }
+    else if (addr >= IFXFLASH_PFLASH_P1_START && addr <= IFXFLASH_PFLASH_P1_END) {
+        type= IfxFlash_FlashType_P1;
+    }
+    else {
+        /* bad address, panic for now */
+        // wolfBoot_panic();
+    }
+
+    return type;
+}
+
 /* Manually programs erased bytes to a sector to prevent ECC errors */
 static void programErasedSector(uint32_t address)
 {
     uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
     uint32_t pageAddr = address;
+    IfxFlash_FlashType type = getFlashTypeFromAddr(address);
 
     /* Burst program the whole sector with erased values */
     for (int i=0; i<WOLFBOOT_SECTOR_SIZE / IFXFLASH_PFLASH_BURST_LENGTH; i++) {
         IfxFlash_enterPageMode(pageAddr);
 
         /* Wait until page mode is entered */
-        IfxFlash_waitUnbusy(FLASH_MODULE, IfxFlash_FlashType_P0);
+        IfxFlash_waitUnbusy(FLASH_MODULE, type);
 
         /* Load a burst size worth of data into the page */
         for(int offset = 0; offset < IFXFLASH_PFLASH_BURST_LENGTH; offset += 2*sizeof(uint32_t)) {
@@ -36,7 +58,7 @@ static void programErasedSector(uint32_t address)
         IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);
 
         /* Wait until the page is written in the Program Flash memory */
-        IfxFlash_waitUnbusy(FLASH_MODULE, IfxFlash_FlashType_P0);
+        IfxFlash_waitUnbusy(FLASH_MODULE, type);
 
         pageAddr += IFXFLASH_PFLASH_BURST_LENGTH;
     }
@@ -67,6 +89,7 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t *data, int len) 
     uint32_t pageAddr;
     uint32_t pgbuf[IFXFLASH_PFLASH_PAGE_LENGTH / 4];  // Buffer to hold 32 bytes of data (8 x 32-bit words)
     uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
+    IfxFlash_FlashType type = getFlashTypeFromAddr(address);
 
     while (i < len) {
         // Calculate the page address (aligned to 32 bytes)
@@ -87,9 +110,22 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t *data, int len) 
             int toWrite = remaining > (IFXFLASH_PFLASH_PAGE_LENGTH - offset) ? (IFXFLASH_PFLASH_PAGE_LENGTH - offset) : remaining;
 
             // Read the current 32-byte value from flash
-            for (int j = 0; j < IFXFLASH_PFLASH_PAGE_LENGTH / 4; j++) {
-                pgbuf[j] = *((uint32_t *)(address + pageAddr + j * 4));
+            //for (int j = 0; j < IFXFLASH_PFLASH_PAGE_LENGTH / 4; j++) {
+            //    pgbuf[j] = *((uint32_t *)(address + pageAddr + j * 4));
+            //}
+            if ((address % 4) != 0) {
+                // Handle byte by byte read for unaligned address
+                uint8_t *byteAddr = (uint8_t *)(address + pageAddr);
+                for (int j = 0; j < IFXFLASH_PFLASH_PAGE_LENGTH; j++) {
+                    ((uint8_t *)pgbuf)[j] = byteAddr[j];
+                }
+            } else {
+                // Perform aligned read
+                for (int j = 0; j < IFXFLASH_PFLASH_PAGE_LENGTH / 4; j++) {
+                    pgbuf[j] = *((uint32_t *)(address + pageAddr + j * 4));
+                }
             }
+
 
             // Update buffer with new data
             for (int j = 0; j < toWrite; j++) {
@@ -103,7 +139,7 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t *data, int len) 
         IfxFlash_enterPageMode(pageAddr);
 
         // Wait until page mode is entered
-        IfxFlash_waitUnbusy(FLASH_MODULE, IfxFlash_FlashType_P0);
+        IfxFlash_waitUnbusy(FLASH_MODULE, type);
 
         // Load data to be written in the page
         IfxFlash_loadPage(pageAddr, pgbuf[0], pgbuf[1]);
@@ -114,7 +150,7 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t *data, int len) 
         IfxScuWdt_setSafetyEndinit(endInitSafetyPassword);    // Enable EndInit protection
 
         // Wait until the data is written in the Data Flash memory
-        IfxFlash_waitUnbusy(FLASH_MODULE, IfxFlash_FlashType_P0);
+        IfxFlash_waitUnbusy(FLASH_MODULE, type);
     }
     return 0;
 }

@@ -28,6 +28,7 @@
 #include "IfxCpu.h"
 #include "IfxScuWdt.h"
 #include "Blinky_LED.h"
+#include "wolfboot/wolfboot.h"
 
 IFX_ALIGN(4) IfxCpu_syncEvent g_cpuSyncEvent = 0;
 
@@ -47,6 +48,8 @@ void core0_main(void)
     
     initLED();
     
+    wolfBoot_update_trigger();
+
     while(1)
     {
         blinkLED();

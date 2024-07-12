@@ -481,6 +481,7 @@
 								<option defaultValue="gnu.c.debugging.level.none" id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.option.debugging.level.1329421886" name="Debug Level" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.option.debugging.level" useByScannerDiscovery="false" valueType="enumerated"/>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.option.include.paths.1949670347" name="Include paths (-I)" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.option.include.paths" useByScannerDiscovery="false" valueType="includePath">
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/wolfBoot-tc3xx/wolfBoot/include}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Configurations}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Libraries}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Libraries/Infra}&quot;"/>
@@ -533,6 +534,10 @@
 							</tool>
 							<tool id="com.infineon.aurix.buildsystem.managed.tool.c.linker.88907940" name="AURIX GCC Linker" superClass="com.infineon.aurix.buildsystem.managed.tool.c.linker">
 								<option id="com.infineon.aurix.buildsystem.managed.tool.c.link.option.ldflags.1931604401" name="Linker flags" superClass="com.infineon.aurix.buildsystem.managed.tool.c.link.option.ldflags" useByScannerDiscovery="false" value="-Wl,--gc-sections -Wl,-Map,output.map" valueType="string"/>
+								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.infineon.aurix.buildsystem.managed.tool.c.link.option.userobjs.15304445" name="Other objects" superClass="com.infineon.aurix.buildsystem.managed.tool.c.link.option.userobjs" useByScannerDiscovery="false" valueType="userObjs">
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/wolfBoot-tc3xx/TriCore Debug (GCC)/wolfBoot/src/libwolfboot.o}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/wolfBoot-tc3xx/TriCore Debug (GCC)/wolfBoot/hal/aurix_tc3xx.o}&quot;"/>
+								</option>
 								<inputType id="com.infineon.aurix.buildsystem.managed.c.linker.inputType.475539605" superClass="com.infineon.aurix.buildsystem.managed.c.linker.inputType"/>
 							</tool>
 							<tool id="com.infineon.aurix.buildsystem.managed.tool.cpp.linker.1536502139" name="AURIX G++ Linker" superClass="com.infineon.aurix.buildsystem.managed.tool.cpp.linker"/>

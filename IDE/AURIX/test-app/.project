@@ -3,6 +3,7 @@
 	<name>test-app</name>
 	<comment></comment>
 	<projects>
+		<project>wolfBoot-tc3xx</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>

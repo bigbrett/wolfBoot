@@ -2,9 +2,9 @@ system.down
 system.up
 
 
-LOCAL &wolfBoot &testApp
+LOCAL &wolfBoot &testAppElf &testAppBin
 &wolfBoot="..\tc3xx\TriCore Debug (GCC)\wolfBoot-tc3xx.elf"
-&testApp="..\test-app\TriCore Release (GCC)\test-app_coalesced_v1_signed.bin"
+&testAppBin="..\test-app\TriCore Release (GCC)\test-app_coalesced_v1_signed.bin"
 &updateApp="..\test-app-update\TriCore Release (GCC)\test-app-update_coalesced_v2_signed.bin"
 
 DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
@@ -14,7 +14,7 @@ DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 
 ; BODGE: manually use /fill to write 0s to erased memory to fix ECC errors
 flash.reprogram all /erase /fill
-data.load.binary "&testApp" 0xA0300000
+data.load.binary "&testAppBin" 0xA0300000
 data.load.binary "&updateApp" 0xA0480000
 data.load.elf "&wolfBoot"
 flash.reprogram off
