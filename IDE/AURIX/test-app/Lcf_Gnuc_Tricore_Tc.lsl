@@ -72,24 +72,25 @@ LCF_HEAP1_OFFSET =   (LCF_USTACK1_OFFSET - LCF_HEAP_SIZE);
 LCF_HEAP2_OFFSET =   (LCF_USTACK2_OFFSET - LCF_HEAP_SIZE);
 
 /*
-LCF_INTVEC0_START = 0x80300400;
-LCF_INTVEC1_START = 0x80302400;
-LCF_INTVEC2_START = 0x80304400;
+LCF_INTVEC0_START = 0x80300500;
+LCF_INTVEC1_START = 0x80302500;
+LCF_INTVEC2_START = 0x80304500;
 
 __INTTAB_CPU0 = LCF_INTVEC0_START;
 __INTTAB_CPU1 = LCF_INTVEC1_START;
 __INTTAB_CPU2 = LCF_INTVEC2_START;
 
-LCF_TRAPVEC0_START = 0x80300100;
-LCF_TRAPVEC1_START = 0x80300200;
-LCF_TRAPVEC2_START = 0x80300300;
+LCF_TRAPVEC0_START = 0x80300200;
+LCF_TRAPVEC1_START = 0x80300300;
+LCF_TRAPVEC2_START = 0x80300400;
 
-LCF_STARTPTR_CPU0 = 0x80300000;
-LCF_STARTPTR_CPU1 = 0x80306400;
-LCF_STARTPTR_CPU2 = 0x80306420;
-LCF_STARTPTR_NC_CPU0 = 0xA0300000;
-LCF_STARTPTR_NC_CPU1 = 0xA0306400;
-LCF_STARTPTR_NC_CPU2 = 0xA0306420;
+LCF_STARTPTR_CPU0 = 0x80300100;
+LCF_STARTPTR_CPU1 = 0x80306500;
+LCF_STARTPTR_CPU2 = 0x80306520;
+
+LCF_STARTPTR_NC_CPU0 = 0xA0300100;
+LCF_STARTPTR_NC_CPU1 = 0xA0306500;
+LCF_STARTPTR_NC_CPU2 = 0xA0306520;
 */
 
 LCF_INTVEC0_START = 0x80300500;
@@ -106,11 +107,12 @@ LCF_TRAPVEC1_START = 0x80300300;
 LCF_TRAPVEC2_START = 0x80300400;
 
 LCF_STARTPTR_CPU0 = 0x80300100;
-LCF_STARTPTR_CPU1 = 0x80306500; /* after last intvec */
-LCF_STARTPTR_CPU2 = 0x80306520;
+LCF_STARTPTR_CPU1 = 0x80300120;
+LCF_STARTPTR_CPU2 = 0x80300140;
+
 LCF_STARTPTR_NC_CPU0 = 0xA0300100;
-LCF_STARTPTR_NC_CPU1 = 0xA0306500; /* after last intvec */
-LCF_STARTPTR_NC_CPU2 = 0xA0306520;
+LCF_STARTPTR_NC_CPU1 = 0xA0300120;
+LCF_STARTPTR_NC_CPU2 = 0xA0300140;
 
 RESET = LCF_STARTPTR_NC_CPU0;
 
@@ -233,11 +235,20 @@ REGION_ALIAS( default_rom , pfls1)
     SECTIONS
     {
         .start_tc0 (LCF_STARTPTR_NC_CPU0) : FLAGS(rxl) { KEEP (*(.start)); } > pfls1_nc
-        .interface_const (LCF_STARTPTR_CPU0 + 0x20) : { __IF_CONST = .; KEEP (*(.interface_const)); } > pfls1
         PROVIDE(__START0 = LCF_STARTPTR_NC_CPU0);
+        .start_tc1 (LCF_STARTPTR_NC_CPU1) : FLAGS(rxl) { KEEP (*(.start_cpu1)); } > pfls1_nc
+        PROVIDE(__START1 = LCF_STARTPTR_NC_CPU1);
+        .start_tc2 (LCF_STARTPTR_NC_CPU2) : FLAGS(rxl) { KEEP (*(.start_cpu2)); } > pfls1_nc
+        PROVIDE(__START2 = LCF_STARTPTR_NC_CPU2);
+        
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU0 = 0); /* Not used */
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU1 = 0);
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU2 = 0);
+        
+        /* Dummy sections for .start_tcX that will be empty, but our tooling will use to */
+        .start_tc0_cached (LCF_STARTPTR_CPU0) : FLAGS(rxl) { BYTE(0); . = . + SIZEOF(.start_tc0) - 1; } > pfls1
+        .start_tc1_cached (LCF_STARTPTR_CPU1) : FLAGS(rxl) { BYTE(0); . = . + SIZEOF(.start_tc1) - 1; } > pfls1
+        .start_tc2_cached (LCF_STARTPTR_CPU2) : FLAGS(rxl) { BYTE(0); . = . + SIZEOF(.start_tc2) - 1; } > pfls1
     }
     
     /*Fixed memory Allocations for Trap Vector Table*/
@@ -267,17 +278,7 @@ REGION_ALIAS( default_rom , pfls1)
             KEEP (*(.traptab_cpu2)); 
             PROVIDE(__TRAPTAB_CPU2_END = .); 
         } > pfls1
-    }
-    
-    /*Fixed memory Allocations for _START1 to 2*/
-    CORE_ID = GLOBAL ;
-    SECTIONS
-    {
-        .start_tc1 (LCF_STARTPTR_NC_CPU1) : FLAGS(rxl) { KEEP (*(.start_cpu1)); } > pfls1_nc
-        .start_tc2 (LCF_STARTPTR_NC_CPU2) : FLAGS(rxl) { KEEP (*(.start_cpu2)); } > pfls1_nc
-        PROVIDE(__START1 = LCF_STARTPTR_NC_CPU1);
-        PROVIDE(__START2 = LCF_STARTPTR_NC_CPU2);
-    }
+    }    
     
     /*Fixed memory Allocations for Interrupt Vector Table*/
     SECTIONS

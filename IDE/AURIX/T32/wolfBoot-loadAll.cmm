@@ -4,7 +4,8 @@ system.up
 
 LOCAL &wolfBoot &testApp
 &wolfBoot="..\tc3xx\TriCore Debug (GCC)\wolfBoot-tc3xx.elf"
-&testApp="..\test-app\TriCore Debug (GCC)\test-app.elf"
+;&testApp="..\test-app\TriCore Debug (GCC)\test-app.elf"
+&testApp="..\test-app\TriCore Release (GCC)\final_v1_signed.bin"
 
 DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 
@@ -15,8 +16,10 @@ DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 
 ; BODGE: manually write 0s to memory to fix ECC
 ;flash.reprogram all /erase
+;data.load.elf "&testApp"
+
 flash.reprogram all /erase /fill
-data.load.elf "&testApp"
+DATA.LOAD.BINARY "&testApp" 0xA0300000
 data.load.elf "&wolfBoot"
 flash.reprogram off
 
