@@ -245,7 +245,10 @@ REGION_ALIAS( default_rom , pfls1)
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU1 = 0);
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU2 = 0);
         
-        /* Dummy sections for .start_tcX that will be empty, but our tooling will use to */
+        /* Dummy sections in the cacheable region of PFLASH that reserve space for the entry point code in the
+         * corresponding uncacheable region. We must include these dummy sections, as the contents of these sections
+         * will be replaced by the contents of .start_tcX by external tooling before building the binary image that
+         * wolfBoot will sign. We have to place a 0 byte int the section to prevent it from being marked as NOBITS */
         .start_tc0_cached (LCF_STARTPTR_CPU0) : FLAGS(rxl) { BYTE(0); . = . + SIZEOF(.start_tc0) - 1; } > pfls1
         .start_tc1_cached (LCF_STARTPTR_CPU1) : FLAGS(rxl) { BYTE(0); . = . + SIZEOF(.start_tc1) - 1; } > pfls1
         .start_tc2_cached (LCF_STARTPTR_CPU2) : FLAGS(rxl) { BYTE(0); . = . + SIZEOF(.start_tc2) - 1; } > pfls1
