@@ -4,27 +4,20 @@ system.up
 
 LOCAL &wolfBoot &testApp
 &wolfBoot="..\tc3xx\TriCore Debug (GCC)\wolfBoot-tc3xx.elf"
-;&testApp="..\test-app\TriCore Debug (GCC)\test-app.elf"
-&testApp="..\test-app\TriCore Release (GCC)\final_v1_signed.bin"
+&testApp="..\test-app\TriCore Release (GCC)\test-app_coalesced_v1_signed.bin"
 
 DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 
 ; Uncomment when HSM is active
 ; flash.CHANGEtype 0xA0004000--0xA0007FFF NOP
 
-; erase flash (get rid of this when HSM is active)
-
-; BODGE: manually write 0s to memory to fix ECC
-;flash.reprogram all /erase
-;data.load.elf "&testApp"
-
+; BODGE: manually use /fill to write 0s to erased memory to fix ECC errors
 flash.reprogram all /erase /fill
-DATA.LOAD.BINARY "&testApp" 0xA0300000
+data.load.binary "&testApp" 0xA0300000
 data.load.elf "&wolfBoot"
 flash.reprogram off
 
 break.set core0_main
-
 
 system.down
 system.up
