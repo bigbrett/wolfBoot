@@ -71,9 +71,7 @@ LCF_HEAP0_OFFSET =   (LCF_USTACK0_OFFSET - LCF_HEAP_SIZE);
 LCF_HEAP1_OFFSET =   (LCF_USTACK1_OFFSET - LCF_HEAP_SIZE);
 LCF_HEAP2_OFFSET =   (LCF_USTACK2_OFFSET - LCF_HEAP_SIZE);
 
-/* LCF_INTVEC0_START = 0x802FE000;
-LCF_INTVEC1_START = 0x805FC000;
-LCF_INTVEC2_START = 0x805FE000; 0x2000 */ 
+/*
 LCF_INTVEC0_START = 0x80300400;
 LCF_INTVEC1_START = 0x80302400;
 LCF_INTVEC2_START = 0x80304400;
@@ -82,17 +80,38 @@ __INTTAB_CPU0 = LCF_INTVEC0_START;
 __INTTAB_CPU1 = LCF_INTVEC1_START;
 __INTTAB_CPU2 = LCF_INTVEC2_START;
 
-/* TODO LCF_TRAPVEC_SIZE */
 LCF_TRAPVEC0_START = 0x80300100;
 LCF_TRAPVEC1_START = 0x80300200;
 LCF_TRAPVEC2_START = 0x80300300;
 
 LCF_STARTPTR_CPU0 = 0x80300000;
-LCF_STARTPTR_CPU1 = 0x80306400; /* after last intvec */
+LCF_STARTPTR_CPU1 = 0x80306400;
 LCF_STARTPTR_CPU2 = 0x80306420;
 LCF_STARTPTR_NC_CPU0 = 0xA0300000;
-LCF_STARTPTR_NC_CPU1 = 0xA0306400; /* after last intvec */
+LCF_STARTPTR_NC_CPU1 = 0xA0306400;
 LCF_STARTPTR_NC_CPU2 = 0xA0306420;
+*/
+
+LCF_INTVEC0_START = 0x80300500;
+LCF_INTVEC1_START = 0x80302500;
+LCF_INTVEC2_START = 0x80304500;
+
+__INTTAB_CPU0 = LCF_INTVEC0_START;
+__INTTAB_CPU1 = LCF_INTVEC1_START;
+__INTTAB_CPU2 = LCF_INTVEC2_START;
+
+/* TODO LCF_TRAPVEC_SIZE */
+LCF_TRAPVEC0_START = 0x80300200;
+LCF_TRAPVEC1_START = 0x80300300;
+LCF_TRAPVEC2_START = 0x80300400;
+
+LCF_STARTPTR_CPU0 = 0x80300100;
+LCF_STARTPTR_CPU1 = 0x80306500; /* after last intvec */
+LCF_STARTPTR_CPU2 = 0x80306520;
+LCF_STARTPTR_NC_CPU0 = 0xA0300100;
+LCF_STARTPTR_NC_CPU1 = 0xA0306500; /* after last intvec */
+LCF_STARTPTR_NC_CPU2 = 0xA0306520;
+
 RESET = LCF_STARTPTR_NC_CPU0;
 
 MEMORY
@@ -115,12 +134,16 @@ MEMORY
     pfls0 (rx!p):    org = 0x80000000, len = 3M
     pfls0_nc (rx!p): org = 0xa0000000, len = 3M
     
-    /* pfls1 is the wolfBoot BOOT partition. Everything goes here */
-    pfls1 (rx!p):    org = 0x80300000, len = 0x180000 /* 1.5MiB */ 
-    pfls1_nc (rx!p): org = 0xa0300000, len = 0x180000 /* 1.5MiB */
+    /* placeholder for wolfBoot image header */
+    pfls1_hdr (rx!p):    org = 0x80300000, len = 256 
+    pfls1_hdr_nc (rx!p): org = 0xa0300000, len = 256
+    
+    /* pfls1 is the remainder of the wolfBoot BOOT partition. Everything goes here */
+    pfls1 (rx!p):    org = 0x80300100, len = 0x17FF00 /* 1.5MiB - 256B */ 
+    pfls1_nc (rx!p): org = 0xa0300100, len = 0x17FF00 /* 1.5MiB - 256B */
     
     /* reserved for wolfBoot UPDATE partition */
-    pfls1_update (rx!p):      org = 0x80480000, len = 0x180000 /* 1.5MiB */
+    pfls1_update (rx!p):    org = 0x80480000, len = 0x180000 /* 1.5MiB */
     pfls1_update_nc (rx!p): org = 0xa0480000,   len = 0x180000 /* 1.5MiB */
     
     dfls0 (rx!p): org = 0xaf000000, len = 256K
@@ -142,7 +165,6 @@ REGION_MAP( CPU0 , ORIGIN(dsram0_local), LENGTH(dsram0_local), ORIGIN(dsram0))
 REGION_MAP( CPU1 , ORIGIN(dsram1_local), LENGTH(dsram1_local), ORIGIN(dsram1))
 REGION_MAP( CPU2 , ORIGIN(dsram2_local), LENGTH(dsram2_local), ORIGIN(dsram2))
 /* map cached and non cached addresses */
-REGION_MIRROR("pfls1", "pfls1_nc")
 REGION_MIRROR("pfls1", "pfls1_nc")
 REGION_MIRROR("cpu0_dlmu", "cpu0_dlmu_nc")
 REGION_MIRROR("cpu1_dlmu", "cpu1_dlmu_nc")
