@@ -223,9 +223,15 @@ static int wolfBoot_swap_and_final_erase(int resume)
     /* open swap */
     wolfBoot_open_image(swap, PART_SWAP);
     wolfBoot_get_partition_state(PART_UPDATE, &st);
-    /* read from tmpBootPos */
+
+#if defined(EXT_FLASH) && PARTN_IS_EXT(PART_BOOT)
+    ext_flash_read((uintptr_t)(boot->hdr + tmpBootPos), (void*)tmpBuffer,
+        sizeof(tmpBuffer));
+#else
     memcpy((void*)tmpBuffer, (void*)(boot->hdr + tmpBootPos),
         sizeof(tmpBuffer));
+#endif
+
     /* check for TRAIL */
 #ifdef EXT_ENCRYPTED
     if (*(uint32_t*)(tmpBuffer + ENCRYPT_KEY_SIZE + ENCRYPT_NONCE_SIZE) ==
