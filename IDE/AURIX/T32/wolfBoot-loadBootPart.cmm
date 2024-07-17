@@ -18,7 +18,7 @@ DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 ; erase flash (get rid of this when HSM is active)
 
 
-flash.reprogram all /erase
+flash.reprogram all /erase ;/fill
 data.load.elf "&elfFile"
 flash.reprogram off
 
@@ -27,6 +27,9 @@ break.set core0_main
 
 system.down
 system.up
+
+break.set hal_flash_write
+
 go
 
 ; Bring up the important views

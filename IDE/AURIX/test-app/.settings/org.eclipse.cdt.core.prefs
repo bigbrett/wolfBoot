@@ -15,8 +15,8 @@ environment/project/com.infineon.aurix.buildsystem.managed.configuration.binary.
 environment/project/com.infineon.aurix.buildsystem.managed.configuration.binary.697039770/append=true
 environment/project/com.infineon.aurix.buildsystem.managed.configuration.binary.697039770/appendContributed=true
 environment/project/com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.1333370870/WOLFBOOT_ROOT/delimiter=;
-environment/project/com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.1333370870/WOLFBOOT_ROOT/operation=append
-environment/project/com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.1333370870/WOLFBOOT_ROOT/value=${workspace_loc}\\..\\..\\..\\
+environment/project/com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.1333370870/WOLFBOOT_ROOT/operation=replace
+environment/project/com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.1333370870/WOLFBOOT_ROOT/value=${ProjDirPath}/../../../
 environment/project/com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.1333370870/append=true
 environment/project/com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.1333370870/appendContributed=true
 environment/project/com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.release.856945873/WOLFBOOT_ROOT/delimiter=;

@@ -1601,6 +1601,8 @@ SECTIONS
         *(.psram_text_cpu0.*)
         *(.cpu0_psram)
         *(.cpu0_psram.*)
+        *(.ramcode)   /* wolfBoot RAM function section, for RAM_CODE=1 */
+        *(.ramcode.*) /* future proof subsection matching for wolfBoot RAM function section, for RAM_CODE=1 */
         . = ALIGN(2);
     } > psram0 AT> pfls1
 }

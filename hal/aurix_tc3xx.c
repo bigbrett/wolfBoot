@@ -4,6 +4,7 @@
 
 /* wolfBoot headers */
 #include "image.h" /* for RAMFUNCTION */
+#include "loader.h" /* for wolfBoot_panic */
 
 /* ILLD headers */
 #include "Ifx_Ssw_Infra.h" /* for Ifx_Ssw_jumpToFunction */
@@ -11,6 +12,11 @@
 #include "IfxScuRcu.h" /* for IfxScuRcu_performReset */
 
 #define FLASH_MODULE (0)
+
+/* Helper macros to gets the base address of the page, wordline, or sector that contains byteAddress */
+#define GET_PAGE_ADDR(byteAddress)     ((byteAddress) & ~((uintptr_t)0x1F))
+#define GET_WORDLINE_ADDR(byteAddress) ((byteAddress) & ~((uintptr_t)0x3FF))
+#define GET_SECTOR_ADDR(byteAddress)   ((byteAddress) & ~((uintptr_t)0xFFF))
 
 static IfxFlash_FlashType getFlashTypeFromAddr(uint32_t addr)
 {
@@ -27,14 +33,77 @@ static IfxFlash_FlashType getFlashTypeFromAddr(uint32_t addr)
     }
     else {
         /* bad address, panic for now */
-        // wolfBoot_panic();
+        wolfBoot_panic();
     }
 
     return type;
 }
 
+static void RAMFUNCTION programPage(uint32_t address, const uint32_t* data, IfxFlash_FlashType type)
+{
+    if (address % IFXFLASH_PFLASH_PAGE_LENGTH != 0) {
+        wolfBoot_panic();
+    }
+
+    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
+
+    // Enter page mode
+    IfxFlash_enterPageMode(address);
+
+    // Wait until page mode is entered
+    IfxFlash_waitUnbusy(FLASH_MODULE, type);
+
+    // Load data to be written in the page
+    for (size_t offset = 0; offset < IFXFLASH_PFLASH_PAGE_LENGTH/sizeof(uint32_t); offset += 2) {
+        //IfxFlash_loadPage(pageAddr, data[offset], data[offset+1]);
+        IfxFlash_loadPage2X32(address, data[offset], data[offset+1]);
+    }
+
+    // Write the loaded page
+    IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword);
+    IfxFlash_writePage(address);                        // Write the page
+    IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);   // Enable EndInit protection
+
+    // Wait until the data is written in the Data Flash memory
+    IfxFlash_waitUnbusy(FLASH_MODULE, type);
+}
+
+static int RAMFUNCTION flashIsErased(uint32_t address, int len)
+{
+    uint32_t base = 0;
+    IfxFlash_FlashType flash = getFlashTypeFromAddr(address);
+
+    /* TODO ensure len doesn't span flash units */
+
+    /* sector granularity */
+    if (len > IFXFLASH_PFLASH_WORDLINE_LENGTH) {
+        base = GET_SECTOR_ADDR(address);
+        IfxFlash_eraseVerifySector(base);
+        IfxFlash_waitUnbusy(FLASH_MODULE, flash);
+    }
+    /* wordline granularity */
+    else if (len > IFXFLASH_PFLASH_PAGE_LENGTH) {
+        base = GET_WORDLINE_ADDR(address);
+        IfxFlash_verifyErasedWordLine(base);
+        IfxFlash_waitUnbusy(FLASH_MODULE, flash);
+    }
+    /* page granularity */
+    else if (len > 0) {
+        base = GET_PAGE_ADDR(address);
+        IfxFlash_verifyErasedPage(base);
+        IfxFlash_waitUnbusy(FLASH_MODULE, flash);
+    }
+    /* error on 0 len for now */
+    else {
+        wolfBoot_panic();
+    }
+
+    /* No erase verify error means block is erased */
+    return (DMU_HF_ERRSR.B.EVER == 0) ? 1 : 0;
+}
+
 /* Manually programs erased bytes to a sector to prevent ECC errors */
-static void programErasedSector(uint32_t address)
+static void RAMFUNCTION programErasedSector(uint32_t address)
 {
     uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
     uint32_t pageAddr = address;
@@ -84,6 +153,7 @@ void hal_init(void)
  * interface, and len is the size of the payload. hal_flash_write should return
  * 0 upon success, or a negative value in case of failure.
  */
+#if 0
 int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t *data, int len) {
     int i = 0;
     uint32_t pageAddr;
@@ -96,7 +166,7 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t *data, int len) 
         pageAddr = (address + i) & ~(IFXFLASH_PFLASH_PAGE_LENGTH - 1);
 
         // Initialize buffer with 0xFF (default flash value)
-        memset(pgbuf, 0xFF, sizeof(pgbuf));
+        memset(pgbuf, FLASH_WORD_ERASED, sizeof(pgbuf));
 
         if ((len - i >= IFXFLASH_PFLASH_PAGE_LENGTH) && (((address + i) & (IFXFLASH_PFLASH_PAGE_LENGTH - 1)) == 0) && (((uintptr_t)(data + i) & (IFXFLASH_PFLASH_PAGE_LENGTH - 1)) == 0)) {
             // Direct 32-byte aligned write
@@ -145,15 +215,61 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t *data, int len) 
         IfxFlash_loadPage(pageAddr, pgbuf[0], pgbuf[1]);
 
         // Write the loaded page
-        IfxScuWdt_clearSafetyEndinit(endInitSafetyPassword); // Disable EndInit protection
+        IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword); // Disable EndInit protection
         IfxFlash_writePage(pageAddr);                         // Write the page
-        IfxScuWdt_setSafetyEndinit(endInitSafetyPassword);    // Enable EndInit protection
+        IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);    // Enable EndInit protection
 
         // Wait until the data is written in the Data Flash memory
         IfxFlash_waitUnbusy(FLASH_MODULE, type);
     }
     return 0;
 }
+#else
+
+
+int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t *data, int size) {
+    uint32_t pageBuffer[IFXFLASH_PFLASH_PAGE_LENGTH / sizeof(uint32_t)];  // Ensure 4-byte alignment
+    uint32_t pageAddress = address & ~(IFXFLASH_PFLASH_PAGE_LENGTH - 1);
+    uint32_t offset = address % IFXFLASH_PFLASH_PAGE_LENGTH;
+    uint32_t toWrite;
+
+    IfxFlash_FlashType type = getFlashTypeFromAddr(address);
+
+    while (size > 0) {
+        /* Calculate the number of bytes to write in the current page */
+        toWrite = IFXFLASH_PFLASH_PAGE_LENGTH - offset;
+        if (toWrite > size) {
+            toWrite = size;
+        }
+
+        /* Read existing data into page buffer directly from flash memory */
+        if (flashIsErased(pageAddress, IFXFLASH_PFLASH_PAGE_LENGTH)) {
+            memset(pageBuffer, FLASH_WORD_ERASED, sizeof(pageBuffer));
+        }
+        else {
+            uint32_t *flashPtr = (uint32_t *)(pageAddress);
+            for (int i = 0; i < IFXFLASH_PFLASH_PAGE_LENGTH / sizeof(uint32_t); i++) {
+                pageBuffer[i] = flashPtr[i];
+            }
+        }
+
+        /* Copy new data into the page buffer */
+        memcpy((uint8_t *)pageBuffer + offset, data, toWrite);
+
+        /* Write the modified page buffer back to flash */
+        programPage(pageAddress, pageBuffer, type);
+
+        /* Update pointers and counters */
+        size -= toWrite;
+        data += toWrite;
+        pageAddress += IFXFLASH_PFLASH_PAGE_LENGTH;
+        offset = 0;  // Reset offset for the next page
+    }
+
+    return 0;
+}
+
+#endif
 
 /* Called by the bootloader to erase part of the flash memory to allow
  * subsequent boots. Erase operations must be performed via the specific IAP
@@ -165,13 +281,22 @@ int RAMFUNCTION hal_flash_erase(uint32_t address, int len)
 {
     int rc = 0;
     const size_t nsectors = len / WOLFBOOT_SECTOR_SIZE;
+    IfxFlash_FlashType type = getFlashTypeFromAddr(address);
 
+
+    /* Get the current password of the Safety WatchDog module */
+    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
+
+    /* Erase the sector */
+    IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword);
     IfxFlash_eraseMultipleSectors(address, nsectors );
+    IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);
+    IfxFlash_waitUnbusy(FLASH_MODULE, type);
 
-    for (int i = 0; i < nsectors; i++) {
-        programErasedSector(address);
-        address += WOLFBOOT_SECTOR_SIZE;
-    }
+//    for (int i = 0; i < nsectors; i++) {
+//       programErasedSector(address);
+//        address += WOLFBOOT_SECTOR_SIZE;
+//    }
     return rc;
 }
 
@@ -190,6 +315,44 @@ void RAMFUNCTION hal_flash_unlock(void) {}
  * This function is called by the bootloader at the end of every write and erase
  * operations. */
 void RAMFUNCTION hal_flash_lock(void) {}
+
+
+int  RAMFUNCTION ext_flash_write(uintptr_t address, const uint8_t *data, int len)
+{
+    return hal_flash_write(address, data, len);
+}
+
+int  RAMFUNCTION ext_flash_read(uintptr_t address, uint8_t *data, int len)
+{
+    /* Spoof erased data to prevent an ECC error if region is erased */
+    if (flashIsErased(address, len)) {
+        memset(data, FLASH_BYTE_ERASED, len);
+        return 0;
+    }
+
+    uint8_t* src = (uint8_t*)address;
+    for (int i=0; i<len; i++) {
+        *data = *src;
+        src++;
+        data++;
+    }
+    return 0;
+}
+
+int RAMFUNCTION ext_flash_erase(uintptr_t address, int len)
+{
+    return hal_flash_erase(address,  len);
+}
+
+void RAMFUNCTION ext_flash_lock(void)
+{
+    hal_flash_lock();
+}
+
+void RAMFUNCTION ext_flash_unlock(void)
+{
+    hal_flash_unlock();
+}
 
 
 void do_boot(const uint32_t* app_offset)
