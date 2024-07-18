@@ -11,6 +11,7 @@
 #include "IfxFlash.h" /* for IfxFlash_eraseMultipleSectors, */
 #include "IfxScuRcu.h" /* for IfxScuRcu_performReset */
 #include "Ifx_Ssw_Infra.h" /* for Ifx_Ssw_jumpToFunction */
+#include "IfxPort.h"
 
 #define FLASH_MODULE (0)
 #define UNUSED_PARAMETER (0)
@@ -301,6 +302,11 @@ void hal_init(void)
 {
     /* eventually this will hold the clock init and CPU sync stuff that is
      * currently happening in core0_main() */
+
+    /* Initialization of the LED used in this example */
+    IfxPort_setPinModeOutput(&MODULE_P00, 5, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
+    /* Switch ON the LED (low-level active) */
+    IfxPort_setPinLow(&MODULE_P00, 5);
 }
 
 /*
