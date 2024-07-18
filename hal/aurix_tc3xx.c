@@ -23,7 +23,7 @@
     ((uintptr_t)(addr) & ~(IFXFLASH_PFLASH_WORDLINE_LENGTH - 1))
 #define GET_SECTOR_ADDR(addr) ((uintptr_t)(addr) & ~(WOLFBOOT_SECTOR_SIZE - 1))
 
-static uint32_t sectorBuffer[WOLFBOOT_SECTOR_SIZE];
+static uint32_t sectorBuffer[WOLFBOOT_SECTOR_SIZE/sizeof(uint32_t)];
 
 static IfxFlash_FlashType getFlashTypeFromAddr(uint32_t addr)
 {
@@ -273,14 +273,14 @@ static void cacheSector(uint32_t sectorAddress, IfxFlash_FlashType type)
 {
     uint32_t startPage = GET_PAGE_ADDR(sectorAddress);
     uint32_t endPage = GET_PAGE_ADDR(sectorAddress + WOLFBOOT_SECTOR_SIZE - 1);
+    uint32_t* pageInSectorBuffer;
 
     /* Iterate over every page in the sector, caching its contents if not
      * erased, and caching 0s if erased */
     for (uint32_t page = startPage; page <= endPage;
          page += IFXFLASH_PFLASH_PAGE_LENGTH)
     {
-        uint32_t* pageInSectorBuffer =
-            sectorBuffer + ((page - sectorAddress) / sizeof(uint32_t));
+        pageInSectorBuffer = sectorBuffer + ((page - sectorAddress) / sizeof(uint32_t));
         if (flashIsErased(page, IFXFLASH_PFLASH_PAGE_LENGTH, type)) {
             memset(pageInSectorBuffer,
                    FLASH_BYTE_ERASED,
@@ -365,7 +365,7 @@ int RAMFUNCTION hal_flash_erase(uint32_t address, int len)
 {
     int rc                    = 0;
     const uint32_t sectorAddr = GET_SECTOR_ADDR(address);
-    const size_t numSectors   = (len == 0) ? 0 : 1 + len / WOLFBOOT_SECTOR_SIZE;
+    const size_t numSectors   = (len == 0) ? 0 : ((len-1) / WOLFBOOT_SECTOR_SIZE) + 1;
     IfxFlash_FlashType type   = getFlashTypeFromAddr(address);
 
     /* Get the current password of the Safety WatchDog module */

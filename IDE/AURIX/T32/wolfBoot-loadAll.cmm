@@ -4,9 +4,9 @@ system.up
 
 LOCAL &wolfBoot &testAppElf &testAppBin
 &wolfBoot="..\tc3xx\TriCore Debug (GCC)\wolfBoot-tc3xx.elf"
-;&testAppBin="..\test-app\TriCore Release (GCC)\test-app_coalesced_v1_signed.bin"
-&testAppBin="..\test-app\TriCore Debug (GCC)\test-app_coalesced_v1_signed.bin"
-&updateApp="..\test-app-update\TriCore Release (GCC)\test-app-update_coalesced_v2_signed.bin"
+;&testAppBin="..\test-app\TriCore Release (GCC)\test-app_v1_signed.bin"
+&testAppBin="..\test-app\TriCore Debug (GCC)\test-app_v1_signed.bin"
+&updateApp="..\test-app-update\TriCore Release (GCC)\test-app-update_v2_signed.bin"
 
 DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 

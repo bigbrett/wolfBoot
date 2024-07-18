@@ -71,6 +71,7 @@ LCF_HEAP0_OFFSET =   (LCF_USTACK0_OFFSET - LCF_HEAP_SIZE);
 LCF_HEAP1_OFFSET =   (LCF_USTACK1_OFFSET - LCF_HEAP_SIZE);
 LCF_HEAP2_OFFSET =   (LCF_USTACK2_OFFSET - LCF_HEAP_SIZE);
 
+
 LCF_INTVEC0_START = 0x80300500;
 LCF_INTVEC1_START = 0x80302500;
 LCF_INTVEC2_START = 0x80304500;
@@ -112,43 +113,32 @@ MEMORY
     
     /* Majority of pfls0 is reserved for wolfBoot, swap and HSM */
     pfls0 (rx!p):    org = 0x80000000, len = 3M
-    pfls0_nc (rx!p): org = 0xa0000000, len = 3M
     
     /* placeholder for wolfBoot image header */
     pfls1_hdr (rx!p):    org = 0x80300000, len = 256 
-    pfls1_hdr_nc (rx!p): org = 0xa0300000, len = 256
     
     /* pfls1 is the remainder of the wolfBoot BOOT partition. Everything goes here */
-    pfls1 (rx!p):    org = 0x80300100, len = 0x17FF00 /* 1.5MiB - 256B */ 
-    pfls1_nc (rx!p): org = 0xa0300100, len = 0x17FF00 /* 1.5MiB - 256B */
+    pfls1 (rx!p):    org = 0x80300100, len = 0x17FF00 /* 1.5MiB */ 
     
     /* reserved for wolfBoot UPDATE partition */
     pfls1_update (rx!p):    org = 0x80480000, len = 0x180000 /* 1.5MiB */
-    pfls1_update_nc (rx!p): org = 0xa0480000,   len = 0x180000 /* 1.5MiB */
     
     dfls0 (rx!p): org = 0xaf000000, len = 256K
     
     ucb (rx!p): org = 0xaf400000, len = 24K
     
     cpu0_dlmu (w!xp): org = 0x90000000, len = 64K
-    cpu0_dlmu_nc (w!xp): org = 0xb0000000, len = 64K
     
     cpu1_dlmu (w!xp): org = 0x90010000, len = 64K
-    cpu1_dlmu_nc (w!xp): org = 0xb0010000, len = 64K
     
     cpu2_dlmu (w!xp): org = 0x90020000, len = 64K
-    cpu2_dlmu_nc (w!xp): org = 0xb0020000, len = 64K
 }
 
 /* map local memory address to a global address */
 REGION_MAP( CPU0 , ORIGIN(dsram0_local), LENGTH(dsram0_local), ORIGIN(dsram0))
 REGION_MAP( CPU1 , ORIGIN(dsram1_local), LENGTH(dsram1_local), ORIGIN(dsram1))
 REGION_MAP( CPU2 , ORIGIN(dsram2_local), LENGTH(dsram2_local), ORIGIN(dsram2))
-/* map cached and non cached addresses */
-REGION_MIRROR("pfls1", "pfls1_nc")
-REGION_MIRROR("cpu0_dlmu", "cpu0_dlmu_nc")
-REGION_MIRROR("cpu1_dlmu", "cpu1_dlmu_nc")
-REGION_MIRROR("cpu2_dlmu", "cpu2_dlmu_nc")
+
 
 /*Un comment one of the below statement groups to enable CpuX DMI RAM to hold global variables*/
 /* 
@@ -212,24 +202,16 @@ REGION_ALIAS( default_rom , pfls1)
     CORE_ID = GLOBAL ;
     SECTIONS
     {
-        .start_tc0 (LCF_STARTPTR_NC_CPU0) : FLAGS(rxl) { KEEP (*(.start)); } > pfls1_nc
+        .start_tc0 (LCF_STARTPTR_CPU0) : FLAGS(rxl) { KEEP (*(.start)); } > pfls1
         PROVIDE(__START0 = LCF_STARTPTR_NC_CPU0);
-        .start_tc1 (LCF_STARTPTR_NC_CPU1) : FLAGS(rxl) { KEEP (*(.start_cpu1)); } > pfls1_nc
+        .start_tc1 (LCF_STARTPTR_CPU1) : FLAGS(rxl) { KEEP (*(.start_cpu1)); } > pfls1
         PROVIDE(__START1 = LCF_STARTPTR_NC_CPU1);
-        .start_tc2 (LCF_STARTPTR_NC_CPU2) : FLAGS(rxl) { KEEP (*(.start_cpu2)); } > pfls1_nc
+        .start_tc2 (LCF_STARTPTR_CPU2) : FLAGS(rxl) { KEEP (*(.start_cpu2)); } > pfls1
         PROVIDE(__START2 = LCF_STARTPTR_NC_CPU2);
         
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU0 = 0); /* Not used */
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU1 = 0);
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU2 = 0);
-        
-        /* Dummy sections in the cacheable region of PFLASH that reserve space for the entry point code in the
-         * corresponding uncacheable region. We must include these dummy sections, as the contents of these sections
-         * will be replaced by the contents of .start_tcX by external tooling before building the binary image that
-         * wolfBoot will sign. We have to place a 0 byte int the section to prevent it from being marked as NOBITS */
-        .start_tc0_cached (LCF_STARTPTR_CPU0) : FLAGS(rxl) { BYTE(0); . = . + SIZEOF(.start_tc0) - 1; } > pfls1
-        .start_tc1_cached (LCF_STARTPTR_CPU1) : FLAGS(rxl) { BYTE(0); . = . + SIZEOF(.start_tc1) - 1; } > pfls1
-        .start_tc2_cached (LCF_STARTPTR_CPU2) : FLAGS(rxl) { BYTE(0); . = . + SIZEOF(.start_tc2) - 1; } > pfls1
     }
     
     /*Fixed memory Allocations for Trap Vector Table*/
@@ -1600,6 +1582,8 @@ SECTIONS
         *(.psram_text_cpu0.*)
         *(.cpu0_psram)
         *(.cpu0_psram.*)
+        *(.ramcode)   /* wolfBoot RAM function section, for RAM_CODE=1 */
+        *(.ramcode.*) /* future proof subsection matching for wolfBoot RAM function section, for RAM_CODE=1 */
         . = ALIGN(2);
     } > psram0 AT> pfls1
 }

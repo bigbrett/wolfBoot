@@ -7,4 +7,4 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-../../keytools/sign --no-sign "../../../IDE/AURIX/test-app/TriCore Debug (GCC)/test-app_coalesced.bin" $1
+../../keytools/sign --no-sign "../../../IDE/AURIX/test-app/TriCore Debug (GCC)/test-app.bin" $1
