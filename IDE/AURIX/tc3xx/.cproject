@@ -482,7 +482,8 @@
 									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_UPDATE_ADDRESS=0xA0480000"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_SWAP_ADDRESS=0xA0050000"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_HASH_SHA256"/>
-									<listOptionValue builtIn="false" value="WOLFBOOT_NO_SIGN"/>
+									<listOptionValue builtIn="false" value="WOLFBOOT_SIGN_RSA4096"/>
+									<listOptionValue builtIn="false" value="IMAGE_HEADER_SIZE=1024"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_LOADER_MAIN"/>
 									<listOptionValue builtIn="false" value="RAM_CODE"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_FLAGS_INVERT"/>

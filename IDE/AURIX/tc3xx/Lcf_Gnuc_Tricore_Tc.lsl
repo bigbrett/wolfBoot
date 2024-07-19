@@ -109,8 +109,8 @@ MEMORY
 
     psram_local (w!xp): org = 0xc0000000, len = 64K
 
-    pfls0 (rx!p): org    = 0x80000000, len = 64K /* 0x10_000 : wolfBoot */
-    pfls0_nc (rx!p): org = 0xa0000000, len = 64K /* 0x10_000 : wolfBoot */
+    pfls0 (rx!p): org    = 0x80000000, len = 128K /* 0x10_000 : wolfBoot */
+    pfls0_nc (rx!p): org = 0xa0000000, len = 128K /* 0x10_000 : wolfBoot */
     pfls0_swap (rwx!p): org = 0x80050000, len = 4K   /* 0x1_000  : Swap sector */
 
     /* reserved for wolfBoot BOOT partition */

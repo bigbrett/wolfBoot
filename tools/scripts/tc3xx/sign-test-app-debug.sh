@@ -7,4 +7,4 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-../../keytools/sign --no-sign "../../../IDE/AURIX/test-app/TriCore Debug (GCC)/test-app.bin" $1
+../../keytools/sign --rsa4096 --sha256 "../../../IDE/AURIX/test-app/TriCore Debug (GCC)/test-app.bin" ../../../priv.der $1
