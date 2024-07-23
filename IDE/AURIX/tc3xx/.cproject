@@ -488,6 +488,7 @@
 									<listOptionValue builtIn="false" value="RAM_CODE"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_FLAGS_INVERT"/>
 									<listOptionValue builtIn="false" value="WOLFSSL_USER_SETTINGS"/>
+									<listOptionValue builtIn="false" value="xxxNVM_FLASH_WRITEONCE"/>
 									<listOptionValue builtIn="false" value="EXT_FLASH"/>
 									<listOptionValue builtIn="false" value="PART_UPDATE_EXT"/>
 									<listOptionValue builtIn="false" value="PART_SWAP_EXT "/>

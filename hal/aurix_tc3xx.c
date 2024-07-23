@@ -12,6 +12,7 @@
 #include "IfxScuRcu.h" /* for IfxScuRcu_performReset */
 #include "Ifx_Ssw_Infra.h" /* for Ifx_Ssw_jumpToFunction */
 #include "IfxPort.h"
+#include "IfxCpu_reg.h"
 
 #define FLASH_MODULE (0)
 #define UNUSED_PARAMETER (0)
@@ -25,6 +26,20 @@
 #define GET_SECTOR_ADDR(addr) ((uintptr_t)(addr) & ~(WOLFBOOT_SECTOR_SIZE - 1))
 
 static uint32_t sectorBuffer[WOLFBOOT_SECTOR_SIZE/sizeof(uint32_t)];
+
+#define LED_PROG  (0)
+#define LED_ERASE (1)
+#define LED_READ  (2)
+#define LED_WOLFBOOT (5)
+
+#define SWAP_LED_POLARITY
+#ifdef SWAP_LED_POLARITY
+#define LED_ON(led) IfxPort_setPinLow(&MODULE_P00, (led))
+#define LED_OFF(led) IfxPort_setPinHigh(&MODULE_P00, (led))
+#else
+#define LED_ON(led) IfxPort_setPinHigh(&MODULE_P00, (led))
+#define LED_OFF(led) IfxPort_setPinLow(&MODULE_P00, (led))
+#endif
 
 static IfxFlash_FlashType getFlashTypeFromAddr(uint32_t addr)
 {
@@ -293,6 +308,39 @@ static void cacheSector(uint32_t sectorAddress, IfxFlash_FlashType type)
     }
 }
 
+/*
+ * See Infineon-AURIX_TC3xx_Part1-UserManual-v02_00-EN Section 5.3.4.7.1 (5-95): CPUX FLASHCON1, pg 326
+ */
+void disableEcc(void)
+{
+    const size_t ECC_OFF = (0x1u);
+#if 1
+    /* Read current value of the register */
+    uint32_t reg = CPU0_FLASHCON1.U;
+
+    /* Clear the specific bits (16 and 17) */
+    reg &= ~(IFX_CPU_FLASHCON1_MASKUECC_MSK << IFX_CPU_FLASHCON1_MASKUECC_OFF);
+
+    /* Set the specific bits (16 and 17) to the desired value */
+    reg |= (ECC_OFF << IFX_CPU_FLASHCON1_MASKUECC_OFF);
+
+    /* Write the modified value back to the register */
+    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
+    IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword);
+    _dsync();
+    __mtcr(0xF8801104, reg);
+    _isync();
+    IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);
+    //CPU0_FLASHCON1.U = reg;
+#else
+    /* Get the current password of the Safety WatchDog module */
+    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
+    IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword);
+    CPU0_FLASHCON1.B.MASKUECC = ECC_OFF;
+    IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);
+#endif
+}
+
 /* This function is called by the bootloader at the very beginning of the
  * execution. Ideally, the implementation provided configures the clock settings
  * for the target microcontroller, to ensure that it runs at at the required
@@ -304,9 +352,27 @@ void hal_init(void)
      * currently happening in core0_main() */
 
     /* Initialization of the LED used in this example */
-    IfxPort_setPinModeOutput(&MODULE_P00, 5, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
+    IfxPort_setPinModeOutput(&MODULE_P00, LED_WOLFBOOT, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
     /* Switch ON the LED (low-level active) */
-    IfxPort_setPinLow(&MODULE_P00, 5);
+    LED_ON(LED_WOLFBOOT);
+
+    /* Initialization of the LED used in this example */
+    IfxPort_setPinModeOutput(&MODULE_P00, LED_PROG, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
+    /* Switch ON the LED (low-level active) */
+    LED_OFF(LED_PROG);
+    /* Initialization of the LED used in this example */
+    IfxPort_setPinModeOutput(&MODULE_P00, LED_ERASE, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
+    /* Switch ON the LED (low-level active) */
+    LED_OFF(LED_ERASE);
+    /* Initialization of the LED used in this example */
+    IfxPort_setPinModeOutput(&MODULE_P00, LED_READ, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
+    /* Switch ON the LED (low-level active) */
+    LED_OFF(LED_READ);
+
+#ifdef NVM_FLASH_WRITEONCE
+    /* disable flash ECC traps */
+    disableEcc();
+#endif
 }
 
 /*
@@ -318,6 +384,12 @@ void hal_init(void)
  */
 int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t* data, int size)
 {
+    LED_ON(LED_PROG);
+
+#ifdef NVM_FLASH_WRITEONCE
+    const IfxFlash_FlashType type = getFlashTypeFromAddr(address);
+    programBytesToErasedFlash(address, data, size, type);
+#else
     /* base address of the containing sector (TODO what if size spans sectors?) */
     const uint32_t sectorAddress  = GET_SECTOR_ADDR(address);
     const IfxFlash_FlashType type = getFlashTypeFromAddr(address);
@@ -357,6 +429,9 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t* data, int size)
         /* All affected pages are erased, program the data directly */
         programBytesToErasedFlash(address, data, size, type);
     }
+#endif /* ! NVM_FLASH_WRITEONCE */
+
+    LED_OFF(LED_PROG);
 
     return 0;
 }
@@ -369,6 +444,8 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t* data, int size)
  * sectors, and erase all the sectors in between. */
 int RAMFUNCTION hal_flash_erase(uint32_t address, int len)
 {
+    LED_ON(LED_ERASE);
+
     int rc                    = 0;
     const uint32_t sectorAddr = GET_SECTOR_ADDR(address);
     const size_t numSectors   = (len == 0) ? 0 : ((len-1) / WOLFBOOT_SECTOR_SIZE) + 1;
@@ -383,6 +460,8 @@ int RAMFUNCTION hal_flash_erase(uint32_t address, int len)
     IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);
 
     IfxFlash_waitUnbusy(FLASH_MODULE, type);
+
+    LED_OFF(LED_ERASE);
 
     return rc;
 }
@@ -419,6 +498,8 @@ int RAMFUNCTION ext_flash_read(uintptr_t address, uint8_t* data, int len)
 {
     int bytesRead = 0;
 
+    LED_ON(LED_READ);
+
     IfxFlash_FlashType type = getFlashTypeFromAddr(address);
 
     while (bytesRead < len) {
@@ -444,6 +525,8 @@ int RAMFUNCTION ext_flash_read(uintptr_t address, uint8_t* data, int len)
         }
     }
 
+    LED_OFF(LED_READ);
+
     return 0;
 }
 
@@ -465,7 +548,7 @@ void RAMFUNCTION ext_flash_unlock(void)
 void do_boot(const uint32_t* app_offset)
 {
     /* TODO need to do anything with stack pointer, CSA, etc? */
-
+    LED_OFF(LED_WOLFBOOT);
     Ifx_Ssw_jumpToFunction((void (*)(void))app_offset);
 }
 

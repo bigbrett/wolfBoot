@@ -34,7 +34,7 @@
 /*********************************************************************************************************************/
 /*------------------------------------------------------Macros-------------------------------------------------------*/
 /*********************************************************************************************************************/
-#define LED         &MODULE_P00,5                                           /* LED: Port, Pin definition            */
+#define LED         &MODULE_P00, 6                                           /* LED: Port, Pin definition            */
 #define WAIT_TIME   500                                                     /* Wait time constant in milliseconds   */
 
 /*********************************************************************************************************************/
@@ -47,7 +47,7 @@ void initLED(void)
     IfxPort_setPinModeOutput(LED, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
 
     /* Switch OFF the LED (low-level active) */
-    IfxPort_setPinHigh(LED);
+    IfxPort_setPinLow(LED);
 }
 
 /* This function toggles the port pin and wait 500 milliseconds */
