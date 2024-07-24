@@ -3,7 +3,7 @@ system.up
 
 
 LOCAL &wolfBoot &testApp &updateApp
-&wolfBoot="..\..\..\IDE\AURIX\tc3xx\TriCore Release (GCC)\wolfBoot-tc3xx.elf"
+&wolfBoot="..\..\..\IDE\AURIX\wolfBoot-tc3xx\TriCore Release (GCC)\wolfBoot-tc3xx.elf"
 &testApp="..\..\..\IDE\AURIX\test-app\TriCore Release (GCC)\test-app_v1_signed.bin"
 &updateApp="..\..\..\IDE\AURIX\test-app\TriCore Release (GCC)\test-app_v2_signed.bin"
 
