@@ -314,31 +314,17 @@ static void cacheSector(uint32_t sectorAddress, IfxFlash_FlashType type)
 void disableEcc(void)
 {
     const size_t ECC_OFF = (0x1u);
-#if 1
-    /* Read current value of the register */
-    uint32_t reg = CPU0_FLASHCON1.U;
+    Ifx_SCU_WDTCPU *cpuwdt = &MODULE_SCU.WDTCPU[(uint32)IfxCpu_getCoreIndex()];
+    const uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
+    const uint16 endInitCpuPassword = IfxScuWdt_getCpuWatchdogPasswordInline(cpuwdt);
 
-    /* Clear the specific bits (16 and 17) */
-    reg &= ~(IFX_CPU_FLASHCON1_MASKUECC_MSK << IFX_CPU_FLASHCON1_MASKUECC_OFF);
-
-    /* Set the specific bits (16 and 17) to the desired value */
-    reg |= (ECC_OFF << IFX_CPU_FLASHCON1_MASKUECC_OFF);
-
-    /* Write the modified value back to the register */
-    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
     IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword);
-    _dsync();
-    __mtcr(0xF8801104, reg);
-    _isync();
-    IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);
-    //CPU0_FLASHCON1.U = reg;
-#else
-    /* Get the current password of the Safety WatchDog module */
-    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
-    IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword);
+    IfxScuWdt_clearCpuEndinitInline(cpuwdt, endInitCpuPassword);
+
     CPU0_FLASHCON1.B.MASKUECC = ECC_OFF;
+
     IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);
-#endif
+    IfxScuWdt_setCpuEndinitInline(cpuwdt, endInitCpuPassword);
 }
 
 /* This function is called by the bootloader at the very beginning of the
@@ -351,23 +337,16 @@ void hal_init(void)
     /* eventually this will hold the clock init and CPU sync stuff that is
      * currently happening in core0_main() */
 
-    /* Initialization of the LED used in this example */
     IfxPort_setPinModeOutput(&MODULE_P00, LED_WOLFBOOT, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
-    /* Switch ON the LED (low-level active) */
-    LED_ON(LED_WOLFBOOT);
-
-    /* Initialization of the LED used in this example */
     IfxPort_setPinModeOutput(&MODULE_P00, LED_PROG, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
-    /* Switch ON the LED (low-level active) */
-    LED_OFF(LED_PROG);
-    /* Initialization of the LED used in this example */
     IfxPort_setPinModeOutput(&MODULE_P00, LED_ERASE, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
-    /* Switch ON the LED (low-level active) */
-    LED_OFF(LED_ERASE);
-    /* Initialization of the LED used in this example */
     IfxPort_setPinModeOutput(&MODULE_P00, LED_READ, IfxPort_OutputMode_pushPull, IfxPort_OutputIdx_general);
-    /* Switch ON the LED (low-level active) */
+
+    LED_ON(LED_WOLFBOOT);
+    LED_OFF(LED_PROG);
+    LED_OFF(LED_ERASE);
     LED_OFF(LED_READ);
+
 
 #ifdef NVM_FLASH_WRITEONCE
     /* disable flash ECC traps */
