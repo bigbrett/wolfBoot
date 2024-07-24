@@ -493,6 +493,7 @@
 									<listOptionValue builtIn="false" value="PART_UPDATE_EXT"/>
 									<listOptionValue builtIn="false" value="PART_SWAP_EXT "/>
 									<listOptionValue builtIn="false" value="PART_BOOT_EXT"/>
+									<listOptionValue builtIn="false" value="WOLFBOOT_HAL_ERASE_BURST"/>
 								</option>
 								<inputType id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType.1768062788" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType"/>
 							</tool>

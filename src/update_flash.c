@@ -506,6 +506,9 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
     uint32_t cur_v;
     uint32_t up_v;
 #endif
+#ifdef WOLFBOOT_HAL_ERASE_BURST
+    size_t remainderBytes;
+#endif
 
     /* No Safety check on open: we might be in the middle of a broken update */
     wolfBoot_open_image(&update, PART_UPDATE);
@@ -643,6 +646,20 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
             total_size = wolfBoot_get_total_size(&boot, &update);
         }
     }
+
+#ifdef WOLFBOOT_HAL_ERASE_BURST
+#ifdef NVM_FLASH_WRITEONCE
+   /* erase up until the start of the second-to-last sector for writeonce */
+    remainderBytes =
+        WOLFBOOT_PARTITION_SIZE - (sector * sector_size) - (2 * sector_size);
+#else
+   /* erase up until the start of the last sector */
+    remainderBytes =
+        WOLFBOOT_PARTITION_SIZE - (sector * sector_size) - sector_size;
+#endif
+    wb_flash_erase(&boot, sector * sector_size, remainderBytes);
+    wb_flash_erase(&update, sector * sector_size, remainderBytes);
+#else
     /* erase to the last sector, writeonce has 2 sectors */
     while((sector * sector_size) < WOLFBOOT_PARTITION_SIZE -
         sector_size
@@ -654,6 +671,8 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
         wb_flash_erase(&update, sector * sector_size, sector_size);
         sector++;
     }
+#endif /* ! WOLFBOOT_HAL_ERASE_BURST
+
     /* start re-entrant final erase, return code is only for resumption in
      * wolfBoot_start*/
     wolfBoot_swap_and_final_erase(0);
