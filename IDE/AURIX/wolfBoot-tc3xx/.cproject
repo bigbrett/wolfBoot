@@ -697,7 +697,7 @@
 									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_SIZE=0x180000"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_BOOT_ADDRESS=0xA0300000"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_UPDATE_ADDRESS=0xA0480000"/>
-									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_SWAP_ADDRESS=0xA0050000"/>
+									<listOptionValue builtIn="false" value="WOLFBOOT_PARTITION_SWAP_ADDRESS=0xA0020000"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_HASH_SHA256"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_SIGN_RSA4096"/>
 									<listOptionValue builtIn="false" value="IMAGE_HEADER_SIZE=1024"/>
