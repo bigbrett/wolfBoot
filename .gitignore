@@ -199,6 +199,8 @@ IDE/Release/e2studio/RZN2L/app_RZ/.cache/*
 # IDE AURIX generated
 IDE/AURIX/*/TriCore* (GCC)/*
 IDE/AURIX/*/TriCore* (TASKING)/*
+IDE/AURIX/*/.settings/*
+IDE/AURIX/*/.ads/*
 
 tpm_seal_key.key
 
