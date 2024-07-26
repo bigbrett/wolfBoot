@@ -14,10 +14,6 @@
 #include "IfxScuRcu.h"     /* for IfxScuRcu_performReset */
 #include "Ifx_Ssw_Infra.h" /* for Ifx_Ssw_jumpToFunction */
 
-#ifdef NVM_FLASH_WRITEONCE
-#error AURIX wolfBoot not yet compatible with NVM_FLASH_WRITEONCE
-#endif
-
 #define FLASH_MODULE                (0)
 #define UNUSED_PARAMETER            (0)
 #define WOLFBOOT_AURIX_RESET_REASON (0x5742) /* "WB" */
@@ -277,29 +273,6 @@ static void cacheSector(uint32_t sectorAddress, IfxFlash_FlashType type)
     }
 }
 
-#ifdef NVM_FLASH_WRITEONCE
-/*
- * See Infineon-AURIX_TC3xx_Part1-UserManual-v02_00-EN Section 5.3.4.7.1 (5-95):
- * CPUX FLASHCON1, pg 326
- */
-void disableEcc(void)
-{
-    const size_t ECC_OFF = (0x1u);
-
-    Ifx_SCU_WDTCPU* cpuwdt = &MODULE_SCU.WDTCPU[(uint32)IfxCpu_getCoreIndex()];
-    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
-    uint16 endInitCpuPassword = IfxScuWdt_getCpuWatchdogPasswordInline(cpuwdt);
-
-    IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword);
-    IfxScuWdt_clearCpuEndinitInline(cpuwdt, endInitCpuPassword);
-
-    CPU0_FLASHCON1.B.MASKUECC = ECC_OFF;
-
-    IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);
-    IfxScuWdt_setCpuEndinitInline(cpuwdt, endInitCpuPassword);
-}
-#endif /* NVM_FLASH_WRITEONCE */
-
 /* This function is called by the bootloader at the very beginning of the
  * execution. Ideally, the implementation provided configures the clock settings
  * for the target microcontroller, to ensure that it runs at at the required
@@ -330,12 +303,6 @@ void hal_init(void)
     LED_OFF(LED_PROG);
     LED_OFF(LED_ERASE);
     LED_OFF(LED_READ);
-
-
-#ifdef NVM_FLASH_WRITEONCE
-    /* disable flash ECC traps */
-    disableEcc();
-#endif
 }
 
 /*
@@ -349,11 +316,7 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t* data, int size)
 {
     LED_ON(LED_PROG);
 
-#ifdef NVM_FLASH_WRITEONCE
-    const IfxFlash_FlashType type = getFlashTypeFromAddr(address);
-    programBytesToErasedFlash(address, data, size, type);
-#else
-    /* base address of the containing sector (TODO what if size spans sectors?)
+    /* base address of containing sector (TODO what if size spans sectors?)
      */
     const uint32_t sectorAddress  = GET_SECTOR_ADDR(address);
     const IfxFlash_FlashType type = getFlashTypeFromAddr(address);
@@ -395,7 +358,6 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t* data, int size)
         /* All affected pages are erased, program the data directly */
         programBytesToErasedFlash(address, data, size, type);
     }
-#endif /* ! NVM_FLASH_WRITEONCE */
 
     LED_OFF(LED_PROG);
 
