@@ -1,14 +1,18 @@
 # Overview
 
+This example demonstrates using wolfBoot on the Infineon AURIX TC3xx family of microcontrollers. The example is based on the TC375 Lite-Kit V2, but should be easily adaptable to other TC3xx devices. This README assumes basic familiarity with the TC375 SoC, the AURIX IDE, and Lauterbach Trace32 debugger.
+
+The example contains two projects: `wolfBoot-tc3xx` and `test-app`. The `wolfBoot-tc3xx` project contains the wolfBoot bootloader, and the `test-app` project contains a simple firmware application that will be loaded and executed by wolfBoot. The `test-app` project is a simple blinky application that blinks LED2 on the TC375 Lite-Kit V2 once per second when running the base image, and rapidly (~3x/sec) when running the update image. The test app determines if it is a base or update image by inspecting the firmware version (obtained through the wolfBoot API). The firmware version is set in the image header by the wolfBoot keytools when signing the test app binaries. The same test app binary is used for both the base and update images, with the only difference being the firmware version set by the keytools.
 
 ## Important notes
-- In the UCBs, BMDHx.STAD must point to the wolfBoot entrypoint `0xA000_0000`. This is the default value of the TC375 and so need not be changed unless it has already been modified or you wish to rearrange the memory map.
-- Because TC3xx PFLASH ECC prevents reading from erased flash, the `EXT_FLASH` option is used to redirect flash reads to a HAL API, where the flash pages requested to be read can be blank-checked by hardware before reading.
+
+- In the TC375 UCBs, BMDHx.STAD must point to the wolfBoot entrypoint `0xA000_0000`. This is the default value of the TC375 and so need not be changed unless it has already been modified or you wish to rearrange the memory map.
+- Because TC3xx PFLASH ECC prevents reading from erased flash, the `EXT_FLASH` option is used to redirect flash reads to the `ext_flash_read()` HAL API, where the flash pages requested to be read can be blank-checked by hardware before reading.
 - TC3xx PFLASH is write-once (`NVM_FLASH_WRITEONCE`), however wolfBoot `NVM_FLASH_WRITEONCE` does not support `EXT_FLASH`. Therefore the write-once functionality is re-implemented in the `HAL` layer.
 
 ## Flash Partitioning
 
-The TC3xx AURIX port of wolfBoot places all images in PFLASH, and uses both PFLASH0 and PFLASH1 banks. The wolfBoot executable code and the image swap sector are located in PFLASH0, with the remainder available for use. PFLASH1 is divided in half, with the first half holding the BOOT partition and the second half holding the UPDATE partion. User firmware images are directly executed in place from the BOOT partition in PFLASH1, and so must be linked to execute within this address space, with an offset of `IMAGE_HEADER_SIZE` to account for the wolfBoot image header.
+The TC3xx AURIX port of wolfBoot places all images in PFLASH, and uses both PFLASH0 and PFLASH1 banks. The wolfBoot executable code and the image swap sector are located in PFLASH0, with the remainder available for use. PFLASH1 is divided in half, with the first half holding the BOOT partition and the second half holding the UPDATE partition. User firmware images are directly executed in place from the BOOT partition in PFLASH1, and so must be linked to execute within this address space, with an offset of `IMAGE_HEADER_SIZE` to account for the wolfBoot image header.
 
 ```
 +==========+
@@ -64,6 +68,40 @@ Please refer to the [wolfBoot](wolfBoot-tc3xx/Lcf_Gnu_Tricore_Tc.lsl) and [test-
 7. Sign the generated test-app binary using the wolfBoot keytools
     1. Open a WSL terminal and navigate to `wolfBoot/tools/scripts/tc3xx`
     2. Run `./gen-tc3xx-signed-test-apps-debug.sh` or `gen-tc3xx-signed-test-apps-release.sh` to sign either the debug or release build, respectively. This creates the signed image files `test-app_v1_signed.bin` and `test-app_v2_signed.bin` in the test-app output build directory. The v1 image is the initial image that will be loaded to the `BOOT` partition, and the v2 image is the update image that will be loaded to the `UPDATE` partition.
+
+```
+$ ./gen-tc3xx-signed-test-apps-release.sh
++ ../../keytools/sign --rsa4096 --sha256 '../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin' ../../../priv.der 1
+wolfBoot KeyTools (Compiled C version)
+wolfBoot version 2010000
+Update type:          Firmware
+Input image:          ../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin
+Selected cipher:      RSA4096
+Selected hash  :      SHA256
+Public key:           ../../../priv.der
+Output  image:        ../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app_v1_signed.bin
+Target partition id : 1
+Found RSA512 key
+image header size calculated at runtime (1024 bytes)
+Calculating SHA256 digest...
+Signing the digest...
+Output image(s) successfully created.
++ ../../keytools/sign --rsa4096 --sha256 '../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin' ../../../priv.der 2
+wolfBoot KeyTools (Compiled C version)
+wolfBoot version 2010000
+Update type:          Firmware
+Input image:          ../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin
+Selected cipher:      RSA4096
+Selected hash  :      SHA256
+Public key:           ../../../priv.der
+Output  image:        ../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app_v2_signed.bin
+Target partition id : 1
+Found RSA512 key
+image header size calculated at runtime (1024 bytes)
+Calculating SHA256 digest...
+Signing the digest...
+Output image(s) successfully created.
+```
 
 ### Load and run the wolfBoot demo
 
