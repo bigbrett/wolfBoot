@@ -205,6 +205,8 @@ IDE/AURIX/*/TriCore* (GCC)/*
 IDE/AURIX/*/TriCore* (TASKING)/*
 IDE/AURIX/*/.settings/*
 IDE/AURIX/*/.ads/*
+IDE/AURIX/SDK/*
+!IDE/AURIX/SDK/placeholder.txt
 
 tpm_seal_key.key
 

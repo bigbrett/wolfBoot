@@ -37,4 +37,22 @@
 		<nature>com.infineon.aurix.buildsystem.aurixnature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>Configurations</name>
+			<type>2</type>
+			<locationURI>ECLIPSE_HOME/build_system/bundled-artefacts-repo/project-initializer/tricore-tc3xx/1.12-13/ProjectTemplates/TC37A/TriCore/Configurations</locationURI>
+		</link>
+		<link>
+			<name>Libraries</name>
+			<type>2</type>
+			<locationURI>SDK_DIR</locationURI>
+		</link>
+	</linkedResources>
+	<variableList>
+		<variable>
+			<name>SDK_DIR</name>
+			<value>$%7BPARENT-1-PROJECT_LOC%7D/SDK</value>
+		</variable>
+	</variableList>
 </projectDescription>

@@ -38,6 +38,16 @@
 	</natures>
 	<linkedResources>
 		<link>
+			<name>Configurations</name>
+			<type>2</type>
+			<locationURI>ECLIPSE_HOME/build_system/bundled-artefacts-repo/project-initializer/tricore-tc3xx/1.12-13/ProjectTemplates/TC37A/TriCore/Configurations</locationURI>
+		</link>
+		<link>
+			<name>Libraries</name>
+			<type>2</type>
+			<locationURI>SDK_DIR</locationURI>
+		</link>
+		<link>
 			<name>wolfBoot</name>
 			<type>2</type>
 			<locationURI>virtual:/virtual</locationURI>
@@ -64,6 +74,10 @@
 		</link>
 	</linkedResources>
 	<variableList>
+		<variable>
+			<name>SDK_DIR</name>
+			<value>$%7BPARENT-1-PROJECT_LOC%7D/SDK</value>
+		</variable>
 		<variable>
 			<name>WOLFBOOT_ROOT</name>
 			<value>$%7BPARENT-3-PROJECT_LOC%7D</value>

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euxo pipefail
+
 TARGET_H_TEMPLATE=../../../include/target.h.in
 TARGET_H_FILE=../../../include/target.h
 

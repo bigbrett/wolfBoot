@@ -41,7 +41,7 @@ Please refer to the [wolfBoot](wolfBoot-tc3xx/Lcf_Gnu_Tricore_Tc.lsl) and [test-
 
 ### Prerequisites
 
-- A Windows 10 computer
+- A Windows 10 computer with the Infineon AURIX IDE installed
 - A WSL2 distro (tested on Ubuntu 22.04) with the `build-essential` package installed (`sudo apt install build-essential`)
 - A cloned instance of wolfBoot (this repository)
 - A TC375 AURIX Lite-Kit V2
@@ -51,9 +51,17 @@ Please refer to the [wolfBoot](wolfBoot-tc3xx/Lcf_Gnu_Tricore_Tc.lsl) and [test-
 1. Open a WSL2 terminal and navigate to the top level `wolfBoot` directory
 2. Compile the keytools by running `make keytools`
 
-### Build wolfBoot
+### Install the Infineon TC3xx SDK
 
-1. Install the AURIX IDE
+Because of repository size constraints, the required Infineon low level drivers ("iLLD") that are usually included in AURIX projects are not included in this demo app. It is therefore required to locate them in your AURIX install (or download them online) and extract them to the location that the wolfBoot AURIX projects expect them to be at.
+
+1. Locate the TC375TP iLLD package in your AURIX install. This is typically located at `C:\Infineon\AURIX-Studio-<version>\build_system\bundled-artefacts-repo\project-initializer\tricore-tc3xx\<version>\iLLDs\Full_Set\iLLD_<version>__TC37A.zip`. You can also download them online from [https://softwaretools.infineon.com/software](https://softwaretools.infineon.com/software).
+2. Extract the iLLD package for the TC375TP (`iLLD_<version>__TC37A.zip`) into the `wolfBoot/IDE/AURIX/SDK` directory. If you are downloading the package from online, instead you need to extract/copy the contents of `iiLLD_<version>_TC3xx_Drivers_And_Demos_Release.zip/LLD_<version>__TC37A\Src\BaseSw` directory to `wolfBoot/IDE/AURIX/SDK`.
+
+### Build wolfBoot
+1. Generate the 'target.h` header file for the tc375 flash configuration
+    1. Open a WSL terminal and navigate to `wolfBoot/tools/scripts/tc3xx`
+    2. Run `./gen-tc3xx-target.sh`
 2. Create a new workspace directory, if you do not already have a workspace you wish to use
 3. Import the wolfBoot project
     1. Click "File" -> Open Projects From File System"
@@ -105,7 +113,7 @@ Output image(s) successfully created.
 
 ### Load and run the wolfBoot demo
 
-8. Load wolfBoot and the firmware application images to the tc3xx device using Trace32 and a Lauterbach probe
+1. Load wolfBoot and the firmware application images to the tc3xx device using Trace32 and a Lauterbach probe
     1. Ensure the Lauterbach probe is connected to the debug port of the tc375 LiteKit
     2. Open Trace32 Power View for Tricore
     3. Open the SYStem menu and click "DETECT" to detect the tc375 device. Click "CONTINUE" in the pop-up window, and then choose "Set TC375xx" when the device is detected
@@ -113,9 +121,9 @@ Output image(s) successfully created.
 
 wolfBoot and the demo applications are now loaded into flash, and core0 will be halted at the wolfBoot entry point (`core0_main()`).
 
-9. Run the application by clicking "Go" to release the core. This will run wolfBoot which will eventually boot into the application in the `BOOT` partition. You should see LED2 on the board blink once per second.
+2. Run the application by clicking "Go" to release the core. This will run wolfBoot which will eventually boot into the application in the `BOOT` partition. You should see LED2 on the board blink once per second.
 
-10. Reset the application to trigger the firmware update. Click "System Down", "System Up", then "Go" to reset the tc3xx. If the device halts again at `core0_main`, click "Go" one more time to release the core. You should see LED2 turn on for ~5sec while wolfBoot swaps the images between `UPDATE` and `BOOT` partitions, then you should see LED2 blink rapidly (~3x/sec) indicating that the firmware update was successful and the new image has booted. Subsequent resets should continue to boot into to the new image.
+3. Reset the application to trigger the firmware update. Click "System Down", "System Up", then "Go" to reset the tc3xx. If the device halts again at `core0_main`, click "Go" one more time to release the core. You should see LED2 turn on for ~5sec while wolfBoot swaps the images between `UPDATE` and `BOOT` partitions, then you should see LED2 blink rapidly (~3x/sec) indicating that the firmware update was successful and the new image has booted. Subsequent resets should continue to boot into to the new image.
 
 To rerun the demo, simply rerun the loader script in Trace32 and repeat the above steps
 
