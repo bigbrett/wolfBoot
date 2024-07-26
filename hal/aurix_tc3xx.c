@@ -81,7 +81,8 @@ static void RAMFUNCTION programPage(uint32_t address,
         wolfBoot_panic();
     }
 
-    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
+    const uint16 endInitSafetyPassword =
+        IfxScuWdt_getSafetyWatchdogPasswordInline();
 
     IfxFlash_enterPageMode(address);
     IfxFlash_waitUnbusy(FLASH_MODULE, type);
@@ -142,8 +143,8 @@ static int RAMFUNCTION containsErasedPage(uint32_t address,
                                           size_t len,
                                           IfxFlash_FlashType type)
 {
-    uint32_t startPage = GET_PAGE_ADDR(address);
-    uint32_t endPage   = GET_PAGE_ADDR(address + len - 1);
+    const uint32_t startPage = GET_PAGE_ADDR(address);
+    const uint32_t endPage   = GET_PAGE_ADDR(address + len - 1);
 
     for (uint32_t page = startPage; page <= endPage;
          page += IFXFLASH_PFLASH_PAGE_LENGTH)
@@ -160,8 +161,9 @@ static int RAMFUNCTION containsErasedPage(uint32_t address,
 static void RAMFUNCTION programCachedSector(uint32_t sectorAddress,
                                             IfxFlash_FlashType type)
 {
-    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
-    uint32_t pageAddr            = sectorAddress;
+    const uint16 endInitSafetyPassword =
+        IfxScuWdt_getSafetyWatchdogPasswordInline();
+    uint32_t pageAddr = sectorAddress;
 
     /* Burst program the whole sector with values from sectorBuffer */
     for (int i = 0; i < WOLFBOOT_SECTOR_SIZE / IFXFLASH_PFLASH_BURST_LENGTH;
@@ -250,8 +252,9 @@ static void readPage32Aligned(uint32_t pageAddr, uint32_t* data)
  * any pages from flash that are erased */
 static void cacheSector(uint32_t sectorAddress, IfxFlash_FlashType type)
 {
-    uint32_t startPage = GET_PAGE_ADDR(sectorAddress);
-    uint32_t endPage = GET_PAGE_ADDR(sectorAddress + WOLFBOOT_SECTOR_SIZE - 1);
+    const uint32_t startPage = GET_PAGE_ADDR(sectorAddress);
+    const uint32_t endPage =
+        GET_PAGE_ADDR(sectorAddress + WOLFBOOT_SECTOR_SIZE - 1);
     uint32_t* pageInSectorBuffer;
 
     /* Iterate over every page in the sector, caching its contents if not
@@ -377,10 +380,11 @@ int RAMFUNCTION hal_flash_erase(uint32_t address, int len)
     const uint32_t sectorAddr = GET_SECTOR_ADDR(address);
     const size_t numSectors =
         (len == 0) ? 0 : ((len - 1) / WOLFBOOT_SECTOR_SIZE) + 1;
-    IfxFlash_FlashType type = getFlashTypeFromAddr(address);
+    const IfxFlash_FlashType type = getFlashTypeFromAddr(address);
 
     /* Disable ENDINIT protection */
-    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
+    const uint16 endInitSafetyPassword =
+        IfxScuWdt_getSafetyWatchdogPasswordInline();
     IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword);
 
     IfxFlash_eraseMultipleSectors(sectorAddr, numSectors);
@@ -433,7 +437,7 @@ int RAMFUNCTION ext_flash_read(uintptr_t address, uint8_t* data, int len)
 
     LED_ON(LED_READ);
 
-    IfxFlash_FlashType type = getFlashTypeFromAddr(address);
+    const IfxFlash_FlashType type = getFlashTypeFromAddr(address);
 
     while (bytesRead < len) {
         uint32_t pageAddress = GET_PAGE_ADDR(address);
