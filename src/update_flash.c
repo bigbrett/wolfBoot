@@ -480,7 +480,6 @@ static int wolfBoot_get_total_size(struct wolfBoot_image* boot,
 
 static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
 {
-    int flagRet;
     uint32_t total_size = 0;
     const uint32_t sector_size = WOLFBOOT_SECTOR_SIZE;
     uint32_t sector = 0;
@@ -489,7 +488,6 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
      * magic has not been set flag will have an un-determined value when we go
      * to check it */
     uint8_t flag = SECT_FLAG_NEW;
-    uint8_t st;
     struct wolfBoot_image boot, update, swap;
     uint16_t update_type;
     uint32_t fw_size;
@@ -499,6 +497,7 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
     uint8_t nonce[ENCRYPT_NONCE_SIZE];
 #endif
 #ifdef DELTA_UPDATES
+    uint8_t st;
     int inverse = 0;
     int resume = 0;
     int stateRet = -1;
@@ -706,8 +705,7 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
         wb_flash_erase(&boot, sector * sector_size, sector_size);
         sector++;
     }
-    st = IMG_STATE_SUCCESS;
-    wolfBoot_set_partition_state(PART_BOOT, st);
+    wolfBoot_set_partition_state(PART_BOOT, IMG_STATE_SUCCESS);
 
     #ifdef EXT_FLASH
     ext_flash_lock();
