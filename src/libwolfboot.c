@@ -117,13 +117,15 @@ static uint32_t ext_cache;
 #endif
 
 
-#if (defined(__WOLFBOOT) && defined(EXT_ENCRYPTED) ) || defined (UNIT_TEST)
+#if defined(__WOLFBOOT) || defined (UNIT_TEST)
 #define WOLFSSL_MISC_INCLUDED /* allow misc.c code to be inlined */
 #include <wolfcrypt/src/misc.c> /* for ByteReverseWord32 */
+#if defined(EXT_ENCRYPTED) || defined(UNIT_TEST)
 static uint32_t wb_reverse_word32(uint32_t x)
 {
     return ByteReverseWord32(x);
 }
+#endif
 #endif
 
 
