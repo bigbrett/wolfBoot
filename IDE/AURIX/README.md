@@ -44,26 +44,71 @@ Please refer to the [wolfBoot](wolfBoot-tc3xx/Lcf_Gnu_Tricore_Tc.lsl) and [test-
 
 - A Windows 10 computer with the Infineon AURIX IDE installed
 - A WSL2 distro (tested on Ubuntu 22.04) with the `build-essential` package installed (`sudo apt install build-essential`)
-- A cloned instance of wolfBoot (this repository)
 - A TC375 AURIX Lite-Kit V2
 
-### Build wolfBoot keytools
+### Clone wolfBoot
+
+1. Clone the wolfBoot repository and initialize the repository submodules (`git submodule update --init`)
+
+### Build wolfBoot keytools and generate keys
 
 1. Open a WSL2 terminal and navigate to the top level `wolfBoot` directory
 2. Compile the keytools by running `make keytools`
+3. Use the helper script to generate a new signing key pair using RSA 4096
+    1. Navigate to `wolfBoot/tools/scripts/tc3xx`
+    2. Run `./gen-tc3xx-keys.sh`. This generates the signing private key `wolfBoot/priv.der` and adds the public key to the wolfBoot keystore (see [keygen](https://github.com/wolfSSL/wolfBoot/blob/aurix-tc3xx-support/docs/Signing.md) for more information). If you already have generated a key, you will be prompted to overwrite it.
 
-### Install the Infineon TC3xx SDK
+```
+$ ./gen-tc3xx-keys.sh
++ cd ../../../
++ ./tools/keytools/keygen -g priv.der --rsa4096
+Keytype: RSA4096
+Generating key (type: RSA4096)
+RSA public key len: 550 bytes
+Associated key file:   priv.der
+Partition ids mask:   ffffffff
+Key type   :           RSA4096
+Public key slot:       0
+Done.
+```
 
-Because of repository size constraints, the required Infineon low level drivers ("iLLD") that are usually included in AURIX projects are not included in this demo app. It is therefore required to locate them in your AURIX install (or download them online) and extract them to the location that the wolfBoot AURIX projects expect them to be at.
+### Install the Infineon TC3xx SDK into the wolfBoot project
 
-1. Locate the TC375TP iLLD package in your AURIX install. This is typically located at `C:\Infineon\AURIX-Studio-<version>\build_system\bundled-artefacts-repo\project-initializer\tricore-tc3xx\<version>\iLLDs\Full_Set\iLLD_<version>__TC37A.zip`. You can also download them online from [https://softwaretools.infineon.com/software](https://softwaretools.infineon.com/software).
-2. Extract the iLLD package for the TC375TP (`iLLD_<version>__TC37A.zip`) into the `wolfBoot/IDE/AURIX/SDK` directory. If you are downloading the package from online, instead you need to extract/copy the contents of `iiLLD_<version>_TC3xx_Drivers_And_Demos_Release.zip/LLD_<version>__TC37A\Src\BaseSw` directory to `wolfBoot/IDE/AURIX/SDK`.
+Because of repository size constraints and differing licenses, the required Infineon low level drivers ("iLLD") and auto-generated SDK configuration code that are usually included in AURIX projects are not included in this demo app. It is therefore required to locate them in your AURIX install and extract them to the location that the wolfBoot AURIX projects expect them to be at. The remainder of these instructions will use variables to reference the following three paths:
+
+- `$AURIX_INSTALL`: The AURIX IDE installation location. This is usually `C:\Infineon\AURIX-Studio-<version>`.
+- `$SDK_ARCHIVE`: The zip archive of the iLLD SDK. This is usually at `$AURIX_INSTALL\build_system\bundled-artefacts-repo\project-initializer\tricore-tc3xx\<version>\iLLDs\Full_Set\iLLD_<version>__TC37A.zip`
+- `$SDK_CONFIG`: The directory containing the iLLD SDK configuration for the specific chip. This is usually at `$AURIX_INSTALL\build_system\bundled-artefacts-repo\project-initializer\tricore-tc3xx\<version>\ProjectTemplates\TC37A\TriCore\Configurations`
+
+Perform the following two steps to add the iLLD SDK drivers to the wolfBoot project:
+
+1. Extract the iLLD package for the TC375TP from `$SDK_ARCHIVE` into the `wolfBoot/IDE/AURIX/SDK` directory. The contents of the `wolfBoot/IDE/AURIX/SDK` directory should now be:
+
+```
+wolfBoot/IDE/AURIX/SDK
+├── Infra/
+├── Service/
+├── iLLD/
+└── placeholder.txt
+```
+
+2. Copy the SDK configuration sources from `$SDK_CONFIG` into the `wolfBoot/IDE/AURIX/Configurations` directory. The contents of the `wolfBoot/IDE/AURIX/Configurations` directory should now be:
+
+```
+wolfBoot/IDE/AURIX/Configurations/
+├── Debug
+├── Ifx_Cfg.h
+├── Ifx_Cfg_Ssw.c
+├── Ifx_Cfg_Ssw.h
+├── Ifx_Cfg_SswBmhd.c
+└── placeholder.txt
+```
 
 ### Build wolfBoot
 1. Generate the 'target.h` header file for the tc375 flash configuration
     1. Open a WSL terminal and navigate to `wolfBoot/tools/scripts/tc3xx`
     2. Run `./gen-tc3xx-target.sh`
-2. Create a new workspace directory, if you do not already have a workspace you wish to use
+2. Open the AURIX IDE and create a new workspace directory, if you do not already have a workspace you wish to use
 3. Import the wolfBoot project
     1. Click "File" -> Open Projects From File System"
     2. Click "Directory" to select an import source, and choose the wolfBoot/IDE/AURIX/wolfBoot-tc3xx directory in the system file explorer
@@ -129,3 +174,15 @@ wolfBoot and the demo applications are now loaded into flash, and core0 will be 
 To rerun the demo, simply rerun the loader script in Trace32 and repeat the above steps
 
 
+## Troubleshooting
+
+### WSL "bad interpreter" error 
+
+When running a shell script in WSL, you may see the following error:
+
+```
+$ ./gen-tc3xx-target.sh: 
+/bin/bash^M: bad interpreter: No such file or directory
+```
+
+This occurs because your local git repository is configured with the default `core.autocrlf true` configuration, meaning that git is checking out files with Windows-style CRLF line endings which the bash interpreter cannot handle. To fix this, you need to either configure git to not checkout windows line endings for shell scripts ([GitHub docs](https://docs.github.com/en/get-started/getting-started-with-git/configuring-git-to-handle-line-endings#about-line-endings)), or you can run the `dos2unix` (`sudo apt install dos2unix`) utility on the script before running it.

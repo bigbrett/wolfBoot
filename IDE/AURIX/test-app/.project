@@ -41,7 +41,7 @@
 		<link>
 			<name>Configurations</name>
 			<type>2</type>
-			<locationURI>ECLIPSE_HOME/build_system/bundled-artefacts-repo/project-initializer/tricore-tc3xx/1.12-13/ProjectTemplates/TC37A/TriCore/Configurations</locationURI>
+			<locationURI>SDK_CONFIGURATION_DIR</locationURI>
 		</link>
 		<link>
 			<name>Libraries</name>
@@ -50,6 +50,10 @@
 		</link>
 	</linkedResources>
 	<variableList>
+		<variable>
+			<name>SDK_CONFIGURATION_DIR</name>
+			<value>$%7BPARENT-1-PROJECT_LOC%7D/Configurations</value>
+		</variable>
 		<variable>
 			<name>SDK_DIR</name>
 			<value>$%7BPARENT-1-PROJECT_LOC%7D/SDK</value>
