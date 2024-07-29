@@ -294,6 +294,13 @@ Note: if you are using an external FLASH (e.g. SPI) in combination with a flash 
 By default, keys are directly incorporated in the firmware image. To store the keys in a separate, one-time programmable (OTP) flash memory, use the `FLASH_OTP_KEYSTORE=1` option.
 For more information, see [/docs/OTP-keystore.md](/docs/OTP-keystore.md).
 
+### Prefer multi-sector flash erase operations
+
+wolfBoot HAL flash erase function must be able to handle erase lengths larger than `WOLFBOOT_SECTOR_SIZE`, even if the underlying flash controller does not. However, in some cases, wolfBoot defaults to
+iterating over a range of flash sectors and erasing them one at a time. Setting the `FLASH_MULTI_SECTOR_ERASE=1` config option prevents this behavior when possible, configuring wolfBoot to instead prefer a
+single HAL flash erase invocation with a larger erase length versus the iterative approach. On targets where multi-sector erases are more performant, this option can be used to dramatically speed up the
+image swap procedure.
+
 ### Using Mac OS/X
 
 If you see 0xC3 0xBF (C3BF) repeated in your factory.bin then your OS is using Unicode characters.

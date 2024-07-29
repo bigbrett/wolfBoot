@@ -505,7 +505,9 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
     uint32_t up_v;
 #endif
     uint32_t cur_ver, upd_ver;
+#ifdef WOLFBOOT_FLASH_MULTI_SECTOR_ERASE
     size_t remainderBytes;
+#endif
 
     wolfBoot_printf("Staring Update (fallback allowed %d)\n", fallback_allowed);
 
@@ -662,6 +664,9 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
         }
     }
 
+#ifdef WOLFBOOT_FLASH_MULTI_SECTOR_ERASE
+/* Performant option: Erase remainder of flash sectors in one HAL command */
+
 #ifdef NVM_FLASH_WRITEONCE
    /* erase up until the start of the second-to-last sector for writeonce */
     remainderBytes =
@@ -673,6 +678,24 @@ static int RAMFUNCTION wolfBoot_update(int fallback_allowed)
 #endif
     wb_flash_erase(&boot, sector * sector_size, remainderBytes);
     wb_flash_erase(&update, sector * sector_size, remainderBytes);
+
+#else /* WOLFBOOT_FLASH_MULTI_SECTOR_ERASE */
+/* Smaller code size option: Iterate over every remaining sector and erase it
+ * individually. Required on some targets (stm32f4) to pass code size check */
+
+    /* erase to the last sector, writeonce has 2 sectors */
+    while((sector * sector_size) < WOLFBOOT_PARTITION_SIZE -
+        sector_size
+    #ifdef NVM_FLASH_WRITEONCE
+        * 2
+    #endif
+    ) {
+        wb_flash_erase(&boot, sector * sector_size, sector_size);
+        wb_flash_erase(&update, sector * sector_size, sector_size);
+        sector++;
+    }
+
+#endif /* !WOLFBOOT_FLASH_MULTI_SECTOR_ERASE */
 
     /* start re-entrant final erase, return code is only for resumption in
      * wolfBoot_start*/
