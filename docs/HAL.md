@@ -46,7 +46,7 @@ target's IAP interface. `address` is the offset from the beginning of the
 flash area, `data` is the payload to be stored in the flash using the IAP interface,
 and `len` is the size of the payload. Implementations of this function must be able to
 handle writes of any size and alignment. Targets with a minimum programmable size
-> 1 byte must implement the appropriate read-modify-write logic in order to enable
+\> 1 byte must implement the appropriate read-modify-write logic in order to enable
 wolfBoot to perform unaligned single-byte writes. `hal_flash_write` should return 0 upon
 success, or a negative value in case of failure.
 
