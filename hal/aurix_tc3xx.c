@@ -303,6 +303,30 @@ static void cacheSector(uint32_t sectorAddress, IfxFlash_FlashType type)
     }
 }
 
+#ifdef NVM_FLASH_WRITEONCE
+/*
+ * See Infineon-AURIX_TC3xx_Part1-UserManual-v02_00-EN Section 5.3.4.7.1 (5-95):
+ * CPUX FLASHCON1, pg 326
+ */
+void disableEcc(void)
+{
+    const size_t ECC_OFF = (0x1u);
+
+    Ifx_SCU_WDTCPU* cpuwdt = &MODULE_SCU.WDTCPU[(uint32)IfxCpu_getCoreIndex()];
+    uint16 endInitSafetyPassword = IfxScuWdt_getSafetyWatchdogPasswordInline();
+    uint16 endInitCpuPassword = IfxScuWdt_getCpuWatchdogPasswordInline(cpuwdt);
+
+    IfxScuWdt_clearSafetyEndinitInline(endInitSafetyPassword);
+    IfxScuWdt_clearCpuEndinitInline(cpuwdt, endInitCpuPassword);
+
+    CPU0_FLASHCON1.B.MASKUECC = ECC_OFF;
+    CPU1_FLASHCON1.B.MASKUECC = ECC_OFF;
+
+    IfxScuWdt_setSafetyEndinitInline(endInitSafetyPassword);
+    IfxScuWdt_setCpuEndinitInline(cpuwdt, endInitCpuPassword);
+}
+#endif /* NVM_FLASH_WRITEONCE */
+
 /* This function is called by the bootloader at the very beginning of the
  * execution. Ideally, the implementation provided configures the clock settings
  * for the target microcontroller, to ensure that it runs at at the required
@@ -310,6 +334,10 @@ static void cacheSector(uint32_t sectorAddress, IfxFlash_FlashType type)
  * the firmware images*/
 void hal_init(void)
 {
+#ifdef NVM_FLASH_WRITEONCE
+    disableEcc();
+#endif
+
 #ifdef WOLFBOOT_AURIX_GPIO_TIMING
     IfxPort_setPinModeOutput(&MODULE_P00,
                              LED_WOLFBOOT,
@@ -344,6 +372,11 @@ void hal_init(void)
  */
 int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t* data, int size)
 {
+#ifdef NVM_FLASH_WRITEONCE
+    const IfxFlash_FlashType type          = getFlashTypeFromAddr(address);
+    LED_ON(LED_PROG);
+    programBytesToErasedFlash(address, data, size, type);
+#else
     /* base address of containing sector (TODO what if size spans sectors?)
      */
     const uint32_t           sectorAddress = GET_SECTOR_ADDR(address);
@@ -391,7 +424,7 @@ int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t* data, int size)
         /* All affected pages are erased, program the data directly */
         programBytesToErasedFlash(address, data, size, type);
     }
-
+#endif
     LED_OFF(LED_PROG);
 
     return 0;

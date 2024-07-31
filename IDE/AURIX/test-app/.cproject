@@ -433,10 +433,11 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/${ProjName}/Libraries/iLLD/TC37A/Tricore/_PinMap}&quot;"/>
 								</option>
 								<option IS_BUILTIN_EMPTY="false" IS_VALUE_EMPTY="false" id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.option.preprocessor.def.symbols.1966698180" name="Defined symbols (-D)" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.option.preprocessor.def.symbols" useByScannerDiscovery="false" valueType="definedSymbols">
-									<listOptionValue builtIn="false" value="EXT_FLASH"/>
-									<listOptionValue builtIn="false" value="PART_BOOT_EXT"/>
-									<listOptionValue builtIn="false" value="PART_UPDATE_EXT"/>
-									<listOptionValue builtIn="false" value="PART_SWAP_EXT"/>
+									<listOptionValue builtIn="false" value="NVM_FLASH_WRITEONCE"/>
+									<listOptionValue builtIn="false" value="xxxEXT_FLASH"/>
+									<listOptionValue builtIn="false" value="xxxPART_BOOT_EXT"/>
+									<listOptionValue builtIn="false" value="xxxPART_UPDATE_EXT"/>
+									<listOptionValue builtIn="false" value="xxxPART_SWAP_EXT"/>
 								</option>
 								<inputType id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType.1480422611" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType"/>
 							</tool>

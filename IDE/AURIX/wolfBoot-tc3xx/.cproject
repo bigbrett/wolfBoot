@@ -319,7 +319,7 @@
 				<configuration artifactName="${ProjName}" buildArtefactType="com.infineon.aurix.buildsystem.managed.buildArtefactType.elf" buildProperties="org.eclipse.cdt.build.core.buildArtefactType=com.infineon.aurix.buildsystem.managed.buildArtefactType.elf,org.eclipse.cdt.build.core.buildType=org.eclipse.cdt.build.core.buildType.debug" description="" id="com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.401330509" name="TriCore Debug (GCC)" parent="com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug">
 					<folderInfo id="com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.401330509." name="/" resourcePath="">
 						<toolChain id="com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug.1484118021" name="GCC" superClass="com.infineon.aurix.buildsystem.managed.external.gcc.builtin.configuration.debug">
-							<option id="com.infineon.aurix.buildsystem.managed.gcc.c.option.mtc.570305100" name="Instruction set" superClass="com.infineon.aurix.buildsystem.managed.gcc.c.option.mtc" value="com.infineon.aurix.buildsystem.managed.gcc.c.option.mtc.mtc162" valueType="enumerated"/>
+							<option id="com.infineon.aurix.buildsystem.managed.gcc.c.option.mtc.570305100" name="Instruction set" superClass="com.infineon.aurix.buildsystem.managed.gcc.c.option.mtc"/>
 							<targetPlatform archList="all" binaryParser="org.eclipse.cdt.core.ELF" id="com.infineon.aurix.buildsystem.managed.gcc.targetPlatform.151573044" isAbstract="false" osList="all" superClass="com.infineon.aurix.buildsystem.managed.gcc.targetPlatform"/>
 							<builder buildPath="${workspace_loc:/wolfBoot-tc3xx}/TriCore Debug (GCC)" id="com.infineon.aurix.buildsystem.managed.gcc.builtin.builder.1718901406" keepEnvironmentInBuildfile="false" name="Gnu Make Builder" superClass="com.infineon.aurix.buildsystem.managed.gcc.builtin.builder"/>
 							<tool id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.24121577" name="AURIX GCC Compiler" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler">
@@ -489,11 +489,11 @@
 									<listOptionValue builtIn="false" value="WOLFBOOT_FLAGS_INVERT"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_AURIX_GPIO_TIMING"/>
 									<listOptionValue builtIn="false" value="WOLFSSL_USER_SETTINGS"/>
-									<listOptionValue builtIn="false" value="xxxNVM_FLASH_WRITEONCE"/>
-									<listOptionValue builtIn="false" value="EXT_FLASH"/>
-									<listOptionValue builtIn="false" value="PART_UPDATE_EXT"/>
-									<listOptionValue builtIn="false" value="PART_SWAP_EXT "/>
-									<listOptionValue builtIn="false" value="PART_BOOT_EXT"/>
+									<listOptionValue builtIn="false" value="NVM_FLASH_WRITEONCE"/>
+									<listOptionValue builtIn="false" value="xxxEXT_FLASH"/>
+									<listOptionValue builtIn="false" value="xxxPART_UPDATE_EXT"/>
+									<listOptionValue builtIn="false" value="xxxPART_SWAP_EXT "/>
+									<listOptionValue builtIn="false" value="xxxPART_BOOT_EXT"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_FLASH_MULTI_SECTOR_ERASE"/>
 								</option>
 								<inputType id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType.1768062788" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType"/>
