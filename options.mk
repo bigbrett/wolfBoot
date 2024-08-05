@@ -826,8 +826,18 @@ endif
 CFLAGS+=$(CFLAGS_EXTRA)
 OBJS:=$(OBJS_EXTRA) $(OBJS)
 
+
+# GCC: Warn about max stack if supported by the compiler port
 ifeq ($(USE_GCC_HEADLESS),1)
-  ifneq ($(ARCH),RENESAS_RX)
+  ifeq ($(ARCH),RENESAS_RX)
+    GCC_NO_WARN_STACK=1
+  else ifeq ($(ARCH),AURIX_TRICORE)
+    GCC_NO_WARN_STACK=1
+  else
+    GCC_NO_WARN_STACK=0
+  endif
+
+  ifneq ($(GCC_NO_WARN_STACK),1)
     CFLAGS+="-Wstack-usage=$(STACK_USAGE)"
   endif
 endif

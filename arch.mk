@@ -814,6 +814,53 @@ ifeq ($(TARGET),psoc6)
     endif
 endif
 
+
+# Infineon AURIX Tricore
+ifeq ($(ARCH), AURIX_TRICORE)
+    # Default to AURIX IDE provided tricore-gcc
+    CROSS_COMPILE?=tricore-
+    USE_GCC=1
+    # No asm for you!
+    MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.c
+
+    # TC3xx specific
+    ifeq ($(TARGET), aurix_tc3xx)
+		ARCH_FLASH_OFFSET=0xA0000000
+		
+        CFLAGS+=-fmessage-length=0 -fno-common -fstrict-volatile-bitfields -fdata-sections -ffunction-sections -mtc161 -std=c99
+		# We don't want NO_XIP so must define manually
+        CFLAGS+=-DPART_BOOT_EXT
+		# TODO: this might not be the right tricore architecture
+        LDFLAGS+=-Wl,--gc-sections -mtc161 -T./IDE/AURIX/wolfBoot-tc3xx/Lcf_Gnuc_Tricore_tc.lsl
+        # TODO: do we need to set LSCRIPT_IN=hal/$(TARGET).ld?
+
+        # Infineon HAL Includes
+        CFLAGS+=\
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Port/Std \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Cpu/Std \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Scu/Std \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Flash/Std \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Pms/Std/ \
+            -I$(AURIX_ILLD)/Infra/Platform \
+            -I$(AURIX_ILLD)/Infra/Sfr/TC37A/_Reg \
+            -I$(AURIX_ILLD)/Infra/Ssw/TC37A/Tricore \
+            -I$(AURIX_ILLD)/Service/CpuGeneric/
+
+        # Infineon HAL source code
+        OBJS+=\
+            $(AURIX_ILLD)/iLLD/TC37A/Tricore/Cpu/Std/Ifx_Cpu.c
+
+		# Infineon HAL configuration (TODO: include this in source code)
+        CFLAGS+=-I$(AURIX_ILLD_CONFIG)
+    endif
+
+    # TC4xx specific
+    ifeq ($(TARGET), tc4xx)
+		# stuff
+    endif
+endif
+
 ifeq ($(USE_GCC),1)
   ## Toolchain setup
   CC=$(CROSS_COMPILE)gcc
