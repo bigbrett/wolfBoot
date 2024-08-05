@@ -821,7 +821,7 @@ ifeq ($(ARCH), AURIX_TRICORE)
     CROSS_COMPILE?=tricore-
     USE_GCC=1
     # No asm for you!
-    MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.c
+    MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.o
 
     # TC3xx specific
     ifeq ($(TARGET), aurix_tc3xx)
