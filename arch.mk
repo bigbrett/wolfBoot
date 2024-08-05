@@ -831,7 +831,7 @@ ifeq ($(ARCH), AURIX_TRICORE)
 		# We don't want NO_XIP so must define manually
         CFLAGS+=-DPART_BOOT_EXT
 		# TODO: this might not be the right tricore architecture
-        LDFLAGS+=-Wl,--gc-sections -mtc161 -T./IDE/AURIX/wolfBoot-tc3xx/Lcf_Gnuc_Tricore_tc.lsl
+        LDFLAGS+=-Wl,--gc-sections -mtc161
         # TODO: do we need to set LSCRIPT_IN=hal/$(TARGET).ld?
 
         # Infineon HAL Includes
