@@ -224,10 +224,10 @@ static void RAMFUNCTION programCachedSector(uint32_t           sectorAddress,
 
 /* Programs unaligned input data to flash, assuming the underlying memory is
  * erased */
-void RAMFUNCTION programBytesToErasedFlash(uint32_t           address,
-                                           const uint8_t*     data,
-                                           int                size,
-                                           IfxFlash_FlashType type)
+static void RAMFUNCTION programBytesToErasedFlash(uint32_t           address,
+                                                  const uint8_t*     data,
+                                                  int                size,
+                                                  IfxFlash_FlashType type)
 {
     uint32_t pageBuffer[IFXFLASH_PFLASH_PAGE_LENGTH / sizeof(uint32_t)];
     uint32_t pageAddress;
@@ -240,8 +240,8 @@ void RAMFUNCTION programBytesToErasedFlash(uint32_t           address,
     while (size > 0) {
         /* Calculate the number of bytes to write in the current page */
         toWrite = IFXFLASH_PFLASH_PAGE_LENGTH - offset;
-        if (toWrite > size) {
-            toWrite = size;
+        if (toWrite > (uint32_t)size) {
+            toWrite = (uint32_t)size;
         }
 
         /* Fill the page buffer with the erased byte value */

@@ -836,20 +836,19 @@ ifeq ($(ARCH), AURIX_TRICORE)
 
         # Infineon HAL Includes
         CFLAGS+=\
-            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore \
-            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Port/Std \
-            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Cpu/Std \
-            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Scu/Std \
-            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Flash/Std \
-            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Pms/Std/ \
-            -I$(AURIX_ILLD)/Infra/Platform \
-            -I$(AURIX_ILLD)/Infra/Sfr/TC37A/_Reg \
-            -I$(AURIX_ILLD)/Infra/Ssw/TC37A/Tricore \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore            \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Port/Std   \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Cpu/Std    \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Scu/Std    \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Flash/Std  \
+            -I$(AURIX_ILLD)/iLLD/TC37A/Tricore/Pms/Std    \
+            -I$(AURIX_ILLD)/Infra/Platform                \
+            -I$(AURIX_ILLD)/Infra/Sfr/TC37A/_Reg          \
+            -I$(AURIX_ILLD)/Infra/Ssw/TC37A/Tricore       \
             -I$(AURIX_ILLD)/Service/CpuGeneric/
 
         # Infineon HAL source code
-        OBJS+=\
-            $(AURIX_ILLD)/iLLD/TC37A/Tricore/Cpu/Std/Ifx_Cpu.c
+        #OBJS+=\ $(AURIX_ILLD)/iLLD/TC37A/Tricore/Cpu/Std/IfxCpu.c
 
 		# Infineon HAL configuration (TODO: include this in source code)
         CFLAGS+=-I$(AURIX_ILLD_CONFIG)
