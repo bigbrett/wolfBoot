@@ -408,6 +408,11 @@ ifeq ($(TARGET),x86_fsp_qemu)
   LDFLAGS=
 endif
 
+ifeq ($(TARGET),aurix_tc3xx)
+  APP_OBJS:=app_$(TARGET).o ../hal/x86_uart.o ../src/x86/common.o ../src/string.o
+endif
+
+
 CFLAGS+=-I../lib/wolfssl
 
 

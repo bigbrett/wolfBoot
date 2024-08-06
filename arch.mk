@@ -845,13 +845,11 @@ ifeq ($(ARCH), AURIX_TRICORE)
             -I$(AURIX_ILLD)/Infra/Platform                \
             -I$(AURIX_ILLD)/Infra/Sfr/TC37A/_Reg          \
             -I$(AURIX_ILLD)/Infra/Ssw/TC37A/Tricore       \
-            -I$(AURIX_ILLD)/Service/CpuGeneric/
+            -I$(AURIX_ILLD)/Service/CpuGeneric            \
+            -I$(AURIX_ILLD)/Service/CpuGeneric/SysSe/Bsp
 
-        # Infineon HAL source code
-        #OBJS+=\ $(AURIX_ILLD)/iLLD/TC37A/Tricore/Cpu/Std/IfxCpu.c
-
-		# Infineon HAL configuration (TODO: include this in source code)
-        CFLAGS+=-I$(AURIX_ILLD_CONFIG)
+        # Infineon HAL configuration (TODO: include this in source code?)
+        CFLAGS+=-I$(WOLFBOOT_ROOT)/IDE/AURIX/Configurations
     endif
 
     # TC4xx specific
