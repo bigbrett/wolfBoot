@@ -420,7 +420,7 @@ endif
 CFLAGS+=-I../lib/wolfssl
 
 ifeq ($(WOLFHSM_CLIENT),1)
-  CFLAGS += -DWOLFSSL_USER_SETTINGS -I../lib/wolfssl
+  CFLAGS += -DWOLFSSL_USER_SETTINGS -DSTRING_USER -I../lib/wolfssl
   APP_OBJS += $(WOLFHSM_CLIENT_OBJS)
   # Add necessary wolfCrypt objects
   APP_OBJS += \
