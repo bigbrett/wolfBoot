@@ -56,6 +56,12 @@ uint32_t erasefail_address = 0xFFFFFFFF;
 char **main_argv;
 int main_argc;
 
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+int hal_hsm_init(void);
+int hal_hsm_connect(void);
+int hal_hsm_disconnect(void);
+#endif
+
 static int mmap_file(const char *path, uint8_t *address, uint8_t** ret_address)
 {
     struct stat st = { 0 };
@@ -180,6 +186,14 @@ void hal_init(void)
         else if (strcmp(main_argv[i], "emergency") == 0)
             forceEmergency = 1;
     }
+
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+    ret = hal_hsm_init();
+    if (ret != 0) {
+        fprintf(stderr, "Failed to initialize HSM HAL\n");
+        exit(-1);
+    }
+#endif
 }
 
 void ext_flash_lock(void)
@@ -352,6 +366,8 @@ int hal_hsm_init(void)
         fprintf(stderr, "Failed to initialize HSM client\n");
         exit(-1);
     }
+
+    return rc;
 }
 
 int hal_hsm_connect(void)
@@ -368,6 +384,7 @@ int hal_hsm_disconnect(void)
         fprintf(stderr, "Failed to cleanup HSM client\n");
         exit(-1);
     }
+    return rc;
 }
 
 #endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
