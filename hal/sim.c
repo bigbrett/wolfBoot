@@ -313,3 +313,61 @@ int wolfBoot_dualboot_candidate(void)
 {
     return 0;
 }
+
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+#include "wolfhsm/wh_error.h"
+#include "wolfhsm/wh_client.h"
+#include "port/posix/posix_transport_tcp.h"
+
+#define WH_SERVER_TCP_IPSTRING "127.0.0.1"
+#define WH_SERVER_TCP_PORT 23456
+#define WH_CLIENT_ID 12
+
+/* Client configuration/contexts */
+static whTransportClientCb            pttccb[1]      = {PTT_CLIENT_CB};
+static posixTransportTcpClientContext tcc[1]         = {};
+static posixTransportTcpConfig        mytcpconfig[1] = {{
+           .server_ip_string = WH_SERVER_TCP_IPSTRING,
+           .server_port      = WH_SERVER_TCP_PORT,
+}};
+
+static whCommClientConfig cc_conf[1] = {{
+    .transport_cb      = pttccb,
+    .transport_context = (void*)tcc,
+    .transport_config  = (void*)mytcpconfig,
+    .client_id         = WH_CLIENT_ID,
+}};
+static whClientConfig     c_conf[1]  = {{
+         .comm = cc_conf,
+}};
+
+static whClientContext hsmClientCtx = {0};
+
+int hal_hsm_init(void)
+{
+    int rc = 0;
+
+    rc = wh_Client_Init(&hsmClientCtx, c_conf);
+    if (rc != WH_ERROR_OK) {
+        fprintf(stderr, "Failed to initialize HSM client\n");
+        exit(-1);
+    }
+}
+
+int hal_hsm_connect(void)
+{
+    /* Invoke Comm_Init() or something with callbacks? */
+}
+
+int hal_hsm_disconnect(void)
+{
+    int rc = 0;
+
+    rc = wh_Client_Cleanup(&hsmClientCtx);
+    if (rc != WH_ERROR_OK) {
+        fprintf(stderr, "Failed to cleanup HSM client\n");
+        exit(-1);
+    }
+}
+
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */

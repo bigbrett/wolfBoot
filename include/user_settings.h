@@ -22,7 +22,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1335, USA
  */
-
 #ifndef _WOLFBOOT_USER_SETTINGS_H_
 #define _WOLFBOOT_USER_SETTINGS_H_
 
@@ -472,5 +471,11 @@ extern int tolower(int c);
 
 
 #endif /* WOLFBOOT_PKCS11_APP */
+
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+#define WOLFSSL_HASH_FLAGS
+#define WOLF_CRYPTO_CB
+#define HAVE_ANONYMOUS_INLINE_AGGREGATES 1
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
 
 #endif /* !_WOLFBOOT_USER_SETTINGS_H_ */

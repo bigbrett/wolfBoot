@@ -843,3 +843,23 @@ endif
 ifeq ($(SIGN_ALG),ext_LMS)
   SIGN_ALG=LMS
 endif
+
+# wolfHSM options
+ifeq ($(WOLFHSM_CLIENT),1)
+  LIBDIR := $(dir $(lastword $(MAKEFILE_LIST)))lib
+  #WOLFCRYPT_OBJS += ./lib/wolfssl/wolfcrypt/src/cryptocb.o
+  WOLFCRYPT_OBJS += $(LIBDIR)/wolfssl/wolfcrypt/src/cryptocb.o
+  WOLFHSM_CLIENT_OBJS += \
+    $(LIBDIR)/wolfHSM/src/wh_client.o \
+    $(LIBDIR)/wolfHSM/src/wh_client_nvm.o \
+    $(LIBDIR)/wolfHSM/src/wh_client_cryptocb.o \
+    $(LIBDIR)/wolfHSM/src/wh_utils.o \
+    $(LIBDIR)/wolfHSM/src/wh_comm.o \
+    $(LIBDIR)/wolfHSM/src/wh_message_comm.o \
+    $(LIBDIR)/wolfHSM/src/wh_message_nvm.o \
+    $(LIBDIR)/wolfHSM/src/wh_message_customcb.o
+  #includes
+  CFLAGS += -I"$(LIBDIR)/wolfHSM"
+  # defines
+  CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT
+endif

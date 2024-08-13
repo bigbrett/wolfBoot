@@ -138,6 +138,18 @@ int hal_flash_otp_read(uint32_t flashAddress, void* data, uint32_t length);
 
 #endif
 
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+#include "wolfhsm/wh_client.h" /* For devId access */
+
+extern whClientConfig  hsmClientCfg;
+extern whClientContext hsmClientCtx;
+
+/* Implementation of functions provided by HAL */
+int hal_hsm_init(void);
+int hal_hsm_connect(void);
+int hal_hsm_disconnect(void);
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
+
 #ifdef __cplusplus
 }
 #endif
