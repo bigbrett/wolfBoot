@@ -290,6 +290,7 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     int pubkey_sz = keystore_get_size(key_slot);
     word32 inOutIdx = 0;
     struct RsaKey rsa;
+    int devId = INVALID_DEVID;
 
     if (pubkey == NULL || pubkey_sz < 0) {
         return;
@@ -310,8 +311,13 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     }
     (void)digest_out;
 #else
+
+#if defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+    devId = WH_DEV_ID;
+#endif
+
     /* wolfCrypt software RSA verify */
-    ret = wc_InitRsaKey(&rsa, NULL);
+    ret = wc_InitRsaKey_ex(&rsa, NULL, devId);
     if (ret == 0) {
         /* Import public key */
         ret = wc_RsaPublicKeyDecode((byte*)pubkey, &inOutIdx, &rsa, pubkey_sz);
@@ -597,7 +603,11 @@ static int image_sha256(struct wolfBoot_image *img, uint8_t *hash)
     stored_sha_len = get_header(img, HDR_SHA256, &stored_sha);
     if (stored_sha_len != WOLFBOOT_SHA_DIGEST_SIZE)
         return -1;
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+    rc = wc_InitSha256_ex(&sha256_ctx, NULL, WH_DEV_ID);
+#else
     rc = wc_InitSha256(&sha256_ctx);
+#endif
     if (rc != 0)
         return -1;
     end_sha = stored_sha - (2 * sizeof(uint16_t)); /* Subtract 2 Type + 2 Len */

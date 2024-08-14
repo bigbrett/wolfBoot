@@ -291,7 +291,8 @@ extern int tolower(int c);
 #   define NO_PWDBASED
 #endif
 
-#if defined(WOLFBOOT_TPM_SEAL) && defined(WOLFBOOT_ATA_DISK_LOCK)
+#if (defined(WOLFBOOT_TPM_SEAL) && defined(WOLFBOOT_ATA_DISK_LOCK)) || \
+    defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
 #   define WOLFSSL_BASE64_ENCODE
 #else
 #   define NO_CODING
@@ -476,6 +477,7 @@ extern int tolower(int c);
 #define WOLFSSL_HASH_FLAGS
 #define WOLF_CRYPTO_CB
 #define HAVE_ANONYMOUS_INLINE_AGGREGATES 1
+#define WOLFSSL_KEY_GEN
 #endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
 
 #endif /* !_WOLFBOOT_USER_SETTINGS_H_ */

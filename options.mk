@@ -848,7 +848,10 @@ endif
 ifeq ($(WOLFHSM_CLIENT),1)
   LIBDIR := $(dir $(lastword $(MAKEFILE_LIST)))lib
   #WOLFCRYPT_OBJS += ./lib/wolfssl/wolfcrypt/src/cryptocb.o
-  WOLFCRYPT_OBJS += $(LIBDIR)/wolfssl/wolfcrypt/src/cryptocb.o
+  WOLFCRYPT_OBJS += \
+    $(LIBDIR)/wolfssl/wolfcrypt/src/cryptocb.o \
+    $(LIBDIR)/wolfssl/wolfcrypt/src/coding.o
+
   WOLFHSM_CLIENT_OBJS += \
     $(LIBDIR)/wolfHSM/src/wh_client.o \
     $(LIBDIR)/wolfHSM/src/wh_client_nvm.o \
@@ -861,5 +864,5 @@ ifeq ($(WOLFHSM_CLIENT),1)
   #includes
   CFLAGS += -I"$(LIBDIR)/wolfHSM"
   # defines
-  CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT
+  CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT -DDEBUG_CRYPTOCB_VERBOSE
 endif

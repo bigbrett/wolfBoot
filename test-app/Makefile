@@ -422,10 +422,12 @@ CFLAGS+=-I../lib/wolfssl
 ifeq ($(WOLFHSM_CLIENT),1)
   CFLAGS += -DWOLFSSL_USER_SETTINGS -DSTRING_USER -I../lib/wolfssl
   APP_OBJS += $(WOLFHSM_CLIENT_OBJS)
+  APP_OBJS += $(sort $(patsubst ./lib/wolfssl/%, ../lib/wolfssl/%, $(WOLFCRYPT_OBJS)))
+
   # Add necessary wolfCrypt objects
-  APP_OBJS += \
-    ../lib/wolfssl/wolfcrypt/src/cryptocb.o \
-    ../lib/wolfssl/wolfcrypt/src/wc_port.o
+#  APP_OBJS += \
+#    ../lib/wolfssl/wolfcrypt/src/cryptocb.o
+#    ../lib/wolfssl/wolfcrypt/src/wc_port.o
 endif
 
 
