@@ -290,7 +290,6 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     int pubkey_sz = keystore_get_size(key_slot);
     word32 inOutIdx = 0;
     struct RsaKey rsa;
-    int devId = INVALID_DEVID;
 
     if (pubkey == NULL || pubkey_sz < 0) {
         return;
@@ -310,14 +309,28 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
             wolfBoot_image_confirm_signature_ok(img);
     }
     (void)digest_out;
-#else
-
-#if defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
-    devId = WH_DEV_ID;
-#endif
-
+#elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
     /* wolfCrypt software RSA verify */
-    ret = wc_InitRsaKey_ex(&rsa, NULL, devId);
+    ret = wc_InitRsaKey_ex(&rsa, NULL, WH_DEV_ID);
+    if (ret != 0) {
+        printf("Failed to wc_InitRsaKey_ex %d\n", ret);
+        return;
+    }
+    ret = wh_Client_SetKeyIdRsa(&rsa, 0);
+    if (ret != 0) {
+        printf("Failed to wh_Client_SetKeyIdRsa %d\n", ret);
+        return;
+    }
+    /* Import public key */
+    ret = wc_RsaPublicKeyDecode((byte*)pubkey, &inOutIdx, &rsa, pubkey_sz);
+    if (ret >= 0) {
+        XMEMCPY(output, sig, IMAGE_SIGNATURE_SIZE);
+        RSA_VERIFY_FN(ret, wc_RsaSSL_VerifyInline, output, IMAGE_SIGNATURE_SIZE,
+                      &digest_out, &rsa);
+    }
+#else
+    /* wolfCrypt software RSA verify */
+    ret = wc_InitRsaKey(&rsa, NULL);
     if (ret == 0) {
         /* Import public key */
         ret = wc_RsaPublicKeyDecode((byte*)pubkey, &inOutIdx, &rsa, pubkey_sz);
