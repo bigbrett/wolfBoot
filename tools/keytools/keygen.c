@@ -114,6 +114,7 @@ static int saveAsDer = 1; /* For Renesas PKA default to save as DER/ASN.1 */
 #else
 static int saveAsDer = 0;
 #endif
+static int exportPubDer = 0;
 static WC_RNG rng;
 
 #ifndef KEYSLOT_MAX_PUBKEY_SIZE
@@ -269,7 +270,7 @@ static void usage(const char *pname) /* implies exit */
     printf("Usage: %s [--ed25519 | --ed448 | --ecc256 | --ecc384 "
            "| --ecc521 | --rsa2048 | --rsa3072 | --rsa4096 ] "
            "[-g privkey] [-i pubkey] [-keystoreDir dir] "
-           "[--id {list}] [--der]\n", pname);
+           "[--id {list}] [--der] [--exportpubkey] \n", pname);
     exit(125);
 }
 
@@ -342,6 +343,66 @@ static char *generated_keypairs[MAX_KEYPAIRS];
 static int generated_keypairs_type[MAX_KEYPAIRS];
 static uint32_t generated_keypairs_id_mask[MAX_KEYPAIRS];
 static int n_generated = 0;
+
+static char *append_pub_to_fname(const char *filename) {
+    const char pubSuffix[] = "_pub";
+    const size_t pubSuffixLength = strlen(pubSuffix);
+
+    const char *dotPosition = strchr(filename, '.');
+
+    size_t prefixLength;
+    if (dotPosition != NULL) {
+        prefixLength = dotPosition - filename;
+    } else {
+        prefixLength = strlen(filename);
+    }
+
+    size_t newFilenameLength = prefixLength + pubSuffixLength + (dotPosition ? strlen(dotPosition) : 0) + 1;
+
+    char *newFilename = (char *)malloc(newFilenameLength);
+    if (newFilename == NULL) {
+        return NULL;
+    }
+
+    /* Copy the prefix (part before the period) */
+    memcpy(newFilename, filename, prefixLength);
+
+    /* Append the suffix */
+    memcpy(newFilename + prefixLength, pubSuffix, pubSuffixLength);
+
+    /* Append the rest of the original filename if a period was found */
+    if (dotPosition != NULL) {
+        strcpy(newFilename + prefixLength + pubSuffixLength, dotPosition);
+    } else {
+        newFilename[prefixLength + pubSuffixLength] = '\0'; /* Null-terminate the string if no period */
+    }
+
+    return newFilename;
+}
+
+static int export_pubkey_file(const char *keyfile, uint8_t *pubDer, size_t pubLen)
+{
+    FILE *fpub;
+    char *fname;
+
+    fname = append_pub_to_fname(keyfile);
+    if (fname == NULL) {
+        return -1;
+    }
+
+    fpub = fopen(fname, "wb");
+    if (fpub == NULL) {
+        fprintf(stderr, "Unable to open file '%s' for writing: %s",
+                fname, strerror(errno));
+        free(fname);
+        return -1;
+    }
+    fwrite(pubDer, pubLen, 1, fpub);
+    fclose(fpub);
+    free(fname);
+
+    return 0;
+}
 
 static uint32_t get_pubkey_size(uint32_t keyType)
 {
@@ -452,6 +513,13 @@ static void keygen_rsa(const char *keyfile, int kbits, uint32_t id_mask)
     fwrite(priv_der, privlen, 1, fpriv);
     fclose(fpriv);
 
+    if (exportPubDer) {
+        if (export_pubkey_file(keyfile, pub_der, publen) != 0) {
+            fprintf(stderr, "Unable to export public key to file\n");
+            exit(5);
+        }
+    }
+
     if (kbits == 2048)
         keystore_add(KEYGEN_RSA2048, pub_der, publen, keyfile, id_mask);
     else if (kbits == 3072)
@@ -526,6 +594,22 @@ static void keygen_ecc(const char *priv_fname, uint16_t ecc_key_size,
     }
     fclose(fpriv);
 
+    /* TODO: Is this correct? */
+    if (exportPubDer) {
+        /* Reuse priv_der buffer for public key */
+        memset(priv_der, 0, sizeof(priv_der));
+        ret = wc_EccPublicKeyToDer(&k, priv_der, (word32)sizeof(priv_der), 1);
+        if (ret != 0) {
+            fprintf(stderr, "Unable to export public key to DER, ret=%d\n",
+                    ret);
+            exit(4);
+        }
+        if (export_pubkey_file(priv_fname, priv_der, qxsize + qysize) != 0) {
+            fprintf(stderr, "Unable to export public key to file\n");
+            exit(4);
+        }
+    }
+
     memcpy(k_buffer,                Qx, ecc_key_size);
     memcpy(k_buffer + ecc_key_size, Qy, ecc_key_size);
 
@@ -566,6 +650,14 @@ static void keygen_ed25519(const char *privkey, uint32_t id_mask)
     fwrite(priv, 32, 1, fpriv);
     fwrite(pub, 32, 1, fpriv);
     fclose(fpriv);
+
+    if (exportPubDer) {
+        if (export_pubkey_file(privkey, pub, ED25519_PUB_KEY_SIZE) != 0) {
+            fprintf(stderr, "Unable to export public key to file\n");
+            exit(4);
+        }
+    }
+
     keystore_add(KEYGEN_ED25519, pub, ED25519_PUB_KEY_SIZE, privkey, id_mask);
 }
 #endif
@@ -597,6 +689,14 @@ static void keygen_ed448(const char *privkey, uint32_t id_mask)
     fwrite(priv, ED448_KEY_SIZE, 1, fpriv);
     fwrite(pub, ED448_PUB_KEY_SIZE, 1, fpriv);
     fclose(fpriv);
+
+    if (exportPubDer) {
+        if (export_pubkey_file(privkey, pub, ED448_PUB_KEY_SIZE) != 0) {
+            fprintf(stderr, "Unable to export public key to file\n");
+            exit(4);
+        }
+    }
+
     keystore_add(KEYGEN_ED448, pub, ED448_PUB_KEY_SIZE, privkey, id_mask);
 }
 #endif
@@ -676,6 +776,13 @@ static void keygen_lms(const char *priv_fname, uint32_t id_mask)
     fseek(fpriv, 64, SEEK_SET);
     fwrite(lms_pub, KEYSTORE_PUBKEY_SIZE_LMS, 1, fpriv);
     fclose(fpriv);
+
+    if (exportPubDer) {
+        if (export_pubkey_file(priv_fname, lms_pub, KEYSTORE_PUBKEY_SIZE_LMS) != 0) {
+            fprintf(stderr, "Unable to export public key to file\n");
+            exit(1);
+        }
+    }
 
     keystore_add(KEYGEN_LMS, lms_pub, KEYSTORE_PUBKEY_SIZE_LMS, priv_fname, id_mask);
 
@@ -766,6 +873,14 @@ static void keygen_xmss(const char *priv_fname, uint32_t id_mask)
     fseek(fpriv, priv_sz, SEEK_SET);
     fwrite(xmss_pub, KEYSTORE_PUBKEY_SIZE_XMSS, 1, fpriv);
     fclose(fpriv);
+
+    if (exportPubDer) {
+        if (export_pubkey_file(priv_fname, pub, KEYSTORE_PUBKEY_SIZE_XMSS) != 0) {
+            fprintf(stderr, "Unable to export public key to file\n");
+            exit(1);
+        }
+    }
+
 
     keystore_add(KEYGEN_XMSS, xmss_pub, KEYSTORE_PUBKEY_SIZE_XMSS, priv_fname, id_mask);
 
@@ -1024,6 +1139,11 @@ int main(int argc, char** argv)
             generated_keypairs_type[n_generated] = keytype;
             generated_keypairs_id_mask[n_generated] = part_id_mask;
             n_generated++;
+            continue;
+        }
+        else if (strcmp(argv[i], "--exportpubkey") == 0) {
+            key_gen_check(argv[i + 1]);
+            exportPubDer = 1;
             continue;
         }
         else if (strcmp(argv[i], "-i") == 0) {

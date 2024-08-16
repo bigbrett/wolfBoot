@@ -864,5 +864,7 @@ ifeq ($(WOLFHSM_CLIENT),1)
   #includes
   CFLAGS += -I"$(LIBDIR)/wolfHSM"
   # defines
-  CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT -DDEBUG_CRYPTOCB_VERBOSE
+  CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT -DDEBUG_CRYPTOCB_VERBOSE -DDEBUG_CRYPTOCB
+  # Make sure we dump public generated keys to der
+  KEYGEN_OPTIONS += --exportpubkey
 endif
