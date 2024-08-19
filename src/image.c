@@ -182,9 +182,12 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     defined(WOLFBOOT_RENESAS_TSIP) || \
     defined(WOLFBOOT_RENESAS_RSIP)
     ret = wc_ecc_init_ex(&ecc, NULL, RENESAS_DEVID);
+#elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+    ret = wc_ecc_init_ex(&ecc, NULL, WH_DEV_ID);
 #else
     ret = wc_ecc_init(&ecc);
 #endif
+
     if (ret == 0) {
     #if defined(WOLFBOOT_RENESAS_SCEPROTECT) || \
         defined(WOLFBOOT_RENESAS_TSIP) || \
@@ -200,7 +203,51 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
         VERIFY_FN(img, &verify_res, wc_ecc_verify_hash,
             sig, IMAGE_SIGNATURE_SIZE,
             img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, &verify_res, &ecc)
-    #else
+    #elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+        whKeyId hsmKeyId = 0;
+        uint8_t tmpSigBuf[ECC_MAX_SIG_SIZE] = {0};
+        size_t tmpSigSz = sizeof(tmpSigBuf);
+
+        ret = wc_ecc_import_unsigned(&ecc, pubkey, pubkey + point_sz, NULL,
+                                     ECC_KEY_TYPE);
+        if (ret != 0) {
+            return;
+        }
+
+        /* Cache the public key on the server */
+        /* cache the key in the HSM, get HSM assigned keyId */
+        ret = wh_Client_KeyCache(&hsmClientCtx, 0, NULL, 0, pubkey, pubkey_sz,
+                                 &hsmKeyId);
+        if (ret != 0) {
+            return;
+        }
+        ret = wh_Client_SetKeyIdEcc(&ecc, hsmKeyId);
+        if (ret != 0) {
+            return;
+        }
+
+        /* Convert the signature r/s to DER format that the HSM server will
+         * understand */
+        mp_init(&r);
+        mp_init(&s);
+        mp_read_unsigned_bin(&r, sig, point_sz);
+        mp_read_unsigned_bin(&s, sig + point_sz, point_sz);
+        uint32_t rSz = mp_unsigned_bin_size(&r);
+        uint32_t sSz = mp_unsigned_bin_size(&s);
+        ret          = wc_ecc_rs_raw_to_sig(sig, rSz, &sig[point_sz], sSz,
+                                            (byte*)&tmpSigBuf, (word32*)&tmpSigSz);
+        if (ret != 0) {
+            printf("Failed to wc_ecc_rs_to_sig %d\n", ret);
+            return;
+        }
+
+        /* Verify the (temporary) DER representation of the signature */
+        if (ret == 0 && ecc.type == ECC_PUBLICKEY) {
+            VERIFY_FN(img, &verify_res, wc_ecc_verify_hash, tmpSigBuf, tmpSigSz,
+                      img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, &verify_res,
+                      &ecc);
+        }
+#else
         /* Import public key */
         ret = wc_ecc_import_unsigned(&ecc, pubkey, pubkey + point_sz, NULL,
             ECC_KEY_TYPE);
@@ -213,7 +260,7 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
             VERIFY_FN(img, &verify_res, wc_ecc_verify_hash_ex, &r, &s,
                 img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, &verify_res, &ecc);
         }
-    #endif
+#endif
     }
     wc_ecc_free(&ecc);
 }

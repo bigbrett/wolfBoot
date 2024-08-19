@@ -367,7 +367,7 @@ extern int tolower(int c);
 #   define NO_DEV_RANDOM
 #   define NO_ECC_KEY_EXPORT
 #   if defined(NO_RSA) && !defined(WOLFSSL_HAVE_XMSS) && \
-       !defined(WOLFSSL_HAVE_LMS)
+       !defined(WOLFSSL_HAVE_LMS) && !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
 #       define NO_ASN
 #   endif
 #endif

@@ -599,7 +599,7 @@ static void keygen_ecc(const char *priv_fname, uint16_t ecc_key_size,
         /* Reuse priv_der buffer for public key */
         memset(priv_der, 0, sizeof(priv_der));
         ret = wc_EccPublicKeyToDer(&k, priv_der, (word32)sizeof(priv_der), 1);
-        if (ret != 0) {
+        if (ret < 0) {
             fprintf(stderr, "Unable to export public key to DER, ret=%d\n",
                     ret);
             exit(4);
