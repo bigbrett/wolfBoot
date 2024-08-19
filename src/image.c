@@ -206,13 +206,7 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     #elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
         whKeyId hsmKeyId = 0;
         uint8_t tmpSigBuf[ECC_MAX_SIG_SIZE] = {0};
-        size_t tmpSigSz = sizeof(tmpSigBuf);
-
-        ret = wc_ecc_import_unsigned(&ecc, pubkey, pubkey + point_sz, NULL,
-                                     ECC_KEY_TYPE);
-        if (ret != 0) {
-            return;
-        }
+        size_t  tmpSigSz                    = sizeof(tmpSigBuf);
 
         /* Cache the public key on the server */
         /* cache the key in the HSM, get HSM assigned keyId */
@@ -237,12 +231,11 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
         ret          = wc_ecc_rs_raw_to_sig(sig, rSz, &sig[point_sz], sSz,
                                             (byte*)&tmpSigBuf, (word32*)&tmpSigSz);
         if (ret != 0) {
-            printf("Failed to wc_ecc_rs_to_sig %d\n", ret);
             return;
         }
 
         /* Verify the (temporary) DER representation of the signature */
-        if (ret == 0 && ecc.type == ECC_PUBLICKEY) {
+        if (ret == 0) {
             VERIFY_FN(img, &verify_res, wc_ecc_verify_hash, tmpSigBuf, tmpSigSz,
                       img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, &verify_res,
                       &ecc);
