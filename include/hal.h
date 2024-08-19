@@ -139,10 +139,17 @@ int hal_flash_otp_read(uint32_t flashAddress, void* data, uint32_t length);
 #endif
 
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+/* TODO: most of this should be moved to its own HSM shim header */
+
 #include "wolfhsm/wh_client.h" /* For devId access */
 
 extern whClientConfig  hsmClientCfg;
 extern whClientContext hsmClientCtx;
+
+#ifndef WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID
+/* TODO: this is just the first key based on the client ID used (12) */
+#define WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID 7169
+#endif
 
 /* Implementation of functions provided by HAL */
 int hal_hsm_init(void);

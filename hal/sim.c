@@ -355,7 +355,7 @@ static whClientConfig     c_conf[1]  = {{
          .comm = cc_conf,
 }};
 
-static whClientContext hsmClientCtx = {0};
+whClientContext hsmClientCtx = {0};
 
 int hal_hsm_init(void)
 {

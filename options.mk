@@ -867,4 +867,7 @@ ifeq ($(WOLFHSM_CLIENT),1)
   CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT -DDEBUG_CRYPTOCB_VERBOSE -DDEBUG_CRYPTOCB
   # Make sure we dump public generated keys to der
   KEYGEN_OPTIONS += --exportpubkey
+  # Define KeyIDs (TODO: should be defined in wolfBoot header, or maybe even
+  # Reserverd in wolfHSM?)
+  CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
 endif
