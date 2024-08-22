@@ -869,5 +869,5 @@ ifeq ($(WOLFHSM_CLIENT),1)
   KEYGEN_OPTIONS += --exportpubkey
   # Define KeyIDs (TODO: should be defined in wolfBoot header, or maybe even
   # Reserverd in wolfHSM?)
-  CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
+  #CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
 endif

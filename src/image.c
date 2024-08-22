@@ -203,11 +203,20 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
         VERIFY_FN(img, &verify_res, wc_ecc_verify_hash,
             sig, IMAGE_SIGNATURE_SIZE,
             img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, &verify_res, &ecc)
+
     #elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
-        whKeyId hsmKeyId = 0;
+
         uint8_t tmpSigBuf[ECC_MAX_SIG_SIZE] = {0};
         size_t  tmpSigSz                    = sizeof(tmpSigBuf);
 
+    #if defined(WOLFBOOT_USE_WOLFHSM_PUBKEY_ID)
+        /* Use the public key ID to verify the signature */
+        ret = wh_Client_SetKeyIdEcc(&ecc, WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID);
+        if (ret != 0) {
+            return;
+        }
+    #else
+        whKeyId hsmKeyId = 0;
         /* Cache the public key on the server */
         /* cache the key in the HSM, get HSM assigned keyId */
         ret = wh_Client_KeyCache(&hsmClientCtx, 0, NULL, 0, pubkey, pubkey_sz,
@@ -219,7 +228,7 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
         if (ret != 0) {
             return;
         }
-
+    #endif /* !WOLFBOOT_USE_WOLFHSM_PUBKEY_ID */
         /* Convert the signature r/s to DER format that the HSM server will
          * understand */
         mp_init(&r);
@@ -353,14 +362,12 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     /* wolfCrypt software RSA verify */
     ret = wc_InitRsaKey_ex(&rsa, NULL, WH_DEV_ID);
     if (ret != 0) {
-        printf("Failed to wc_InitRsaKey_ex %d\n", ret);
         return;
     }
 #if defined(WOLFBOOT_USE_WOLFHSM_PUBKEY_ID)
     /* public key is stored on server at WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID */
     ret = wh_Client_SetKeyIdRsa(&rsa, WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID);
     if (ret != 0) {
-        printf("Failed to wh_Client_SetKeyIdRsa %d\n", ret);
         return;
     }
 #else
@@ -368,20 +375,17 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     /* Import public key from the keystore */
     ret = wc_RsaPublicKeyDecode((byte*)pubkey, &inOutIdx, &rsa, pubkey_sz);
     if (ret != 0) {
-        printf("Failed to wc_RsaPublicKeyDecode %d\n", ret);
         return;
     }
     /* Cache the public key on the server */
     /* cache the key in the HSM, get HSM assigned keyId */
     ret = wh_Client_KeyCache(&hsmClientCtx, 0, NULL, 0, pubkey, pubkey_sz, &hsmKeyId);
     if (ret != 0) {
-        printf("Failed to wh_Client_KeyCache %d\n", ret);
         return;
     }
     /* Set the keyId */
     ret = wh_Client_SetKeyIdRsa(&rsa, hsmKeyId);
     if (ret != 0) {
-        printf("Failed to wh_Client_SetKeyIdRsa %d\n", ret);
         return;
     }
 #endif /* !WOLFBOOT_USE_WOLFHSM_PUBKEY_ID */

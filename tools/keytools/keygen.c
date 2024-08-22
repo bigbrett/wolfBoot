@@ -573,8 +573,6 @@ static void keygen_ecc(const char *priv_fname, uint16_t ecc_key_size,
         exit(3);
     }
 
-    wc_ecc_free(&k);
-
     fpriv = fopen(priv_fname, "wb");
     if (fpriv == NULL) {
         fprintf(stderr, "Unable to open file '%s' for writing: %s", priv_fname,
@@ -596,19 +594,31 @@ static void keygen_ecc(const char *priv_fname, uint16_t ecc_key_size,
 
     /* TODO: Is this correct? */
     if (exportPubDer) {
+        int pubDerLen;
         /* Reuse priv_der buffer for public key */
         memset(priv_der, 0, sizeof(priv_der));
-        ret = wc_EccPublicKeyToDer(&k, priv_der, (word32)sizeof(priv_der), 1);
+
+#if 1
+        memcpy(priv_der, Qx, qxsize);
+        memcpy(priv_der + qxsize, Qy, qysize);
+        pubDerLen = qxsize + qysize;
+#else
+        /* If you want public key exported as a DER file and not as RAW point */
+        pubDerLen = ret = wc_EccPublicKeyToDer(&k, priv_der, (word32)sizeof(priv_der), 1);
+#endif
         if (ret < 0) {
             fprintf(stderr, "Unable to export public key to DER, ret=%d\n",
                     ret);
             exit(4);
         }
-        if (export_pubkey_file(priv_fname, priv_der, qxsize + qysize) != 0) {
+        if (export_pubkey_file(priv_fname, priv_der, pubDerLen) != 0) {
             fprintf(stderr, "Unable to export public key to file\n");
             exit(4);
         }
+        ret = 0;
     }
+
+    wc_ecc_free(&k);
 
     memcpy(k_buffer,                Qx, ecc_key_size);
     memcpy(k_buffer + ecc_key_size, Qy, ecc_key_size);
