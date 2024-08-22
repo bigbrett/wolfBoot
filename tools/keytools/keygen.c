@@ -114,7 +114,7 @@ static int saveAsDer = 1; /* For Renesas PKA default to save as DER/ASN.1 */
 #else
 static int saveAsDer = 0;
 #endif
-static int exportPubDer = 0;
+static int exportPubKey = 0;
 static WC_RNG rng;
 
 #ifndef KEYSLOT_MAX_PUBKEY_SIZE
@@ -513,7 +513,7 @@ static void keygen_rsa(const char *keyfile, int kbits, uint32_t id_mask)
     fwrite(priv_der, privlen, 1, fpriv);
     fclose(fpriv);
 
-    if (exportPubDer) {
+    if (exportPubKey) {
         if (export_pubkey_file(keyfile, pub_der, publen) != 0) {
             fprintf(stderr, "Unable to export public key to file\n");
             exit(5);
@@ -592,26 +592,28 @@ static void keygen_ecc(const char *priv_fname, uint16_t ecc_key_size,
     }
     fclose(fpriv);
 
-    /* TODO: Is this correct? */
-    if (exportPubDer) {
-        int pubDerLen;
+    if (exportPubKey) {
+        int pubOutLen;
         /* Reuse priv_der buffer for public key */
         memset(priv_der, 0, sizeof(priv_der));
 
-#if 1
-        memcpy(priv_der, Qx, qxsize);
-        memcpy(priv_der + qxsize, Qy, qysize);
-        pubDerLen = qxsize + qysize;
-#else
-        /* If you want public key exported as a DER file and not as RAW point */
-        pubDerLen = ret = wc_EccPublicKeyToDer(&k, priv_der, (word32)sizeof(priv_der), 1);
-#endif
+        if (saveAsDer) {
+            /* If you want public key also exported as a DER file and not as RAW
+             * point. Note that this will break compatibility with wolfHSM */
+            pubOutLen = ret =
+                wc_EccPublicKeyToDer(&k, priv_der, (word32)sizeof(priv_der), 1);
+        }
+        else {
+            memcpy(priv_der, Qx, qxsize);
+            memcpy(priv_der + qxsize, Qy, qysize);
+            pubOutLen = qxsize + qysize;
+        }
         if (ret < 0) {
             fprintf(stderr, "Unable to export public key to DER, ret=%d\n",
                     ret);
             exit(4);
         }
-        if (export_pubkey_file(priv_fname, priv_der, pubDerLen) != 0) {
+        if (export_pubkey_file(priv_fname, priv_der, pubOutLen) != 0) {
             fprintf(stderr, "Unable to export public key to file\n");
             exit(4);
         }
@@ -661,7 +663,7 @@ static void keygen_ed25519(const char *privkey, uint32_t id_mask)
     fwrite(pub, 32, 1, fpriv);
     fclose(fpriv);
 
-    if (exportPubDer) {
+    if (exportPubKey) {
         if (export_pubkey_file(privkey, pub, ED25519_PUB_KEY_SIZE) != 0) {
             fprintf(stderr, "Unable to export public key to file\n");
             exit(4);
@@ -700,7 +702,7 @@ static void keygen_ed448(const char *privkey, uint32_t id_mask)
     fwrite(pub, ED448_PUB_KEY_SIZE, 1, fpriv);
     fclose(fpriv);
 
-    if (exportPubDer) {
+    if (exportPubKey) {
         if (export_pubkey_file(privkey, pub, ED448_PUB_KEY_SIZE) != 0) {
             fprintf(stderr, "Unable to export public key to file\n");
             exit(4);
@@ -787,7 +789,7 @@ static void keygen_lms(const char *priv_fname, uint32_t id_mask)
     fwrite(lms_pub, KEYSTORE_PUBKEY_SIZE_LMS, 1, fpriv);
     fclose(fpriv);
 
-    if (exportPubDer) {
+    if (exportPubKey) {
         if (export_pubkey_file(priv_fname, lms_pub, KEYSTORE_PUBKEY_SIZE_LMS) != 0) {
             fprintf(stderr, "Unable to export public key to file\n");
             exit(1);
@@ -884,7 +886,7 @@ static void keygen_xmss(const char *priv_fname, uint32_t id_mask)
     fwrite(xmss_pub, KEYSTORE_PUBKEY_SIZE_XMSS, 1, fpriv);
     fclose(fpriv);
 
-    if (exportPubDer) {
+    if (exportPubKey) {
         if (export_pubkey_file(priv_fname, pub, KEYSTORE_PUBKEY_SIZE_XMSS) != 0) {
             fprintf(stderr, "Unable to export public key to file\n");
             exit(1);
@@ -1153,7 +1155,7 @@ int main(int argc, char** argv)
         }
         else if (strcmp(argv[i], "--exportpubkey") == 0) {
             key_gen_check(argv[i + 1]);
-            exportPubDer = 1;
+            exportPubKey = 1;
             continue;
         }
         else if (strcmp(argv[i], "-i") == 0) {

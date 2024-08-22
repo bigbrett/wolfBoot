@@ -1,6 +1,5 @@
 - TODO:
 
-- In keytools, remove `#if 0` for ECC der public key output (or change that to default) pending how wolfHSM expects ECC keys to be formatted
 - In wolfHSM server, remove `#if 0` for ECC der public key input from cache, pending above
 ```
 diff --git a/src/wh_server_crypto.c b/src/wh_server_crypto.c
