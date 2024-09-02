@@ -63,7 +63,7 @@ LCF_HEAP1_OFFSET =   (LCF_USTACK1_OFFSET - LCF_HEAP_SIZE);
 LCF_HEAP2_OFFSET =   (LCF_USTACK2_OFFSET - LCF_HEAP_SIZE);
 
 
-LCF_CODE_BASE_ADDR = 0xA0000000;
+LCF_CODE_BASE_ADDR = 0xA00A0000;
 
 LCF_START_CODE_SIZE = 0x20; /* space reserved for .start sections (per-cpu) */
 LCF_TRAPVEC_OFFSET = 0x100; /* size/alignment of trap table (also offset from base to first trap table) */
@@ -104,9 +104,9 @@ MEMORY
 
     psram_local (w!xp): org = 0xc0000000, len = 64K
 
-    pfls0 (rx!p): org    = 0x80000000, len = 128K   /* 0x2_0000 : wolfBoot */
-    pfls0_nc (rx!p): org = 0xa0000000, len = 128K   /* 0x2_0000 : wolfBoot */
-    pfls0_swap (rwx!p): org = 0x80020000, len = 16K /* 0x4_000  : Swap sector */
+    pfls0 (rx!p): org    = 0x800A0000, len = 128K   /* 0x2_0000 : wolfBoot */
+    pfls0_nc (rx!p): org = 0xa00A0000, len = 128K   /* 0x2_0000 : wolfBoot */
+    pfls0_swap (rwx!p): org = 0x800C0000, len = 16K /* 0x4_000  : Swap sector */
 
     /* reserved for wolfBoot BOOT partition */
     pfls1_boot (rwx!p):    org = 0x80300000, len = 0x180000 /* 1.5MiB */

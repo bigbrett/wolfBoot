@@ -6,7 +6,7 @@ The example contains two projects: `wolfBoot-tc3xx` and `test-app`. The `wolfBoo
 
 ## Important notes
 
-- In the TC375 UCBs, BMDHx.STAD must point to the wolfBoot entrypoint `0xA000_0000`. This is the default value of the TC375 and so need not be changed unless it has already been modified or you wish to rearrange the memory map.
+- In the TC375 UCBs, BMDHx.STAD must point to the wolfBoot entrypoint `0xA00A_0000`. You can modify this in the `UCB` section of the TRACE32 IDE. Note you must also set  Please refer to the TRACE32 manual and the TC37xx user manual for more information on the UCBs.
 - Because TC3xx PFLASH ECC prevents reading from erased flash, the `EXT_FLASH` option is used to redirect flash reads to the `ext_flash_read()` HAL API, where the flash pages requested to be read can be blank-checked by hardware before reading.
 - TC3xx PFLASH is write-once (`NVM_FLASH_WRITEONCE`), however wolfBoot `NVM_FLASH_WRITEONCE` does not support `EXT_FLASH`. Therefore the write-once functionality is re-implemented in the `HAL` layer.
 - This demo app is only compatible with the GCC toolchain build configurations shipped with the AURIX IDE. The TASKING compiler build configurations are not yet supported.
@@ -18,9 +18,9 @@ The TC3xx AURIX port of wolfBoot places all images in PFLASH, and uses both PFLA
 ```
 +==========+
 | PFLASH0  |
-+==========+ <-- 0x8000_0000
++==========+ <-- 0x800A_0000
 | wolfBoot |        128K
-+----------+ <-- 0x8002_0000
++----------+ <-- 0x800C_0000
 | SWAP     |        16K
 +----------+ <-- 0x8002_4000
 | Unused   |        ~2.86M
@@ -157,13 +157,32 @@ Signing the digest...
 Output image(s) successfully created.
 ```
 
-### Load and run the wolfBoot demo
+### Connect the Lauterbach to the TC375 Device in TRACE32
 
-1. Load wolfBoot and the firmware application images to the tc3xx device using Trace32 and a Lauterbach probe
-    1. Ensure the Lauterbach probe is connected to the debug port of the tc375 LiteKit
-    2. Open Trace32 Power View for Tricore
-    3. Open the SYStem menu and click "DETECT" to detect the tc375 device. Click "CONTINUE" in the pop-up window, and then choose "Set TC375xx" when the device is detected
-    4. Click "File" -> "ChangeDir and Run Script" and choose the `wolfBoot/tools/scripts/tc3xx/wolfBoot-loadAll-$BUILD.cmm` script, where $BUILD should be either "debug" or "release" depending on your build type in (4) and (6).
+1. Ensure the Lauterbach probe is connected to the debug port of the tc375 LiteKit
+2. Open Trace32 Power View for Tricore
+3. Open the SYStem menu and click "DETECT" to detect the tc375 device. Click "CONTINUE" in the pop-up window, and then choose "Set TC375xx" when the device is detected
+
+### Update the start address in UCBs using TRACE32
+
+The default Boot Mode Header (BMHD) start address on a new TC375 `0xA0000000` but the wolfBoot application has a start address of `0xA00A0000`. We must therefore update the BMHD UCBs with the correct entry point such that it can boot wolfBoot out of reset.
+
+1. Select the TC37x dropdown menu and click UCBs
+2. Expand `BMHD0_COPY`
+3. Click "Edit"
+4. Set the `STAD` to `0xA00A0000`
+5. Click "Update" to recompute the CRC
+6. Click "Check" to verify the new CRC
+7. Click "Write" to update the UCB in flash
+8. Perform the same operations (2-7) on the `BMHD0_ORIG` UCB
+
+The device is now configured to boot from `0xA00A0000` out of reset.
+
+### Load and run the wolfBoot demo in TRACE32
+
+We can now load wolfBoot and the firmware application images to the tc3xx device using Trace32 and a Lauterbach probe
+
+1. Click "File" -> "ChangeDir and Run Script" and choose the `wolfBoot/tools/scripts/tc3xx/wolfBoot-loadAll-$BUILD.cmm` script, where $BUILD should be either "debug" or "release" depending on your build type in (4) and (6).
 
 wolfBoot and the demo applications are now loaded into flash, and core0 will be halted at the wolfBoot entry point (`core0_main()`).
 
@@ -176,12 +195,12 @@ To rerun the demo, simply rerun the loader script in Trace32 and repeat the abov
 
 ## Troubleshooting
 
-### WSL "bad interpreter" error 
+### WSL "bad interpreter" error
 
 When running a shell script in WSL, you may see the following error:
 
 ```
-$ ./gen-tc3xx-target.sh: 
+$ ./gen-tc3xx-target.sh:
 /bin/bash^M: bad interpreter: No such file or directory
 ```
 
