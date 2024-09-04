@@ -856,6 +856,8 @@ ifeq ($(WOLFHSM_CLIENT),1)
     $(LIBDIR)/wolfHSM/src/wh_client.o \
     $(LIBDIR)/wolfHSM/src/wh_client_nvm.o \
     $(LIBDIR)/wolfHSM/src/wh_client_cryptocb.o \
+    $(LIBDIR)/wolfHSM/src/wh_client_crypto.o \
+    $(LIBDIR)/wolfHSM/src/wh_crypto.o \
     $(LIBDIR)/wolfHSM/src/wh_utils.o \
     $(LIBDIR)/wolfHSM/src/wh_comm.o \
     $(LIBDIR)/wolfHSM/src/wh_message_comm.o \
@@ -864,10 +866,10 @@ ifeq ($(WOLFHSM_CLIENT),1)
   #includes
   CFLAGS += -I"$(LIBDIR)/wolfHSM"
   # defines
-  CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT -DDEBUG_CRYPTOCB_VERBOSE -DDEBUG_CRYPTOCB
-  # Make sure we dump public generated keys to der
-  KEYGEN_OPTIONS += --exportpubkey
-  # Define KeyIDs (TODO: should be defined in wolfBoot header, or maybe even
-  # Reserverd in wolfHSM?)
-  #CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
+  CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT
+  # Make sure we export generated public keys so they can be used to load into
+  # HSM out-of-band
+  KEYGEN_OPTIONS += --exportpubkey --der
+  # Default to using public keys on the HSM
+  CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
 endif

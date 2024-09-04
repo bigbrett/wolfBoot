@@ -110,8 +110,10 @@ extern int tolower(int c);
 #       if !defined(WOLFBOOT_TPM)
 #          define NO_ECC_SIGN
 #          define NO_ECC_DHE
-#          define NO_ECC_EXPORT
-#          define NO_ECC_KEY_EXPORT
+#          if !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+#              define NO_ECC_EXPORT
+#              define NO_ECC_KEY_EXPORT
+#          endif
 #       else
 #           define HAVE_ECC_KEY_EXPORT
 #       endif
@@ -365,7 +367,6 @@ extern int tolower(int c);
 #   define WC_NO_RNG
 #   define WC_NO_HASHDRBG
 #   define NO_DEV_RANDOM
-#   define NO_ECC_KEY_EXPORT
 #   if defined(NO_RSA) && !defined(WOLFSSL_HAVE_XMSS) && \
        !defined(WOLFSSL_HAVE_LMS) && !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
 #       define NO_ASN

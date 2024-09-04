@@ -211,26 +211,25 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
 
     #if defined(WOLFBOOT_USE_WOLFHSM_PUBKEY_ID)
         /* Use the public key ID to verify the signature */
-        ret = wh_Client_SetKeyIdEcc(&ecc, WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID);
+        ret = wh_Client_EccSetKeyId(&ecc, WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID);
         if (ret != 0) {
             return;
         }
     #else
-        whKeyId hsmKeyId = 0;
-        /* Cache the public key on the server */
-        /* cache the key in the HSM, get HSM assigned keyId */
-        ret = wh_Client_KeyCache(&hsmClientCtx, 0, NULL, 0, pubkey, pubkey_sz,
-                                 &hsmKeyId);
-        if (ret != 0) {
-            return;
-        }
-        ret = wh_Client_SetKeyIdEcc(&ecc, hsmKeyId);
-        if (ret != 0) {
-            return;
+        /* First, import public key from the keystore to the local wolfCrypt
+         * struct, then import into wolfHSM key cache for subsequent
+         * verification */
+        ret = wc_ecc_import_unsigned(&ecc, pubkey, pubkey + point_sz, NULL,
+            ECC_KEY_TYPE);
+        if (ret == 0) {
+            ret = wh_Client_EccImportKey(&hsmClientCtx, &ecc, NULL, 0, 0,
+                                         NULL);
+            printf("Error importing key, ret = %d\n", ret);
         }
     #endif /* !WOLFBOOT_USE_WOLFHSM_PUBKEY_ID */
-        /* Convert the signature r/s to DER format that the HSM server will
-         * understand */
+        /* wc_ecc_verify_hash_ex() doesn't trigger a crypto callback, so we need
+           to use wc_ecc_verify_hash instead. Unfortunately, that requires
+           converting the signature to intermediate DER format first */
         mp_init(&r);
         mp_init(&s);
         mp_read_unsigned_bin(&r, sig, point_sz);
@@ -239,17 +238,13 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
         uint32_t sSz = mp_unsigned_bin_size(&s);
         ret          = wc_ecc_rs_raw_to_sig(sig, rSz, &sig[point_sz], sSz,
                                             (byte*)&tmpSigBuf, (word32*)&tmpSigSz);
-        if (ret != 0) {
-            return;
-        }
-
         /* Verify the (temporary) DER representation of the signature */
         if (ret == 0) {
             VERIFY_FN(img, &verify_res, wc_ecc_verify_hash, tmpSigBuf, tmpSigSz,
                       img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, &verify_res,
                       &ecc);
         }
-#else
+    #else
         /* Import public key */
         ret = wc_ecc_import_unsigned(&ecc, pubkey, pubkey + point_sz, NULL,
             ECC_KEY_TYPE);
@@ -262,7 +257,7 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
             VERIFY_FN(img, &verify_res, wc_ecc_verify_hash_ex, &r, &s,
                 img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, &verify_res, &ecc);
         }
-#endif
+    #endif
     }
     wc_ecc_free(&ecc);
 }

@@ -360,6 +360,12 @@ int hal_hsm_init_connect(void)
         exit(-1);
     }
 
+    rc = wh_Client_CommInit(&hsmClientCtx, NULL, NULL);
+    if (rc != WH_ERROR_OK) {
+        fprintf(stderr, "Failed to initialize HSM client communication\n");
+        exit(-1);
+    }
+
     return rc;
 }
 
