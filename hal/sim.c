@@ -41,6 +41,12 @@
 #include "wolfboot/wolfboot.h"
 #include "target.h"
 
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+#include "wolfhsm/wh_error.h"
+#include "wolfhsm/wh_client.h"
+#include "port/posix/posix_transport_tcp.h"
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
+
 /* Global pointer to the internal and external flash base */
 uint8_t *sim_ram_base;
 static uint8_t *flash_base;
@@ -57,10 +63,31 @@ char **main_argv;
 int main_argc;
 
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-int hal_hsm_init(void);
-int hal_hsm_connect(void);
+
+/* Client configuration/contexts */
+static whTransportClientCb            pttccb[1]      = {PTT_CLIENT_CB};
+static posixTransportTcpClientContext tcc[1]         = {};
+static posixTransportTcpConfig        mytcpconfig[1] = {{
+           .server_ip_string = "127.0.0.1",
+           .server_port      = 23456,
+}};
+
+static whCommClientConfig cc_conf[1] = {{
+    .transport_cb      = pttccb,
+    .transport_context = (void*)tcc,
+    .transport_config  = (void*)mytcpconfig,
+    .client_id         = 12,
+}};
+static whClientConfig     c_conf[1]  = {{
+         .comm = cc_conf,
+}};
+
+whClientContext hsmClientCtx = {0};
+
+int hal_hsm_init_connect(void);
 int hal_hsm_disconnect(void);
-#endif
+
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
 
 static int mmap_file(const char *path, uint8_t *address, uint8_t** ret_address)
 {
@@ -186,14 +213,6 @@ void hal_init(void)
         else if (strcmp(main_argv[i], "emergency") == 0)
             forceEmergency = 1;
     }
-
-#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-    ret = hal_hsm_init();
-    if (ret != 0) {
-        fprintf(stderr, "Failed to initialize HSM HAL\n");
-        exit(-1);
-    }
-#endif
 }
 
 void ext_flash_lock(void)
@@ -329,35 +348,9 @@ int wolfBoot_dualboot_candidate(void)
 }
 
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-#include "wolfhsm/wh_error.h"
-#include "wolfhsm/wh_client.h"
-#include "port/posix/posix_transport_tcp.h"
 
-#define WH_SERVER_TCP_IPSTRING "127.0.0.1"
-#define WH_SERVER_TCP_PORT 23456
-#define WH_CLIENT_ID 12
 
-/* Client configuration/contexts */
-static whTransportClientCb            pttccb[1]      = {PTT_CLIENT_CB};
-static posixTransportTcpClientContext tcc[1]         = {};
-static posixTransportTcpConfig        mytcpconfig[1] = {{
-           .server_ip_string = WH_SERVER_TCP_IPSTRING,
-           .server_port      = WH_SERVER_TCP_PORT,
-}};
-
-static whCommClientConfig cc_conf[1] = {{
-    .transport_cb      = pttccb,
-    .transport_context = (void*)tcc,
-    .transport_config  = (void*)mytcpconfig,
-    .client_id         = WH_CLIENT_ID,
-}};
-static whClientConfig     c_conf[1]  = {{
-         .comm = cc_conf,
-}};
-
-whClientContext hsmClientCtx = {0};
-
-int hal_hsm_init(void)
+int hal_hsm_init_connect(void)
 {
     int rc = 0;
 
@@ -370,10 +363,6 @@ int hal_hsm_init(void)
     return rc;
 }
 
-int hal_hsm_connect(void)
-{
-    /* Invoke Comm_Init() or something with callbacks? */
-}
 
 int hal_hsm_disconnect(void)
 {

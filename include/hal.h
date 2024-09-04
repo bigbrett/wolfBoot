@@ -140,7 +140,6 @@ int hal_flash_otp_read(uint32_t flashAddress, void* data, uint32_t length);
 
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
 /* TODO: most of this should be moved to its own HSM shim header */
-
 #include "wolfhsm/wh_client.h" /* For devId access */
 
 extern whClientConfig  hsmClientCfg;
@@ -152,8 +151,7 @@ extern whClientContext hsmClientCtx;
 #endif
 
 /* Implementation of functions provided by HAL */
-int hal_hsm_init(void);
-int hal_hsm_connect(void);
+int hal_hsm_init_connect(void);
 int hal_hsm_disconnect(void);
 #endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
 
