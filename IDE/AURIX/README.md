@@ -54,20 +54,19 @@ Please refer to the [wolfBoot](wolfBoot-tc3xx/Lcf_Gnu_Tricore_Tc.lsl) and [test-
 
 1. Open a WSL2 terminal and navigate to the top level `wolfBoot` directory
 2. Compile the keytools by running `make keytools`
-3. Use the helper script to generate a new signing key pair using RSA 4096
+3. Use the helper script to generate a new signing key pair using ECC 256
     1. Navigate to `wolfBoot/tools/scripts/tc3xx`
     2. Run `./gen-tc3xx-keys.sh`. This generates the signing private key `wolfBoot/priv.der` and adds the public key to the wolfBoot keystore (see [keygen](https://github.com/wolfSSL/wolfBoot/blob/aurix-tc3xx-support/docs/Signing.md) for more information). If you already have generated a key, you will be prompted to overwrite it.
 
 ```
 $ ./gen-tc3xx-keys.sh
 + cd ../../../
-+ ./tools/keytools/keygen -g priv.der --rsa4096
-Keytype: RSA4096
-Generating key (type: RSA4096)
-RSA public key len: 550 bytes
++ tools/keytools/keygen --ecc256 -g priv.der
+Keytype: ECC256
+Generating key (type: ECC256)
 Associated key file:   priv.der
 Partition ids mask:   ffffffff
-Key type   :           RSA4096
+Key type   :           ECC256
 Public key slot:       0
 Done.
 ```
@@ -125,33 +124,31 @@ wolfBoot/IDE/AURIX/Configurations/
 
 ```
 $ ./gen-tc3xx-signed-test-apps-release.sh
-+ ../../keytools/sign --rsa4096 --sha256 '../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin' ../../../priv.der 1
++ ../../keytools/sign --ecc256 --sha256 '../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin' ../../../priv.der 1
 wolfBoot KeyTools (Compiled C version)
-wolfBoot version 2010000
+wolfBoot version 2020000
 Update type:          Firmware
 Input image:          ../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin
-Selected cipher:      RSA4096
+Selected cipher:      ECC256
 Selected hash  :      SHA256
 Public key:           ../../../priv.der
 Output  image:        ../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app_v1_signed.bin
 Target partition id : 1
-Found RSA512 key
-image header size calculated at runtime (1024 bytes)
+image header size calculated at runtime (256 bytes)
 Calculating SHA256 digest...
 Signing the digest...
 Output image(s) successfully created.
-+ ../../keytools/sign --rsa4096 --sha256 '../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin' ../../../priv.der 2
++ ../../keytools/sign --ecc256 --sha256 '../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin' ../../../priv.der 2
 wolfBoot KeyTools (Compiled C version)
-wolfBoot version 2010000
+wolfBoot version 2020000
 Update type:          Firmware
 Input image:          ../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app.bin
-Selected cipher:      RSA4096
+Selected cipher:      ECC256
 Selected hash  :      SHA256
 Public key:           ../../../priv.der
 Output  image:        ../../../IDE/AURIX/test-app/TriCore Release (GCC)/test-app_v2_signed.bin
 Target partition id : 1
-Found RSA512 key
-image header size calculated at runtime (1024 bytes)
+image header size calculated at runtime (256 bytes)
 Calculating SHA256 digest...
 Signing the digest...
 Output image(s) successfully created.

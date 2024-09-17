@@ -64,7 +64,7 @@ LCF_HEAP2_OFFSET =   (LCF_USTACK2_OFFSET - LCF_HEAP_SIZE);
 
 
 LCF_WOLFBOOT_BOOT_PART_BASEADDR = 0xA0300000;
-LCF_WOLFBOOT_HEADER_OFFSET = 0x400;
+LCF_WOLFBOOT_HEADER_OFFSET = 0x100;
 
 LCF_CODE_BASE_ADDR = LCF_WOLFBOOT_BOOT_PART_BASEADDR + LCF_WOLFBOOT_HEADER_OFFSET;
 
@@ -116,10 +116,10 @@ MEMORY
     pfls0 (rx!p):    org = 0xA0000000, len = 3M
 
     /* placeholder for wolfBoot image header */
-    pfls1_hdr (rx!p):    org = 0xA0300000, len = 1024
+    pfls1_hdr (rx!p):    org = 0xA0300000, len = 256
 
     /* pfls1 is the remainder of the wolfBoot BOOT partition. Everything goes here */
-    pfls1 (rx!p):    org = 0xA0300400, len = 0x17FC00 /* 1.5MiB - 1024B*/
+    pfls1 (rx!p):    org = 0xA0300100, len = 0x17FF00 /* 1.5MiB - 256B */
 
     /* reserved for wolfBoot UPDATE partition */
     pfls1_update (rx!p):    org = 0xA0480000, len = 0x180000 /* 1.5MiB */
