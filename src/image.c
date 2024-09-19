@@ -221,10 +221,15 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
          * verification */
         ret = wc_ecc_import_unsigned(&ecc, pubkey, pubkey + point_sz, NULL,
             ECC_KEY_TYPE);
-        if (ret == 0) {
-            ret = wh_Client_EccImportKey(&hsmClientCtx, &ecc, NULL, 0, 0,
-                                         NULL);
+        if (ret != 0) {
+            return;
+        }
+
+        ret = wh_Client_EccImportKey(&hsmClientCtx, &ecc, NULL, 0, 0,
+                                     NULL);
+        if (ret != 0) {
             printf("Error importing key, ret = %d\n", ret);
+            return;
         }
     #endif /* !WOLFBOOT_USE_WOLFHSM_PUBKEY_ID */
         /* wc_ecc_verify_hash_ex() doesn't trigger a crypto callback, so we need
