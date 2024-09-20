@@ -332,6 +332,11 @@ void hal_init(void)
                              LED_READ,
                              IfxPort_OutputMode_pushPull,
                              IfxPort_OutputIdx_general);
+
+    IfxPort_setPinModeOutput(&MODULE_P00,
+                             6,
+                             IfxPort_OutputMode_pushPull,
+                             IfxPort_OutputIdx_general);
 #endif /* WOLFBOOT_AURIX_GPIO_TIMING */
 
     LED_ON(LED_WOLFBOOT);
@@ -603,6 +608,8 @@ int hal_hsm_init_connect(void)
          .cancelCb = _cancelCb,
      }};
 
+//    init_UART();
+
     rc = hsm_ipc_init();
     if (rc != WH_ERROR_OK) {
         return rc;
@@ -628,6 +635,18 @@ int hal_hsm_init_connect(void)
 
 int hal_hsm_disconnect(void)
 {
+    int rc;
+
+    rc = wh_Client_CommClose(&hsmClientCtx);
+    if (rc != 0) {
+        wolfBoot_panic();
+    }
+
+    rc = wh_Client_Cleanup(&hsmClientCtx);
+    if (rc != 0) {
+        wolfBoot_panic();
+    }
+
     return 0;
 }
 

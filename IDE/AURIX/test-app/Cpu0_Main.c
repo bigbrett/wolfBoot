@@ -27,7 +27,7 @@
 IFX_ALIGN(4) IfxCpu_syncEvent g_cpuSyncEvent = 0;
 
 
-#define LED               &MODULE_P00, 6 /* LED: Port, Pin definition  */
+#define LED               &MODULE_P00, 5 /* LED: Port, Pin definition  */
 #define BLINK_TIME_BASE   500 /* Wait time constant in milliseconds   */
 #define BLINK_TIME_UPDATE 100 /* Wait time constant in milliseconds   */
 
