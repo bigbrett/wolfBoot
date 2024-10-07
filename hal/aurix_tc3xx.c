@@ -332,11 +332,6 @@ void hal_init(void)
                              LED_READ,
                              IfxPort_OutputMode_pushPull,
                              IfxPort_OutputIdx_general);
-
-    IfxPort_setPinModeOutput(&MODULE_P00,
-                             6,
-                             IfxPort_OutputMode_pushPull,
-                             IfxPort_OutputIdx_general);
 #endif /* WOLFBOOT_AURIX_GPIO_TIMING */
 
     LED_ON(LED_WOLFBOOT);
@@ -553,12 +548,12 @@ static whTransportMemClientContext tmcCtx[1]  = {0};
 static whTransportClientCb         tmcCb[1]   = {WH_TRANSPORT_MEM_CLIENT_CB};
 whClientContext hsmClientCtx = {0};
 
- static int _cancelCb(uint16_t cancelSeq)
- {
-     HSM_SHM_CORE0_CANCEL_SEQ = cancelSeq;
-     (void)tchsmHhHost2Hsm_Notify(TCHSM_HOST2HSM_NOTIFY_CANCEL);
-     return 0;
- }
+static int _cancelCb(uint16_t cancelSeq)
+{
+    HSM_SHM_CORE0_CANCEL_SEQ = cancelSeq;
+    (void)tchsmHhHost2Hsm_Notify(TCHSM_HOST2HSM_NOTIFY_CANCEL);
+    return 0;
+}
 
 static int _connectCb(void* context, whCommConnected connect)
 {
@@ -607,8 +602,6 @@ int hal_hsm_init_connect(void)
          .comm = cc_conf,
          .cancelCb = _cancelCb,
      }};
-
-//    init_UART();
 
     rc = hsm_ipc_init();
     if (rc != WH_ERROR_OK) {
