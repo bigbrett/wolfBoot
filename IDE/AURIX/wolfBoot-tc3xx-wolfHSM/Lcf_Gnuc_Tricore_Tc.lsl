@@ -79,10 +79,13 @@ LCF_TRAPVEC2_START = (LCF_TRAPVEC1_START + LCF_TRAPVEC_OFFSET);   /* 0xA0000300 
 
 LCF_INTVEC_SIZE   = 0x2000; /* 8k */
 /* Intvec start address must be 8k aligned due to sw isr constraints. See comment at IfxCpu_Irq.c:110.
- * Also Make sure this leaves enough space for trap tables */
+ * Make sure this leaves enough space for trap tables */
 LCF_INTVEC0_START = (LCF_STARTPTR_NC_CPU0 + LCF_INTVEC_SIZE);  /* 0xA00A2000; */
 LCF_INTVEC1_START = (LCF_INTVEC0_START + LCF_INTVEC_SIZE);     /* 0xA00A4000; */
 LCF_INTVEC2_START = (LCF_INTVEC1_START + LCF_INTVEC_SIZE);     /* 0xA00A6000; */
+/* TODO: We end up reserving 32K for the startup memory section due to wanting a contiguous region of memory
+ * but also satisfying the address alignment requirement by infineon SDK for SW controlled interrupts. This is
+ * a lot of wasted space. See if we can be smarter about this */
 
 __INTTAB_CPU0 = LCF_INTVEC0_START;
 __INTTAB_CPU1 = LCF_INTVEC1_START;
@@ -107,29 +110,29 @@ MEMORY
 
     /* HSM shared memory buffers */
     dsram_hsm_shm (rw!p): org = 0x70000000, len = 16K
-    
+
     dsram0_local (w!xp):  org = 0xd0004000, len = 224K
     dsram0 (w!xp):        org = 0x70004000, len = 224K
     psram0 (w!xp):        org = 0x70100000, len = 64K
 
     psram_local (w!xp): org = 0xc0000000, len = 64K
 
-    /* Separate region for .start, IVTs, and Trap tables, since tricore-gcc will try and place overlapping .text sections here despite fixed addresses (possible compiler bug) */ 
+    /* Separate region for .start, IVTs, and Trap tables, since tricore-gcc will try
+     * and place overlapping .text sections here despite fixed addresses (possible compiler bug) */
     pfls0_startup (rx!p): org = 0xA00A0000, len = 0x8000
     /* wolfBoot program code - all of this project's executable code goes here */
-    pfls0_nc (rx!p): org      = 0xA00A8000, len = 0x254000
-    /* SWAP sector for wolfBoot image update */
-    /* pfls0_swap (rwx!p): org = 0x802FC000, len = 16K /* last sector of PFLASH0 */
+    pfls0_nc (rx!p): org      = 0xA00A8000, len = 0x23000  /* 140K total (incl 32K for startup) */
 
     /* reserved for wolfBoot BOOT partition */
-    pfls1_boot (rwx!p):    org = 0x80300000, len = 0x180000 /* 1.5MiB */
-    pfls1_boot_nc (rwx!p): org = 0xa0300000, len = 0x180000 /* 1.5MiB */
+    pfls1_boot (rwx!p):    org = 0x80300000, len = 0x17E000   /* ~1.5MiB */
+    pfls1_boot_nc (rwx!p): org = 0xA0300000, len = 0x17E000   /* ~1.5MiB */
 
     /* reserved for wolfBoot UPDATE partition */
-    pfls1_update (rwx!p):    org = 0x80480000, len = 0x180000-16K /* 1.5MiB */
-    pfls1_update_nc (rwx!p): org = 0xa0480000, len = 0x180000-16K /* 1.5MiB */
+    pfls1_update (rwx!p):    org = 0x8047E000, len = 0x17E000  /* ~1.5MiB */
+    pfls1_update_nc (rwx!p): org = 0xA047E000, len = 0x17E000  /* ~1.5MiB */
+
     /* SWAP sector for wolfBoot image update */
-    pfls1_swap (rwx!p): org = 0xA04FC000, len = 16K /* last sector of PFLASH1 */
+    pfls1_swap (rwx!p): org = 0x805FC000, len = 16K /* last sector of PFLASH1 */
 
     dfls0 (rx!p): org = 0xaf000000, len = 256K
 

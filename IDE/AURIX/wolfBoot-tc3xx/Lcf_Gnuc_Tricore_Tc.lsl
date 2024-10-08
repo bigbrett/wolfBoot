@@ -24,7 +24,7 @@ ENTRY(_START)
 __TRICORE_DERIVATE_MEMORY_MAP__ = 0x380;
 
 LCF_CSA0_SIZE = 8k;
-LCF_USTACK0_SIZE = 2k;
+LCF_USTACK0_SIZE = 20k;
 LCF_ISTACK0_SIZE = 1k;
 
 LCF_CSA1_SIZE = 8k;
@@ -35,7 +35,7 @@ LCF_CSA2_SIZE = 8k;
 LCF_USTACK2_SIZE = 2k;
 LCF_ISTACK2_SIZE = 1k;
 
-LCF_HEAP_SIZE = 4k;
+LCF_HEAP_SIZE = 40k;
 
 LCF_DSPR2_START = 0x50000000;
 LCF_DSPR2_SIZE = 96k;
@@ -73,20 +73,30 @@ LCF_STARTPTR_NC_CPU1 = LCF_STARTPTR_NC_CPU0 + LCF_START_CODE_SIZE;
 LCF_STARTPTR_NC_CPU2 = LCF_STARTPTR_NC_CPU1 + LCF_START_CODE_SIZE;
 
 /* Offset of the trap table from start address (accounts for size of .start section) */
-LCF_TRAPVEC0_START = (LCF_STARTPTR_NC_CPU0 + LCF_TRAPVEC_OFFSET); /* 0x80000100 */
-LCF_TRAPVEC1_START = (LCF_TRAPVEC0_START + LCF_TRAPVEC_OFFSET);   /* 0x80000200 */
-LCF_TRAPVEC2_START = (LCF_TRAPVEC1_START + LCF_TRAPVEC_OFFSET);   /* 0x80000300 */
+LCF_TRAPVEC0_START = (LCF_STARTPTR_NC_CPU0 + LCF_TRAPVEC_OFFSET); /* 0xA0000100 */
+LCF_TRAPVEC1_START = (LCF_TRAPVEC0_START + LCF_TRAPVEC_OFFSET);   /* 0xA0000200 */
+LCF_TRAPVEC2_START = (LCF_TRAPVEC1_START + LCF_TRAPVEC_OFFSET);   /* 0xA0000300 */
 
 LCF_INTVEC_SIZE   = 0x2000; /* 8k */
-LCF_INTVEC0_START = (LCF_TRAPVEC2_START + LCF_TRAPVEC_OFFSET); /* 0x80000400; */
-LCF_INTVEC1_START = (LCF_INTVEC0_START + LCF_INTVEC_SIZE);     /* 0x80002400; */
-LCF_INTVEC2_START = (LCF_INTVEC1_START + LCF_INTVEC_SIZE);     /* 0x80004400; */
+/* Intvec start address must be 8k aligned due to sw isr constraints. See comment at IfxCpu_Irq.c:110.
+ * Make sure this leaves enough space for trap tables */
+LCF_INTVEC0_START = (LCF_STARTPTR_NC_CPU0 + LCF_INTVEC_SIZE);  /* 0xA00A2000; */
+LCF_INTVEC1_START = (LCF_INTVEC0_START + LCF_INTVEC_SIZE);     /* 0xA00A4000; */
+LCF_INTVEC2_START = (LCF_INTVEC1_START + LCF_INTVEC_SIZE);     /* 0xA00A6000; */
+/* TODO: We end up reserving 32K for the startup memory section due to wanting a contiguous region of memory
+ * but also satisfying the address alignment requirement by infineon SDK for SW controlled interrupts. This is
+ * a lot of wasted space. See if we can be smarter about this */
 
 __INTTAB_CPU0 = LCF_INTVEC0_START;
 __INTTAB_CPU1 = LCF_INTVEC1_START;
 __INTTAB_CPU2 = LCF_INTVEC2_START;
 
 RESET = LCF_STARTPTR_NC_CPU0;
+
+/* Size (bytes) of HSM shared memory buffer */
+HSM_SHM_BUF_SIZE = 4096;
+/* Size (bytes) of a HSM shared cancel sequence number */
+HSM_SHM_CANCEL_SEQ_SIZE = 4;
 
 MEMORY
 {
@@ -98,23 +108,31 @@ MEMORY
     dsram1 (w!xp): org = 0x60000000, len = 240K
     psram1 (w!xp): org = 0x60100000, len = 64K
 
-    dsram0_local (w!xp): org = 0xd0000000, len = 240K
-    dsram0 (w!xp): org = 0x70000000, len = 240K
-    psram0 (w!xp): org = 0x70100000, len = 64K
+    /* HSM shared memory buffers */
+    dsram_hsm_shm (rw!p): org = 0x70000000, len = 16K
+
+    dsram0_local (w!xp):  org = 0xd0004000, len = 224K
+    dsram0 (w!xp):        org = 0x70004000, len = 224K
+    psram0 (w!xp):        org = 0x70100000, len = 64K
 
     psram_local (w!xp): org = 0xc0000000, len = 64K
 
-    pfls0 (rx!p): org    = 0x800A0000, len = 128K   /* 0x2_0000 : wolfBoot */
-    pfls0_nc (rx!p): org = 0xa00A0000, len = 128K   /* 0x2_0000 : wolfBoot */
-    pfls0_swap (rwx!p): org = 0x800C0000, len = 16K /* 0x4_000  : Swap sector */
+    /* Separate region for .start, IVTs, and Trap tables, since tricore-gcc will try
+     * and place overlapping .text sections here despite fixed addresses (possible compiler bug) */
+    pfls0_startup (rx!p): org = 0xA00A0000, len = 0x8000
+    /* wolfBoot program code - all of this project's executable code goes here */
+    pfls0_nc (rx!p): org      = 0xA00A8000, len = 0x23000  /* 140K total (incl 32K for startup) */
 
     /* reserved for wolfBoot BOOT partition */
-    pfls1_boot (rwx!p):    org = 0x80300000, len = 0x180000 /* 1.5MiB */
-    pfls1_boot_nc (rwx!p): org = 0xa0300000, len = 0x180000 /* 1.5MiB */
+    pfls1_boot (rwx!p):    org = 0x80300000, len = 0x17E000   /* ~1.5MiB */
+    pfls1_boot_nc (rwx!p): org = 0xA0300000, len = 0x17E000   /* ~1.5MiB */
 
     /* reserved for wolfBoot UPDATE partition */
-    pfls1_update (rwx!p):    org = 0x80480000, len = 0x180000 /* 1.5MiB */
-    pfls1_update_nc (rwx!p): org = 0xa0480000, len = 0x180000 /* 1.5MiB */
+    pfls1_update (rwx!p):    org = 0x8047E000, len = 0x17E000  /* ~1.5MiB */
+    pfls1_update_nc (rwx!p): org = 0xA047E000, len = 0x17E000  /* ~1.5MiB */
+
+    /* SWAP sector for wolfBoot image update */
+    pfls1_swap (rwx!p): org = 0x805FC000, len = 16K /* last sector of PFLASH1 */
 
     dfls0 (rx!p): org = 0xaf000000, len = 256K
 
@@ -135,7 +153,7 @@ REGION_MAP( CPU0 , ORIGIN(dsram0_local), LENGTH(dsram0_local), ORIGIN(dsram0))
 REGION_MAP( CPU1 , ORIGIN(dsram1_local), LENGTH(dsram1_local), ORIGIN(dsram1))
 REGION_MAP( CPU2 , ORIGIN(dsram2_local), LENGTH(dsram2_local), ORIGIN(dsram2))
 /* map cached and non cached addresses */
-REGION_MIRROR("pfls0", "pfls0_nc")
+/* REGION_MIRROR("pfls0", "pfls0_nc") */
 REGION_MIRROR("cpu0_dlmu", "cpu0_dlmu_nc")
 REGION_MIRROR("cpu1_dlmu", "cpu1_dlmu_nc")
 REGION_MIRROR("cpu2_dlmu", "cpu2_dlmu_nc")
@@ -143,7 +161,7 @@ REGION_MIRROR("cpu2_dlmu", "cpu2_dlmu_nc")
 /*Un comment one of the below statement groups to enable CpuX DMI RAM to hold global variables*/
 
 REGION_ALIAS( default_ram , dsram0)
-REGION_ALIAS( default_rom , pfls0)
+REGION_ALIAS( default_rom , pfls0_nc) /* pfls0 */
 
 /*
 REGION_ALIAS( default_ram , dsram1)
@@ -202,11 +220,21 @@ REGION_ALIAS( default_ram , dsram2)
         {
             PROVIDE(_start_text = .); /* needed by wolfBoot for self update when -DRAM_CODE */
             KEEP (*(.start));
-        } > pfls0_nc
+        } > pfls0_startup
         PROVIDE(__START0 = LCF_STARTPTR_NC_CPU0);
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU0 = 0); /* Not used */
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU1 = 0);
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU2 = 0);
+    }
+
+    /*Fixed memory Allocations for _START1 to 2*/
+    CORE_ID = GLOBAL ;
+    SECTIONS
+    {
+        .start_tc1 (LCF_STARTPTR_NC_CPU1) : FLAGS(rxl) { KEEP (*(.start_cpu1)); } > pfls0_startup
+        .start_tc2 (LCF_STARTPTR_NC_CPU2) : FLAGS(rxl) { KEEP (*(.start_cpu2)); } > pfls0_startup
+        PROVIDE(__START1 = LCF_STARTPTR_NC_CPU1);
+        PROVIDE(__START2 = LCF_STARTPTR_NC_CPU2);
     }
 
     /*Fixed memory Allocations for Trap Vector Table*/
@@ -219,7 +247,7 @@ REGION_ALIAS( default_ram , dsram2)
             PROVIDE(__TRAPTAB_CPU0 = .);
             KEEP (*(.traptab_cpu0));
             PROVIDE(__TRAPTAB_CPU0_END = .);
-        } > pfls0_nc /* pfls0 */
+        } > pfls0_startup /* pfls0 */
 
         .traptab_tc1 (__TRAPTAB_CPU0_END) :
         {
@@ -227,7 +255,7 @@ REGION_ALIAS( default_ram , dsram2)
             PROVIDE(__TRAPTAB_CPU1 = .);
             KEEP (*(.traptab_cpu1));
             PROVIDE(__TRAPTAB_CPU1_END = .);
-        } > pfls0_nc /* pfls0 */
+        } > pfls0_startup /* pfls0 */
 
         .traptab_tc2 (__TRAPTAB_CPU1_END) :
         {
@@ -235,17 +263,7 @@ REGION_ALIAS( default_ram , dsram2)
             PROVIDE(__TRAPTAB_CPU2 = .);
             KEEP (*(.traptab_cpu2));
             PROVIDE(__TRAPTAB_CPU2_END = .);
-        } > pfls0_nc /* pfls0 */
-    }
-
-    /*Fixed memory Allocations for _START1 to 2*/
-    CORE_ID = GLOBAL ;
-    SECTIONS
-    {
-        .start_tc1 (LCF_STARTPTR_NC_CPU1) : FLAGS(rxl) { KEEP (*(.start_cpu1)); } > pfls0_nc
-        .start_tc2 (LCF_STARTPTR_NC_CPU2) : FLAGS(rxl) { KEEP (*(.start_cpu2)); } > pfls0_nc
-        PROVIDE(__START1 = LCF_STARTPTR_NC_CPU1);
-        PROVIDE(__START2 = LCF_STARTPTR_NC_CPU2);
+        } > pfls0_startup /* pfls0 */
     }
 
     /*Fixed memory Allocations for Interrupt Vector Table*/
@@ -1160,6 +1178,47 @@ REGION_ALIAS( default_ram , dsram2)
         } > default_ram
     }
 
+    /* HSM Shared memory buffers */
+    CORE_ID = GLOBAL;
+    SECTIONS
+    {
+        /* HSM Shared Memory Buffer (Cancel Seqs) */
+        CORE_SEC(.hsmShmCancelSeq) (NOLOAD): FLAGS(awz)
+        {
+          . = ALIGN(16); /* Align to a 16-byte boundary (cache line size) */
+          _hsmShmCore0CancelSeq = .;
+          . = . + HSM_SHM_CANCEL_SEQ_SIZE; /* Set the section size */
+          _hsmShmCore1CancelSeq = .;
+          . = . + HSM_SHM_CANCEL_SEQ_SIZE; /* Set the section size */
+        } > dsram_hsm_shm
+
+        /* HSM Shared Memory Buffer (Comms) */
+        CORE_SEC(.hsmShmCore0CommBuf) (NOLOAD): FLAGS(awz)
+        {
+          . = ALIGN(16); /* Align to a 16-byte boundary */
+            _hsmShmCore0CommBufStart = .; /* Define start symbol */
+            . = . + HSM_SHM_BUF_SIZE; /* Set the section size */
+            _hsmShmCore0CommBufEnd = .; /* Define end symbol */
+        } > dsram_hsm_shm
+
+        CORE_SEC(.hsmShmCore1CommBuf) (NOLOAD): FLAGS(awz)
+        {
+          . = ALIGN(16); /* Align to a 16-byte boundary */
+            _hsmShmCore1CommBufStart = .; /* Define start symbol */
+            . = . + HSM_SHM_BUF_SIZE; /* Set the section size */
+            _hsmShmCore1CommBufEnd = .; /* Define end symbol */
+        } > dsram_hsm_shm
+
+        /* HSM Shared Memory Buffer (Print) */
+        CORE_SEC(.hsmShmPrintBuf) (NOLOAD): FLAGS(awz)
+        {
+          . = ALIGN(16); /* Align to a 16-byte boundary */
+            _hsmShmPrintBufStart = .; /* Define start symbol */
+            . = . + HSM_SHM_BUF_SIZE; /* Set the section size */
+            _hsmShmPrintBufEnd = .; /* Define end symbol */
+        } > dsram_hsm_shm
+    }
+
     CORE_ID = GLOBAL;
     SECTIONS
     {
@@ -1488,54 +1547,54 @@ SECTIONS
         *(.rodata.farConst.cpu0.8bit)
         *(.rodata)
         *(.rodata.*)
-    *(.gnu.linkonce.r.*)
-    /*
-     * Create the clear and copy tables that tell the startup code
-     * which memory areas to clear and to copy, respectively.
-     */
-    . = ALIGN(4) ;
-    PROVIDE(__clear_table = .);
-    LONG(0 + ADDR(.CPU2.zbss));       LONG(SIZEOF(.CPU2.zbss));
-    LONG(0 + ADDR(.CPU2.bss));        LONG(SIZEOF(.CPU2.bss));
-    LONG(0 + ADDR(.CPU2.lmubss));     LONG(SIZEOF(.CPU2.lmubss));
-    LONG(0 + ADDR(.CPU1.zbss));       LONG(SIZEOF(.CPU1.zbss));
-    LONG(0 + ADDR(.CPU1.bss));        LONG(SIZEOF(.CPU1.bss));
-    LONG(0 + ADDR(.CPU1.lmubss));     LONG(SIZEOF(.CPU1.lmubss));
-    LONG(0 + ADDR(.CPU0.zbss));       LONG(SIZEOF(.CPU0.zbss));
-    LONG(0 + ADDR(.CPU0.bss));        LONG(SIZEOF(.CPU0.bss));
-    LONG(0 + ADDR(.CPU0.lmubss));     LONG(SIZEOF(.CPU0.lmubss));
-    LONG(0 + ADDR(.zbss));            LONG(SIZEOF(.zbss));
-    LONG(0 + ADDR(.sbss));            LONG(SIZEOF(.sbss));
-    LONG(0 + ADDR(.bss));             LONG(SIZEOF(.bss));
-    LONG(0 + ADDR(.lmubss));          LONG(SIZEOF(.lmubss));
-    LONG(0 + ADDR(.sbss4));           LONG(SIZEOF(.sbss4));
-    LONG(-1);                         LONG(-1);
-    PROVIDE(__clear_table_powerOn = .);
-    LONG(0 + ADDR(.zbss_powerOn));    LONG(SIZEOF(.zbss_powerOn));
-    LONG(-1);                         LONG(-1);
-    PROVIDE(__copy_table = .);
-    LONG(LOADADDR(.CPU2.zdata));      LONG(0 + ADDR(.CPU2.zdata));      LONG(SIZEOF(.CPU2.zdata));
-    LONG(LOADADDR(.CPU2.data));       LONG(0 + ADDR(.CPU2.data));       LONG(SIZEOF(.CPU2.data));
-    LONG(LOADADDR(.CPU2.lmudata));    LONG(0 + ADDR(.CPU2.lmudata));    LONG(SIZEOF(.CPU2.lmudata));
-    LONG(LOADADDR(.CPU1.zdata));      LONG(0 + ADDR(.CPU1.zdata));      LONG(SIZEOF(.CPU1.zdata));
-    LONG(LOADADDR(.CPU1.data));       LONG(0 + ADDR(.CPU1.data));       LONG(SIZEOF(.CPU1.data));
-    LONG(LOADADDR(.CPU1.lmudata));    LONG(0 + ADDR(.CPU1.lmudata));    LONG(SIZEOF(.CPU1.lmudata));
-    LONG(LOADADDR(.CPU0.zdata));      LONG(0 + ADDR(.CPU0.zdata));      LONG(SIZEOF(.CPU0.zdata));
-    LONG(LOADADDR(.CPU0.data));       LONG(0 + ADDR(.CPU0.data));       LONG(SIZEOF(.CPU0.data));
-    LONG(LOADADDR(.CPU0.lmudata));    LONG(0 + ADDR(.CPU0.lmudata));    LONG(SIZEOF(.CPU0.lmudata));
-    LONG(LOADADDR(.zdata));           LONG(0 + ADDR(.zdata));           LONG(SIZEOF(.zdata));
-    LONG(LOADADDR(.sdata));           LONG(0 + ADDR(.sdata));           LONG(SIZEOF(.sdata));
-    LONG(LOADADDR(.data));            LONG(0 + ADDR(.data));            LONG(SIZEOF(.data));
-    LONG(LOADADDR(.lmudata));         LONG(0 + ADDR(.lmudata));         LONG(SIZEOF(.lmudata));
-    LONG(LOADADDR(.sdata4));          LONG(0 + ADDR(.sdata4));          LONG(SIZEOF(.sdata4));
-    LONG(LOADADDR(.CPU0.psram_text)); LONG(0 + ADDR(.CPU0.psram_text)); LONG(SIZEOF(.CPU0.psram_text));
-    LONG(LOADADDR(.CPU1.psram_text)); LONG(0 + ADDR(.CPU1.psram_text)); LONG(SIZEOF(.CPU1.psram_text));
-    LONG(LOADADDR(.CPU2.psram_text)); LONG(0 + ADDR(.CPU2.psram_text)); LONG(SIZEOF(.CPU2.psram_text));
-    LONG(-1);                         LONG(-1);                         LONG(-1);
-    PROVIDE(__copy_table_powerOn = .) ;
-    LONG(LOADADDR(.zdata_powerOn));   LONG(0 + ADDR(.zdata_powerOn));   LONG(SIZEOF(.zdata_powerOn));
-    LONG(-1);                         LONG(-1);                         LONG(-1);
-    . = ALIGN(8);
+        *(.gnu.linkonce.r.*)
+        /*
+         * Create the clear and copy tables that tell the startup code
+         * which memory areas to clear and to copy, respectively.
+         */
+        . = ALIGN(4) ;
+        PROVIDE(__clear_table = .);
+        LONG(0 + ADDR(.CPU2.zbss));       LONG(SIZEOF(.CPU2.zbss));
+        LONG(0 + ADDR(.CPU2.bss));        LONG(SIZEOF(.CPU2.bss));
+        LONG(0 + ADDR(.CPU2.lmubss));     LONG(SIZEOF(.CPU2.lmubss));
+        LONG(0 + ADDR(.CPU1.zbss));       LONG(SIZEOF(.CPU1.zbss));
+        LONG(0 + ADDR(.CPU1.bss));        LONG(SIZEOF(.CPU1.bss));
+        LONG(0 + ADDR(.CPU1.lmubss));     LONG(SIZEOF(.CPU1.lmubss));
+        LONG(0 + ADDR(.CPU0.zbss));       LONG(SIZEOF(.CPU0.zbss));
+        LONG(0 + ADDR(.CPU0.bss));        LONG(SIZEOF(.CPU0.bss));
+        LONG(0 + ADDR(.CPU0.lmubss));     LONG(SIZEOF(.CPU0.lmubss));
+        LONG(0 + ADDR(.zbss));            LONG(SIZEOF(.zbss));
+        LONG(0 + ADDR(.sbss));            LONG(SIZEOF(.sbss));
+        LONG(0 + ADDR(.bss));             LONG(SIZEOF(.bss));
+        LONG(0 + ADDR(.lmubss));          LONG(SIZEOF(.lmubss));
+        LONG(0 + ADDR(.sbss4));           LONG(SIZEOF(.sbss4));
+        LONG(-1);                         LONG(-1);
+        PROVIDE(__clear_table_powerOn = .);
+        LONG(0 + ADDR(.zbss_powerOn));    LONG(SIZEOF(.zbss_powerOn));
+        LONG(-1);                         LONG(-1);
+        PROVIDE(__copy_table = .);
+        LONG(LOADADDR(.CPU2.zdata));      LONG(0 + ADDR(.CPU2.zdata));      LONG(SIZEOF(.CPU2.zdata));
+        LONG(LOADADDR(.CPU2.data));       LONG(0 + ADDR(.CPU2.data));       LONG(SIZEOF(.CPU2.data));
+        LONG(LOADADDR(.CPU2.lmudata));    LONG(0 + ADDR(.CPU2.lmudata));    LONG(SIZEOF(.CPU2.lmudata));
+        LONG(LOADADDR(.CPU1.zdata));      LONG(0 + ADDR(.CPU1.zdata));      LONG(SIZEOF(.CPU1.zdata));
+        LONG(LOADADDR(.CPU1.data));       LONG(0 + ADDR(.CPU1.data));       LONG(SIZEOF(.CPU1.data));
+        LONG(LOADADDR(.CPU1.lmudata));    LONG(0 + ADDR(.CPU1.lmudata));    LONG(SIZEOF(.CPU1.lmudata));
+        LONG(LOADADDR(.CPU0.zdata));      LONG(0 + ADDR(.CPU0.zdata));      LONG(SIZEOF(.CPU0.zdata));
+        LONG(LOADADDR(.CPU0.data));       LONG(0 + ADDR(.CPU0.data));       LONG(SIZEOF(.CPU0.data));
+        LONG(LOADADDR(.CPU0.lmudata));    LONG(0 + ADDR(.CPU0.lmudata));    LONG(SIZEOF(.CPU0.lmudata));
+        LONG(LOADADDR(.zdata));           LONG(0 + ADDR(.zdata));           LONG(SIZEOF(.zdata));
+        LONG(LOADADDR(.sdata));           LONG(0 + ADDR(.sdata));           LONG(SIZEOF(.sdata));
+        LONG(LOADADDR(.data));            LONG(0 + ADDR(.data));            LONG(SIZEOF(.data));
+        LONG(LOADADDR(.lmudata));         LONG(0 + ADDR(.lmudata));         LONG(SIZEOF(.lmudata));
+        LONG(LOADADDR(.sdata4));          LONG(0 + ADDR(.sdata4));          LONG(SIZEOF(.sdata4));
+        LONG(LOADADDR(.CPU0.psram_text)); LONG(0 + ADDR(.CPU0.psram_text)); LONG(SIZEOF(.CPU0.psram_text));
+        LONG(LOADADDR(.CPU1.psram_text)); LONG(0 + ADDR(.CPU1.psram_text)); LONG(SIZEOF(.CPU1.psram_text));
+        LONG(LOADADDR(.CPU2.psram_text)); LONG(0 + ADDR(.CPU2.psram_text)); LONG(SIZEOF(.CPU2.psram_text));
+        LONG(-1);                         LONG(-1);                         LONG(-1);
+        PROVIDE(__copy_table_powerOn = .) ;
+        LONG(LOADADDR(.zdata_powerOn));   LONG(0 + ADDR(.zdata_powerOn));   LONG(SIZEOF(.zdata_powerOn));
+        LONG(-1);                         LONG(-1);                         LONG(-1);
+        . = ALIGN(8);
     } > default_rom
 }
 
@@ -1582,7 +1641,7 @@ SECTIONS
      * Code executed before calling main extra section for C++ constructor init
      *  -------------------------End-----------------------------------------
      */
-    CORE_SEC(.psram_text)  : FLAGS(awx)
+    CORE_SEC(.psram_text) : FLAGS(awx)
     {
         . = ALIGN(2);
         *(.psram_text_cpu0)

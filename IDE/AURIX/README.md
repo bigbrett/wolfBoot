@@ -6,7 +6,7 @@ The example contains two projects: `wolfBoot-tc3xx` and `test-app`. The `wolfBoo
 
 ## Important notes
 
-- In the TC375 UCBs, BMDHx.STAD must point to the wolfBoot entrypoint `0xA00A_0000`. You can modify this in the `UCB` section of the TRACE32 IDE. Note you must also set  Please refer to the TRACE32 manual and the TC37xx user manual for more information on the UCBs.
+- In the TC375 UCBs, BMDHx.STAD must point to the wolfBoot entrypoint `0xA00A_0000`. You can modify this in the `UCB` section of the TRACE32 IDE as described in the steps later in this document. Please refer to the TRACE32 manual and the TC37xx user manual for more information on the UCBs.
 - Because TC3xx PFLASH ECC prevents reading from erased flash, the `EXT_FLASH` option is used to redirect flash reads to the `ext_flash_read()` HAL API, where the flash pages requested to be read can be blank-checked by hardware before reading.
 - TC3xx PFLASH is write-once (`NVM_FLASH_WRITEONCE`), however wolfBoot `NVM_FLASH_WRITEONCE` does not support `EXT_FLASH`. Therefore the write-once functionality is re-implemented in the `HAL` layer.
 - This demo app is only compatible with the GCC toolchain build configurations shipped with the AURIX IDE. The TASKING compiler build configurations are not yet supported.
@@ -18,21 +18,25 @@ The TC3xx AURIX port of wolfBoot places all images in PFLASH, and uses both PFLA
 ```
 +==========+
 | PFLASH0  |
++----------+ <-- 0x8000_0000
+| Unused   |        640K
 +==========+ <-- 0x800A_0000
-| wolfBoot |        128K
-+----------+ <-- 0x800C_0000
-| SWAP     |        16K
-+----------+ <-- 0x8002_4000
-| Unused   |        ~2.86M
+| wolfBoot |        172K
++----------+ <-- 0x8002_B000
+| Unused   |       ~2.8M
 +----------+ <-- 0x8030_0000
 
 +==========+
 | PFLASH1  |
 +==========+ <-- 0x8030_0000
-| BOOT     |        1.5M
-+----------+ <-- 0x8048_0000
-| UPDATE   |        1.5M
+| BOOT     |        1.5M (0x17E000)
++----------+ <-- 0x8047_E000
+| UPDATE   |        1.5M (0x17E000)
++----------+ <-- 0x805F_C000
+| SWAP     |        16K (0x4000)
 +----------+ <-- 0x8060_0000
+
+
 ```
 
 Please refer to the [wolfBoot](wolfBoot-tc3xx/Lcf_Gnu_Tricore_Tc.lsl) and [test-app](test-app/Lcf_Gnu_Tricore_Tc.lsl) linker scripts for the exact memory configuration.

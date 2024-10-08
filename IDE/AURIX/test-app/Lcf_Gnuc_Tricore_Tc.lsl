@@ -119,10 +119,13 @@ MEMORY
     pfls1_hdr (rx!p):    org = 0xA0300000, len = 256
 
     /* pfls1 is the remainder of the wolfBoot BOOT partition. Everything goes here */
-    pfls1 (rx!p):    org = 0xA0300100, len = 0x17FF00 /* 1.5MiB - 256B */
+    pfls1 (rx!p):    org = 0xA0300100, len = 0x17DF00 /* 0x17E000 - 256B */
 
     /* reserved for wolfBoot UPDATE partition */
-    pfls1_update (rx!p):    org = 0xA0480000, len = 0x180000 /* 1.5MiB */
+    pfls1_update (rwx!p):    org = 0xA047E000, len = 0x17E000  /* ~1.5MiB */
+
+    /* SWAP sector for wolfBoot image update */
+    pfls1_swap (rwx!p): org = 0xA05FC000, len = 16K /* last sector of PFLASH1 */
 
     dfls0 (rx!p): org = 0xaf000000, len = 256K
 
