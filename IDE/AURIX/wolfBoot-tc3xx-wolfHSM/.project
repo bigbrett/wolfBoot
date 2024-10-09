@@ -55,7 +55,7 @@
 		<link>
 			<name>wolfhsm-infineon-tc3xx</name>
 			<type>2</type>
-			<location>C:/Users/spewl/workspace/repos/wolfHSM-private/infineon/tc3xx</location>
+			<locationURI>WOLFHSM_TC3XX_DIR</locationURI>
 		</link>
 		<link>
 			<name>wolfBoot/hal</name>
@@ -90,6 +90,10 @@
 		<variable>
 			<name>WOLFBOOT_ROOT</name>
 			<value>$%7BPARENT-3-PROJECT_LOC%7D</value>
+		</variable>
+		<variable>
+			<name>WOLFHSM_TC3XX_DIR</name>
+			<value>$%7BPARENT-1-PROJECT_LOC%7D/wolfHSM-infineon-tc3xx</value>
 		</variable>
 	</variableList>
 </projectDescription>
