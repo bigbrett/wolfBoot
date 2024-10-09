@@ -1,6 +1,26 @@
-# Overview
+# WolfBoot on Infineon AURIX TC3xx
 
 This example demonstrates using wolfBoot on the Infineon AURIX TC3xx family of microcontrollers. The example is based on the TC375 Lite-Kit V2, but should be easily adaptable to other TC3xx devices. This README assumes basic familiarity with the TC375 SoC, the AURIX IDE, and Lauterbach Trace32 debugger.
+
+## Overview
+
+- [WolfBoot on Infineon AURIX TC3xx](#wolfboot-on-infineon-aurix-tc3xx)
+  - [Overview](#overview)
+  - [Important notes](#important-notes)
+  - [Flash Partitioning](#flash-partitioning)
+  - [Building and running the wolfBoot demo](#building-and-running-the-wolfboot-demo)
+    - [Prerequisites](#prerequisites)
+    - [Clone wolfBoot](#clone-wolfboot)
+    - [Build wolfBoot keytools and generate keys](#build-wolfboot-keytools-and-generate-keys)
+    - [Install the Infineon TC3xx SDK into the wolfBoot project](#install-the-infineon-tc3xx-sdk-into-the-wolfboot-project)
+    - [Build wolfBoot](#build-wolfboot)
+    - [Connect the Lauterbach to the TC375 Device in TRACE32](#connect-the-lauterbach-to-the-tc375-device-in-trace32)
+    - [Update the start address in UCBs using TRACE32](#update-the-start-address-in-ucbs-using-trace32)
+    - [Load and run the wolfBoot demo in TRACE32](#load-and-run-the-wolfboot-demo-in-trace32)
+  - [wolfHSM Compatibility](#wolfhsm-compatibility)
+    - [Building wolfBoot with wolfHSM](#building-wolfboot-with-wolfhsm)
+  - [Troubleshooting](#troubleshooting)
+    - [WSL "bad interpreter" error](#wsl-bad-interpreter-error)
 
 The example contains two projects: `wolfBoot-tc3xx` and `test-app`. The `wolfBoot-tc3xx` project contains the wolfBoot bootloader, and the `test-app` project contains a simple firmware application that will be loaded and executed by wolfBoot. The `test-app` project is a simple blinky application that blinks LED2 on the TC375 Lite-Kit V2 once per second when running the base image, and rapidly (~3x/sec) when running the update image. The test app determines if it is a base or update image by inspecting the firmware version (obtained through the wolfBoot API). The firmware version is set in the image header by the wolfBoot keytools when signing the test app binaries. The same test app binary is used for both the base and update images, with the only difference being the firmware version set by the keytools.
 
@@ -191,6 +211,35 @@ wolfBoot and the demo applications are now loaded into flash, and core0 will be 
 
 To rerun the demo, simply rerun the loader script in Trace32 and repeat the above steps
 
+## wolfHSM Compatibility
+
+wolfBoot has full support for wolfHSM on the AURIX TC3xx platform. The wolfBoot application functions as the HSM client, and all cryptographic operations required to verify application images are offloaded to the HSM. When used in tandem with wolfHSM, wolfBoot can be configured to use the default keystore for storing key material, or to use keys local to the HSM via key ID.
+
+Note that information regarding the AURIX TC3xx HSM core is restricted by NDA with Infineon. Source code for the wolfHSM TC3xx platform port is therefore not publicly available and cannot be included for distribution in wolfBoot. Instructions to build wolfBoot with wolfHSM compatibility are provided here, but the wolfHSM TC3xx port must be obtained separately from wolfSSL. To obtain the wolfHSM TC3xx port, please contact wolfSSL at [facts@wolfssl.com](mailto:facts@wolfssl.com).
+
+### Building wolfBoot with wolfHSM
+
+Steps to build wolfBoot on TC3xx with wolfHSM are largely similar to the non-HSM case, with a few key differences.
+
+1. Obtain the wolfHSM release for the AURIX TC3xx from wolfSSL
+2. Extract the contents of the `infineon/tc3xx` directory from the wolfHSM TC3xx release you obtained from wolfSSL into the [wolfBoot/IDE/AURIX/wolfHSM-infineon-tc3xx](./wolfHSM-infineon-tc3xx/) directory. The contents of this directory should now be:
+
+```
+IDE/AURIX/wolfHSM-infineon-tc3xx/
+├── README.md
+├── T32
+├── placeholder.txt
+├── port
+├── tchsm-client
+├── tchsm-server
+├── wolfHSM
+└── wolfssl
+```
+
+3. Build the wolfHSM server application and load it onto the HSM core, following the instructions provided in the release you obtained from wolfSSL. You do not need to build or load the demo client application,  as wolfBoot will act as the client.
+4. Follow all of the steps in [Building and Running the wolfBoot Demo](#building-and-running-the-wolfboot-demo) for the non-HSM enabled case, but with the following key differences:
+   1. The [wolfBoot-tc3xx-wolfHSM](./wolfBoot-tc3xx-wolfHSM/) AURIX Studio project should be used instead of `wolfBoot-tc3xx`
+   2. Use the `wolfBoot-wolfHSM-loadAll-XXX.cmm` lauterbach scripts instead of `wolfBoot-loadAll-XXX.cmm` to load the wolfBoot and test-app images in the TRACE32 GUI
 
 ## Troubleshooting
 
