@@ -35,8 +35,6 @@ The TC3xx AURIX port of wolfBoot places all images in PFLASH, and uses both PFLA
 +----------+ <-- 0x805F_C000
 | SWAP     |        16K (0x4000)
 +----------+ <-- 0x8060_0000
-
-
 ```
 
 Please refer to the [wolfBoot](wolfBoot-tc3xx/Lcf_Gnu_Tricore_Tc.lsl) and [test-app](test-app/Lcf_Gnu_Tricore_Tc.lsl) linker scripts for the exact memory configuration.
