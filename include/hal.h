@@ -141,11 +141,16 @@ int hal_flash_otp_read(uint32_t flashAddress, void* data, uint32_t length);
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
 /* TODO: most of this should be moved to its own HSM shim header */
 #include "wolfhsm/wh_error.h"  /* wolfHSM error codes */
-#include "wolfhsm/wh_client.h" /* For devId access */
-#include "wolfhsm/wh_client_crypto.h" /* For keyId access */
+#include "wolfhsm/wh_client.h" /* For client API access */
+#include "wolfhsm/wh_client_crypto.h" /* For client crypto helper API */
 
-extern whClientConfig  hsmClientCfg;
 extern whClientContext hsmClientCtx;
+
+extern const int hsmClientDevIdHash;   /* devId for image digest */
+extern const int hsmClientDevIdPubKey; /* devId for signature verification */
+#ifdef EXT_ENCRYPTED
+extern const int hsmClientDevIdCrypt; /* devId for image (enc)decryption */
+#endif
 
 #ifndef WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID
 /* TODO: just the first key that will be searched, no rhyme or reason */

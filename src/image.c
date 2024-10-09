@@ -183,7 +183,7 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     defined(WOLFBOOT_RENESAS_RSIP)
     ret = wc_ecc_init_ex(&ecc, NULL, RENESAS_DEVID);
 #elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
-    ret = wc_ecc_init_ex(&ecc, NULL, WH_DEV_ID);
+    ret = wc_ecc_init_ex(&ecc, NULL, hsmClientDevIdPubKey);
 #else
     ret = wc_ecc_init(&ecc);
 #endif
@@ -353,7 +353,7 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     }
     (void)digest_out;
 #elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
-    ret = wc_InitRsaKey_ex(&rsa, NULL, WH_DEV_ID);
+    ret = wc_InitRsaKey_ex(&rsa, NULL, hsmClientDevIdPubKey);
     if (ret != 0) {
         return;
     }
@@ -675,7 +675,7 @@ static int image_sha256(struct wolfBoot_image *img, uint8_t *hash)
     if (stored_sha_len != WOLFBOOT_SHA_DIGEST_SIZE)
         return -1;
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-    rc = wc_InitSha256_ex(&sha256_ctx, NULL, WH_DEV_ID);
+    rc = wc_InitSha256_ex(&sha256_ctx, NULL, hsmClientDevIdHash);
 #else
     rc = wc_InitSha256(&sha256_ctx);
 #endif

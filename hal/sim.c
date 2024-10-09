@@ -82,7 +82,13 @@ static whClientConfig     c_conf[1]  = {{
          .comm = cc_conf,
 }};
 
-whClientContext hsmClientCtx = {0};
+/* Globally exported HAL symbols */
+whClientContext hsmClientCtx         = {0};
+const int       hsmClientDevIdHash   = WH_DEV_ID;
+const int       hsmClientDevIdPubKey = WH_DEV_ID;
+#ifdef EXT_ENCRYPT
+const int hsmClientDevIdCrypt = WH_DEV_ID;
+#endif
 
 int hal_hsm_init_connect(void);
 int hal_hsm_disconnect(void);

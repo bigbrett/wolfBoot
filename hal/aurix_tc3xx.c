@@ -23,6 +23,7 @@
 #include <string.h>
 
 /* wolfBoot headers */
+#include "hal.h"
 #include "image.h"  /* for RAMFUNCTION */
 #include "loader.h" /* for wolfBoot_panic */
 
@@ -546,7 +547,14 @@ static int _connectCb(void* context, whCommConnected connect);
  /* Client configuration/contexts */
 static whTransportMemClientContext tmcCtx[1]  = {0};
 static whTransportClientCb         tmcCb[1]   = {WH_TRANSPORT_MEM_CLIENT_CB};
-whClientContext hsmClientCtx = {0};
+
+/* Globally exported HAL symbols */
+whClientContext hsmClientCtx         = {0};
+const int       hsmClientDevIdHash   = WH_DEV_ID_DMA;
+const int       hsmClientDevIdPubKey = WH_DEV_ID;
+#ifdef EXT_ENCRYPT
+const int hsmClientDevIdCrypt = WH_DEV_ID;
+#endif
 
 static int _cancelCb(uint16_t cancelSeq)
 {
