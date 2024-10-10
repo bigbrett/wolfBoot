@@ -168,15 +168,19 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
         struct wolfBoot_image *img, uint8_t *sig)
 {
     int ret, verify_res = 0;
-    uint8_t *pubkey = keystore_get_buffer(key_slot);
-    int pubkey_sz = keystore_get_size(key_slot);
-    int point_sz = pubkey_sz/2;
     ecc_key ecc;
-    mp_int r, s;
+    mp_int  r, s;
+#if !defined WOLFBOOT_ENABLE_WOLFHSM_CLIENT || \
+    (defined WOLFBOOT_ENABLE_WOLFHSM_CLIENT && \
+     !defined(WOLFBOOT_USE_WOLFHSM_PUBKEY_ID))
+    uint8_t* pubkey    = keystore_get_buffer(key_slot);
+    int      pubkey_sz = keystore_get_size(key_slot);
+    int      point_sz  = pubkey_sz / 2;
 
     if (pubkey == NULL || pubkey_sz <= 0) {
         return;
     }
+#endif
 
 #if defined(WOLFBOOT_RENESAS_SCEPROTECT) || \
     defined(WOLFBOOT_RENESAS_TSIP) || \
@@ -210,6 +214,9 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
         size_t  tmpSigSz                    = sizeof(tmpSigBuf);
 
     #if defined(WOLFBOOT_USE_WOLFHSM_PUBKEY_ID)
+        /* hardcoded, since not using keystore */
+        const int point_sz = IMAGE_SIGNATURE_SIZE / 2;
+
         /* Use the public key ID to verify the signature */
         ret = wh_Client_EccSetKeyId(&ecc, WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID);
         if (ret != 0) {
@@ -329,14 +336,19 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
     int ret;
     uint8_t output[IMAGE_SIGNATURE_SIZE];
     uint8_t* digest_out = NULL;
-    uint8_t *pubkey = keystore_get_buffer(key_slot);
-    int pubkey_sz = keystore_get_size(key_slot);
     word32 inOutIdx = 0;
     struct RsaKey rsa;
+
+#if !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) || \
+    (defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) &&  \
+        !defined(WOLFBOOT_USE_WOLFHSM_PUBKEY_ID))
+    uint8_t *pubkey = keystore_get_buffer(key_slot);
+    int pubkey_sz = keystore_get_size(key_slot);
 
     if (pubkey == NULL || pubkey_sz < 0) {
         return;
     }
+#endif
 
 #if defined(WOLFBOOT_RENESAS_SCEPROTECT) || \
     defined(WOLFBOOT_RENESAS_TSIP) || \
@@ -1145,6 +1157,9 @@ int wolfBoot_verify_authenticity(struct wolfBoot_image *img)
          * TSIP encrypted key is installed at
          *    RENESAS_TSIP_INSTALLEDKEY_ADDR
          */
+        key_slot = 0;
+#elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && defined(WOLFBOOT_USE_WOLFHSM_PUBKEY_ID)
+        /* Don't care about the key slot, we are using a fixed wolfHSM keyId */
         key_slot = 0;
 #else
         key_slot = keyslot_id_by_sha(pubkey_hint);

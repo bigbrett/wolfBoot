@@ -175,7 +175,7 @@ mykey.der     # <-- the generated private key
 mykey_pub.der # <-- the generated public key
 ```
 
-## Using KeyStore with external Key Vaults
+## Using KeyStore with external Key Vaults, where keys are accessible
 
 It is possible to use an external NVM, a Key Vault or any generic support to
 access the KeyStore. In this case, wolfBoot should not link the generated keystore.c directly,
@@ -213,3 +213,9 @@ public key associated to the slot `id`.
 `uint32_t keystore_get_mask(int id)`
 
 Returns the permissions mask, as a 32-bit word, for the public key stored in the slot `id`.
+
+### Using KeyStore with HSMs (inaccessible keys)
+
+wolfBoot supports certain platforms that contain connected HSMs (Hardware Security Modules) that can provide cryptographic services using keys that are not stored in the device NVM or readable by wolfBoot, for example, wolfHSM. In these scenarios, wolfBoot key tools should be used to generate the keys, which can then be manually loaded into the HSM (see [--exportpubkey](#exporting-the-public-key-to-a-file)). At runtime, wolfBoot will still use the keystore to obtain information about the public keys, specifically the size of the key and the key type, but does not need access to the actual key material.
+
+To support this mode of operation, the `keygen` tool supports the `--nolocalkeys` option, which instructs the tool to generate a keystore entry with a zeroed key material. It still generates the `.der` files for private and public keys, so the wolfBoot key tools can sign images, but the `keystore.c` file that is linked into wolfBoot will contain all zeros in the `pubkey` field. Because the key material isn't present in the keystore, the keypair used to sign the image and stored on the HSM for verification can be updated in the field without needing to rebuild wolfBoot against a new `keystore.c`, as long as the signature algorithm and key size does not change. Most targets that use this option will automatically add it to the key generation options or explicitly mention this step in the build documentation.

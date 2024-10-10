@@ -116,6 +116,7 @@ static int saveAsDer = 0;
 #endif
 static int exportPubKey = 0;
 static WC_RNG rng;
+static int noLocalKeys = 0;
 
 #ifndef KEYSLOT_MAX_PUBKEY_SIZE
     #define KEYSLOT_MAX_PUBKEY_SIZE 576
@@ -270,7 +271,7 @@ static void usage(const char *pname) /* implies exit */
     printf("Usage: %s [--ed25519 | --ed448 | --ecc256 | --ecc384 "
            "| --ecc521 | --rsa2048 | --rsa3072 | --rsa4096 ] "
            "[-g privkey] [-i pubkey] [-keystoreDir dir] "
-           "[--id {list}] [--der] [--exportpubkey] \n", pname);
+           "[--id {list}] [--der] [--exportpubkey] [--nolocalkeys]\n", pname);
     exit(125);
 }
 
@@ -451,13 +452,25 @@ void keystore_add(uint32_t ktype, uint8_t *key, uint32_t sz, const char *keyfile
     size_t slot_size;
 
     fprintf(fpub, Slot_hdr,  keyfile, id_slot, KType[ktype], id_mask, sz);
-    fwritekey(key, sz, fpub);
+    if (noLocalKeys) {
+        /* If noLocalKeys is set by caller, we should write a zero key to the
+         * keystore array, as the key material should not be local to the device
+         */
+        uint8_t *zero_key = calloc(sz, sizeof(uint8_t));
+        fwritekey(zero_key, sz, fpub);
+        free(zero_key);
+    } else {
+        fwritekey(key, sz, fpub);
+    }
     fprintf(fpub, Pubkey_footer);
     fprintf(fpub, Slot_footer);
     printf("Associated key file:   %s\n", keyfile);
     printf("Partition ids mask:   %08x\n", id_mask);
     printf("Key type   :           %s\n", KName[ktype]);
     printf("Public key slot:       %u\n", id_slot);
+    if (noLocalKeys) {
+        printf("WARNING: --nolocalkeys flag used, keystore.c public key is zeroed\n");
+    }
 
     memset(&sl, 0, sizeof(sl));
     sl.slot_id = id_slot;
@@ -469,7 +482,7 @@ void keystore_add(uint32_t ktype, uint8_t *key, uint32_t sz, const char *keyfile
 #ifdef WOLFBOOT_UNIVERSAL_KEYSTORE
     slot_size = sizeof(struct keystore_slot);
 #else
-    slot_size = sizeof(struct keystore_slot) +  sl.pubkey_size - 
+    slot_size = sizeof(struct keystore_slot) +  sl.pubkey_size -
         KEYSLOT_MAX_PUBKEY_SIZE;
 #endif
     fwrite(&sl, slot_size, 1, fpub_image);
@@ -1142,6 +1155,9 @@ int main(int argc, char** argv)
         }
         else if (strcmp(argv[i], "--der") == 0) {
             saveAsDer = 1;
+        }
+        else if (strcmp(argv[i], "--nolocalkeys") == 0) {
+            noLocalKeys = 1;
         }
         else if (strcmp(argv[i], "-g") == 0) {
             key_gen_check(argv[i + 1]);
