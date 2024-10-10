@@ -213,7 +213,7 @@ To rerun the demo, simply rerun the loader script in Trace32 and repeat the abov
 
 ## wolfHSM Compatibility
 
-wolfBoot has full support for wolfHSM on the AURIX TC3xx platform. The wolfBoot application functions as the HSM client, and all cryptographic operations required to verify application images are offloaded to the HSM. When used in tandem with wolfHSM, wolfBoot can be configured to use the default keystore for storing key material, or to use keys local to the HSM via key ID.
+wolfBoot has full support for wolfHSM on the AURIX TC3xx platform. The wolfBoot application functions as the HSM client, and all cryptographic operations required to verify application images are offloaded to the HSM. When used in tandem with wolfHSM, wolfBoot can be configured to use keys stored on the HSM for cryptographic operations, or to store keys in the default keystore and send them on-demand to the HSM for usage. The former option is the default configuration, and is recommended for most use cases, as key material will never leave the secure boundary of the HSM. The latter option is useful for development and testing, before keys have been preloaded onto the HSM.
 
 Note that information regarding the AURIX TC3xx HSM core is restricted by NDA with Infineon. Source code for the wolfHSM TC3xx platform port is therefore not publicly available and cannot be included for distribution in wolfBoot. Instructions to build wolfBoot with wolfHSM compatibility are provided here, but the wolfHSM TC3xx port must be obtained separately from wolfSSL. To obtain the wolfHSM TC3xx port, please contact wolfSSL at [facts@wolfssl.com](mailto:facts@wolfssl.com).
 
