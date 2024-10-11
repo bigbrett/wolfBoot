@@ -86,8 +86,11 @@ static whClientConfig     c_conf[1]  = {{
 whClientContext hsmClientCtx         = {0};
 const int       hsmClientDevIdHash   = WH_DEV_ID;
 const int       hsmClientDevIdPubKey = WH_DEV_ID;
+const int       hsmClientKeyIdPubKey = 0xFF;
 #ifdef EXT_ENCRYPT
-const int hsmClientDevIdCrypt = WH_DEV_ID;
+#error "Simulator does not support firmware encryption with wolfHSM(yet)"
+const int       hsmClientDevIdCrypt = WH_DEV_ID;
+const int       hsmClientKeyIdCrypt = 0xFF;
 #endif
 
 int hal_hsm_init_connect(void);

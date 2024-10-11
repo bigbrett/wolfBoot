@@ -871,10 +871,10 @@ ifeq ($(WOLFHSM_CLIENT),1)
   # HSM out-of-band
   KEYGEN_OPTIONS += --exportpubkey --der
 
-  CFLAGS += -DWOLFBOOT_HUGE_STACK
   # Default to using public keys on the HSM
   ifeq ($(WOLFHSM_CLIENT_LOCAL_KEYS),1)
-    CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
     KEYGEN_OPTIONS += --nolocalkeys
+  else
+    CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
   endif
 endif

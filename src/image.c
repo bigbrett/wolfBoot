@@ -218,7 +218,7 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
         const int point_sz = IMAGE_SIGNATURE_SIZE / 2;
 
         /* Use the public key ID to verify the signature */
-        ret = wh_Client_EccSetKeyId(&ecc, WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID);
+        ret = wh_Client_EccSetKeyId(&ecc, hsmClientKeyIdPubKey);
         if (ret != 0) {
             return;
         }
@@ -370,8 +370,8 @@ static void wolfBoot_verify_signature(uint8_t key_slot,
         return;
     }
 #if defined(WOLFBOOT_USE_WOLFHSM_PUBKEY_ID)
-    /* public key is stored on server at WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID */
-    ret = wh_Client_RsaSetKeyId(&rsa, WOLFBOOT_WOLFHSM_IMG_PUBKEY_ID);
+    /* public key is stored on server at hsmClientKeyIdPubKey*/
+    ret = wh_Client_RsaSetKeyId(&rsa, hsmClientKeyIdPubKey);
     if (ret != 0) {
         return;
     }

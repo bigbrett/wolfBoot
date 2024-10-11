@@ -552,9 +552,13 @@ static whTransportClientCb         tmcCb[1]   = {WH_TRANSPORT_MEM_CLIENT_CB};
 whClientContext hsmClientCtx         = {0};
 const int       hsmClientDevIdHash   = WH_DEV_ID_DMA;
 const int       hsmClientDevIdPubKey = WH_DEV_ID;
+const int       hsmClientKeyIdPubKey = 0xFF;
 #ifdef EXT_ENCRYPT
-const int hsmClientDevIdCrypt = WH_DEV_ID;
+#error "AURIX TC3xx does not support firmware encryption with wolfHSM (yet)"
+const int       hsmClientDevIdCrypt = WH_DEV_ID;
+const int       hsmClientKeyIdCrypt = 0xFF;
 #endif
+
 
 static int _cancelCb(uint16_t cancelSeq)
 {
