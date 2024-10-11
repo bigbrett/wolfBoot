@@ -872,9 +872,8 @@ ifeq ($(WOLFHSM_CLIENT),1)
   KEYGEN_OPTIONS += --exportpubkey --der
 
   # Default to using public keys on the HSM
-  ifeq ($(WOLFHSM_CLIENT_LOCAL_KEYS),1)
+  ifneq ($(WOLFHSM_CLIENT_LOCAL_KEYS),1)
     KEYGEN_OPTIONS += --nolocalkeys
-  else
     CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
   endif
 endif

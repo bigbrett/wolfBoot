@@ -104,7 +104,7 @@ Run the wolfBoot simulator against the serverwith the appropriate arguments to r
 
 ```
 # in the wolfBoot terminal window
-./wolfBoot.elf update_trigger get_version
+./wolfboot.elf update_trigger get_version
 
 # The following output should indicate that the update was staged successfully
 Simulator assigned ./internal_flash.dd to base 0x7f7fcbd80000
@@ -124,7 +124,7 @@ Restart the wolfHSM server with the same arguments, then rerun the wolfBoot simu
 ./Build/wh_server_tcp.elf --key /path/to/wolfboot_signing_private_key_pub.der --id 0xFF
 
 # In the wolfBoot terminal window, run the following to update the image and confirm the update
-./wolfBoot.elf success get_version
+./wolfboot.elf success get_version
 
 # The output should ultimately print the following, indicating the update was successful
 ... lots of output ...
