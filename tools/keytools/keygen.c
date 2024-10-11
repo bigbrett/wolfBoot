@@ -381,12 +381,12 @@ static char *append_pub_to_fname(const char *filename) {
     return newFilename;
 }
 
-static int export_pubkey_file(const char *keyfile, uint8_t *pubDer, size_t pubLen)
+static int export_pubkey_file(const char *prvKeyFile, uint8_t *pubDer, size_t pubLen)
 {
     FILE *fpub;
     char *fname;
 
-    fname = append_pub_to_fname(keyfile);
+    fname = append_pub_to_fname(prvKeyFile);
     if (fname == NULL) {
         return -1;
     }
@@ -900,7 +900,7 @@ static void keygen_xmss(const char *priv_fname, uint32_t id_mask)
     fclose(fpriv);
 
     if (exportPubKey) {
-        if (export_pubkey_file(priv_fname, pub, KEYSTORE_PUBKEY_SIZE_XMSS) != 0) {
+        if (export_pubkey_file(priv_fname, xmss_pub, KEYSTORE_PUBKEY_SIZE_XMSS) != 0) {
             fprintf(stderr, "Unable to export public key to file\n");
             exit(1);
         }
