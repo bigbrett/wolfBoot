@@ -680,7 +680,6 @@ static int image_sha256(struct wolfBoot_image *img, uint8_t *hash)
     int blksz;
     uint32_t position = 0;
     wc_Sha256 sha256_ctx;
-    int rc;
 
     if (!img)
         return -1;
@@ -690,20 +689,16 @@ static int image_sha256(struct wolfBoot_image *img, uint8_t *hash)
     if (stored_sha_len != WOLFBOOT_SHA_DIGEST_SIZE)
         return -1;
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-    rc = wc_InitSha256_ex(&sha256_ctx, NULL, hsmClientDevIdHash);
+    (void)wc_InitSha256_ex(&sha256_ctx, NULL, hsmClientDevIdHash);
 #else
-    rc = wc_InitSha256(&sha256_ctx);
+    wc_InitSha256(&sha256_ctx);
 #endif
-    if (rc != 0)
-        return -1;
     end_sha = stored_sha - (2 * sizeof(uint16_t)); /* Subtract 2 Type + 2 Len */
     while (p < end_sha) {
         blksz = WOLFBOOT_SHA_BLOCK_SIZE;
         if (end_sha - p < blksz)
             blksz = end_sha - p;
-        rc = wc_Sha256Update(&sha256_ctx, p, blksz);
-        if (rc != 0)
-            return -1;
+        wc_Sha256Update(&sha256_ctx, p, blksz);
         p += blksz;
     }
     do {
@@ -713,15 +708,11 @@ static int image_sha256(struct wolfBoot_image *img, uint8_t *hash)
         blksz = WOLFBOOT_SHA_BLOCK_SIZE;
         if (position + blksz > img->fw_size)
             blksz = img->fw_size - position;
-        rc = wc_Sha256Update(&sha256_ctx, p, blksz);
-        if (rc != 0)
-            return -1;
+        wc_Sha256Update(&sha256_ctx, p, blksz);
         position += blksz;
     } while(position < img->fw_size);
 
-    rc = wc_Sha256Final(&sha256_ctx, hash);
-    if (rc != 0)
-        return -1;
+    wc_Sha256Final(&sha256_ctx, hash);
 
     return 0;
 }
