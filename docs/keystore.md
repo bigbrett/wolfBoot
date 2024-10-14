@@ -165,12 +165,14 @@ The `keygen` tool can also export the public key that corresponds to the private
 used with the `--exportpubkey` option. The `--exportpubkey` option only has an effect if used in conjunction with the `-g` option,
 otherwise it is ignored. To generate a new ECC 256 keypair, with der files exported for both public and private keys, use:
 
-`keygen --ecc256 --exportpubkey -g mykey.der
+```sh
+keygen --ecc256 --exportpubkey -g mykey.der
+```
 
 The exported public key will have the same name as the input to the `-g` option, but with `_pub` appended to the string before
 the first `.` character. Therefore, running the  above command will result in the creation of the following two files:
 
-```
+```sh
 mykey.der     # <-- the generated private key
 mykey_pub.der # <-- the generated public key
 ```

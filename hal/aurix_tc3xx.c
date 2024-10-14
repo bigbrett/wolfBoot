@@ -34,6 +34,20 @@
 #include "IfxScuRcu.h"     /* for IfxScuRcu_performReset */
 #include "Ifx_Ssw_Infra.h" /* for Ifx_Ssw_jumpToFunction */
 
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+/* wolfHSM headers */
+#include "wolfhsm/wh_error.h"
+#include "wolfhsm/wh_client.h"
+#include "wolfhsm/wh_transport_mem.h"
+
+/* wolfHSM AURIX port headers */
+#include "tchsm_hh_host.h"
+#include "tchsm_hsmhost.h"
+#include "tchsm_config.h"
+#include "tchsm_common.h"
+#include "hsm_ipc.h"
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
+
 #define FLASH_MODULE                (0)
 #define UNUSED_PARAMETER            (0)
 #define WOLFBOOT_AURIX_RESET_REASON (0x5742) /* "WB" */
@@ -531,16 +545,6 @@ void arch_reboot(void)
 
 
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-#include "wolfhsm/wh_error.h"
-#include "wolfhsm/wh_client.h"
-#include "wolfhsm/wh_transport_mem.h"
-
-#include "tchsm_hh_host.h"
-#include "tchsm_hsmhost.h"
-#include "tchsm_config.h"
-#include "tchsm_common.h"
-#include "hsm_ipc.h"
-
 static int _cancelCb(uint16_t cancelSeq);
 static int _connectCb(void* context, whCommConnected connect);
 

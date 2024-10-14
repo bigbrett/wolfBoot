@@ -862,7 +862,6 @@ endif
 # wolfHSM options
 ifeq ($(WOLFHSM_CLIENT),1)
   LIBDIR := $(dir $(lastword $(MAKEFILE_LIST)))lib
-  #WOLFCRYPT_OBJS += ./lib/wolfssl/wolfcrypt/src/cryptocb.o
   WOLFCRYPT_OBJS += \
     $(LIBDIR)/wolfssl/wolfcrypt/src/cryptocb.o \
     $(LIBDIR)/wolfssl/wolfcrypt/src/coding.o
