@@ -10,6 +10,7 @@ LOCAL &wolfBoot &testApp &updateApp
 DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 
 flash.CHANGEtype 0xA0000000--0xA009FFFF NOP
+flash.CHANGEtype 0xAFC00000--0xAFC10000 NOP
 
 FLASH.Erase 0xA00A0000--0xA05FFFFF
 flash.reprogram all /erase
