@@ -383,6 +383,12 @@ int hal_hsm_disconnect(void)
 {
     int rc = 0;
 
+    rc = wh_Client_CommClose(&hsmClientCtx);
+    if (rc != WH_ERROR_OK) {
+        fprintf(stderr, "Failed to close HSM client connection\n");
+        exit(-1);
+    }
+
     rc = wh_Client_Cleanup(&hsmClientCtx);
     if (rc != WH_ERROR_OK) {
         fprintf(stderr, "Failed to cleanup HSM client\n");
