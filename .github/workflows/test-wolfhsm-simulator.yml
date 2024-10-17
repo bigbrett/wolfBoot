@@ -44,13 +44,13 @@ jobs:
           path: wolfHSM-examples
 
       - name: Build example POSIX TCP server
-        run: cd wolfHSM-examples/posix/tcp/wh_server_tcp && make WOLFSSL_DIR=../../../wolfssl WOLFHSM_DIR=../../../wolfhsm
+        run: cd wolfHSM-examples/posix/tcp/wh_server_tcp && make WOLFSSL_DIR=../../../../lib/wolfssl WOLFHSM_DIR=../../../../lib/wolfhsm
 
       # Start the server in the background
       - name: Run POSIX TCP server
         run: |
           cd wolfHSM-examples/posix/tcp/wh_server_tcp
-          ./Build/wh_server_tcp.elf &
+          ./Build/wh_server_tcp.elf --client 0xC --id 0xFF --key ../../../../wolfboot_signing_private_key_pub.der  &
           TCP_SERVER_PID=$!
           echo "TCP_SERVER_PID=$TCP_SERVER_PID" >> $GITHUB_ENV
 
