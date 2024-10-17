@@ -2,4 +2,4 @@
 
 set -euxo pipefail
 
-(cd ../../../ && tools/keytools/keygen --ecc256 -g priv.der)
+(cd ../../../ && tools/keytools/keygen --ecc256 -g priv.der --exportpubkey --nolocalkeys)
