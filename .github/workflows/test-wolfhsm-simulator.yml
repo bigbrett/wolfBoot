@@ -1,4 +1,4 @@
-name: Test simulator against wolfHSM server
+name: wolfHSM simulator test
 
 on:
   push:
@@ -44,7 +44,7 @@ jobs:
           path: wolfHSM-examples
 
       - name: Build example POSIX TCP server
-        run: cd wolfHSM-examples/posix/tcp/wh_server_tcp && make WOLFSSL_DIR=../../../../lib/wolfssl WOLFHSM_DIR=../../../../lib/wolfhsm
+        run: cd wolfHSM-examples/posix/tcp/wh_server_tcp && make WOLFSSL_DIR=../../../../lib/wolfssl WOLFHSM_DIR=../../../../lib/wolfHSM
 
       # Start the server in the background
       - name: Run POSIX TCP server
