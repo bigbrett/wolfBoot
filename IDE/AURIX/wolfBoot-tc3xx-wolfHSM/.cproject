@@ -497,6 +497,7 @@
 									<listOptionValue builtIn="false" value="WOLFBOOT_ENABLE_WOLFHSM_CLIENT"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_HUGE_STACK"/>
 									<listOptionValue builtIn="false" value="WOLFHSM_CFG"/>
+									<listOptionValue builtIn="false" value="WOLFBOOT_USE_WOLFHSM_PUBKEY_ID"/>
 								</option>
 								<inputType id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType.1768062788" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType"/>
 							</tool>
@@ -717,6 +718,7 @@
 									<listOptionValue builtIn="false" value="WOLFBOOT_ENABLE_WOLFHSM_CLIENT"/>
 									<listOptionValue builtIn="false" value="WOLFBOOT_HUGE_STACK"/>
 									<listOptionValue builtIn="false" value="WOLFHSM_CFG"/>
+									<listOptionValue builtIn="false" value="WOLFBOOT_USE_WOLFHSM_PUBKEY_ID"/>
 								</option>
 								<inputType id="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType.526570406" superClass="com.infineon.aurix.buildsystem.managed.tool.c.compiler.inputType"/>
 							</tool>

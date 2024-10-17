@@ -612,7 +612,8 @@ static void keygen_ecc(const char *priv_fname, uint16_t ecc_key_size,
 
         if (saveAsDer) {
             /* If you want public key also exported as a DER file and not as RAW
-             * point. Note that this will break compatibility with wolfHSM */
+             * point. Note that this is the expected format if loading the public
+             * key into wolfHSM */
             pubOutLen = ret =
                 wc_EccPublicKeyToDer(&k, priv_der, (word32)sizeof(priv_der), 1);
         }
