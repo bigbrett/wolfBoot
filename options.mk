@@ -909,3 +909,11 @@ ifeq ($(WOLFHSM_CLIENT),1)
     CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
   endif
 endif
+
+# Cert chain verification options
+ifneq ($(CERT_CHAIN_VERIFY),)
+  CFLAGS += -DWOLFBOOT_CERT_CHAIN_VERIFY
+  ifneq ($(CERT_CHAIN_FILE),)
+    SIGN_OPTIONS += --cert-chain $(CERT_CHAIN_FILE)
+  endif
+endif

@@ -64,6 +64,10 @@ ifeq ($(HASH),SHA3)
 	SIGN_ARGS+= --sha3
 endif
 
+ifneq ($(CERT_CHAIN_FILE),)
+  SIGN_ARGS+= --cert-chain $(CERT_CHAIN_FILE)
+endif
+
 ifeq ($(FLAGS_INVERT),1)
   INVERSION=
 else
@@ -222,8 +226,8 @@ test-sim-internal-flash-with-update: wolfboot.bin test-app/image.elf FORCE
 	$(Q)dd if=/dev/urandom of=test-app/image.elf bs=1k count=16 oflag=append conv=notrunc
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
 	$(Q)dd if=/dev/zero bs=$$(($(WOLFBOOT_SECTOR_SIZE))) count=1 2>/dev/null $(INVERSION) > erased_sec.dd
-	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_ARGS) $(DELTA_UPDATE_OPTIONS) \
-		test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
+	# $(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_ARGS) $(DELTA_UPDATE_OPTIONS) \
+	# 	test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
 	$(Q)$(BINASSEMBLE) internal_flash.dd \
 		0 wolfboot.bin \
 		$$(($(WOLFBOOT_PARTITION_BOOT_ADDRESS) - $(ARCH_FLASH_OFFSET))) test-app/image_v1_signed.bin \

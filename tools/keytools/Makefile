@@ -47,6 +47,7 @@ OPTIMIZE        = -O2
 # Options
 ifeq ($(DEBUG),1)
   CFLAGS+=$(DEBUG_FLAGS)
+  CFLAGS+=$(SANITIZE_FLAGS)
 else
   #CFLAGS+=$(SANITIZE_FLAGS)
   CFLAGS+=$(OPTIMIZE)

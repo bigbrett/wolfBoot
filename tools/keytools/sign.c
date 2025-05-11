@@ -158,6 +158,7 @@ static inline int fp_truncate(FILE *f, size_t len)
 #define HDR_SIGNATURE           0x20
 #define HDR_POLICY_SIGNATURE    0x21
 #define HDR_SECONDARY_SIGNATURE 0x22
+#define HDR_CERT_CHAIN 0x23
 
 
 #define HDR_SHA256_LEN    32
@@ -265,6 +266,7 @@ struct cmd_options {
     const char *policy_file;
     const char *encrypt_key_file;
     const char *delta_base_file;
+    const char* cert_chain_file; /* Certificate chain file */
     int no_base_sha;
     char output_image_file[PATH_MAX];
     char output_diff_file[PATH_MAX];
@@ -425,8 +427,10 @@ static int load_key_ecc(int sign_type, uint32_t curve_sz, int curve_id,
     if (ret != 0 && initRet == 0) {
         wc_ecc_free(&key.ecc);
     }
-    if (ret != 0)
+    if (ret != 0) {
         free(*pubkey);
+        *pubkey = NULL;
+    }
 
     if (ret == 0 || CMD.sign != SIGN_AUTO) {
         if (CMD.header_sz < header_sz)
@@ -1066,6 +1070,42 @@ static int make_header_ex(int is_diff, uint8_t *pubkey, uint32_t pubkey_sz,
     uint32_t digest_sz = 0;
     uint32_t image_sz = 0;
     int io_sz;
+    uint8_t*    cert_chain    = NULL;
+    uint32_t    cert_chain_sz = 0;
+
+    /* Check certificate chain file size before allocating header, and adjust
+     * header size if needed */
+    if (CMD.cert_chain_file != NULL) {
+        struct stat file_stat;
+
+        /* Get the file size */
+        if (stat(CMD.cert_chain_file, &file_stat) == 0) {
+            cert_chain_sz = file_stat.st_size;
+
+            /* Add enough space for the certificate chain TLV:
+             * tag (2 bytes) + length (2 bytes) + data + alignment padding (up
+             * to 7 bytes) */
+            uint32_t required_space = 4 + cert_chain_sz + 8;
+
+            /* If the current header size is too small, increase it */
+            if (CMD.header_sz < required_space) {
+                /* Round up to nearest power of 2 that can hold the chain */
+                uint32_t new_size = 256;
+                while (new_size < required_space) {
+                    new_size *= 2;
+                }
+
+                printf("Increasing header size from %u to %u bytes to fit "
+                       "certificate chain\n",
+                       CMD.header_sz, new_size);
+                CMD.header_sz = new_size;
+            }
+        }
+        else {
+            printf("Warning: Could not stat certificate chain file %s: %s\n",
+                   CMD.cert_chain_file, strerror(errno));
+        }
+    }
 
     header_idx = 0;
     header = malloc(CMD.header_sz);
@@ -1181,6 +1221,61 @@ static int make_header_ex(int is_diff, uint8_t *pubkey, uint32_t pubkey_sz,
                     CMD.custom_tlv[i].len, CMD.custom_tlv[i].buffer);
             }
         }
+    }
+
+    /* Read certificate chain if provided */
+    if (CMD.cert_chain_file != NULL) {
+        struct stat file_stat;
+        f = fopen(CMD.cert_chain_file, "rb");
+        if (f == NULL) {
+            printf("Open certificate chain file %s failed: %s\n",
+                   CMD.cert_chain_file, strerror(errno));
+            goto failure;
+        }
+
+        /* Get the file size */
+        if (stat(CMD.cert_chain_file, &file_stat) != 0) {
+            printf("Could not get certificate chain file size: %s\n",
+                   strerror(errno));
+            fclose(f);
+            goto failure;
+        }
+
+        cert_chain_sz = file_stat.st_size;
+
+        /* Verify that the chain will fit in our header */
+        if (header_idx + 4 + cert_chain_sz > CMD.header_sz) {
+            printf("Error: Certificate chain too large for header (%u bytes "
+                   "needed, %u available)\n",
+                   (unsigned int)(header_idx + 4 + cert_chain_sz),
+                   CMD.header_sz);
+            fclose(f);
+            goto failure;
+        }
+
+        cert_chain = malloc(cert_chain_sz);
+        if (cert_chain == NULL) {
+            printf("Certificate chain buffer malloc error!\n");
+            fclose(f);
+            goto failure;
+        }
+
+        /* Read the entire file into the buffer */
+        io_sz = (int)fread(cert_chain, 1, cert_chain_sz, f);
+        fclose(f);
+
+        if (io_sz != (int)cert_chain_sz) {
+            printf("Error reading certificate chain file: %s\n",
+                   strerror(errno));
+            goto failure;
+        }
+
+        /* Append the certificate chain TLV - require 8-byte alignment */
+        ALIGN_8(header_idx);
+        header_append_tag(header, &header_idx, HDR_CERT_CHAIN, cert_chain_sz,
+                          cert_chain);
+
+        printf("Added certificate chain (%d bytes)\n", cert_chain_sz);
     }
 
     /* Add padding bytes. Sha-3 val field requires 8-byte alignment */
@@ -1693,10 +1788,16 @@ static int make_header_ex(int is_diff, uint8_t *pubkey, uint32_t pubkey_sz,
     fclose(f2);
     fclose(f);
 failure:
+    if (cert_chain)
+        free(cert_chain);
     if (policy)
         free(policy);
     if (header)
         free(header);
+    if (signature)
+        free(signature);
+    if (secondary_signature)
+        free(secondary_signature);
     return ret;
 }
 
@@ -2587,6 +2688,13 @@ int main(int argc, char** argv)
             CMD.custom_tlvs++;
             i += 2;
         }
+        else if (strcmp(argv[i], "--cert-chain") == 0) {
+            if (argc <= (i + 1)) {
+                fprintf(stderr, "Missing certificate chain file argument\n");
+                exit(16);
+            }
+            CMD.cert_chain_file = argv[++i];
+        }
         else {
             i--;
             break;
@@ -2746,6 +2854,8 @@ int main(int argc, char** argv)
         DEBUG_PRINT("Header size: %u\n", CMD.header_sz);
         if (kbuf2)
             free(kbuf2);
+        if (pubkey2)
+            free(pubkey2);
     } else {
         make_header(pubkey, pubkey_sz, CMD.image_file, CMD.output_image_file);
     }
@@ -2758,6 +2868,9 @@ int main(int argc, char** argv)
             ret = base_diff(CMD.delta_base_file, pubkey, pubkey_sz, 16);
     }
 
+    /* Add pubkey cleanup */
+    if (pubkey)
+        free(pubkey);
 
     if (kbuf)
         free(kbuf);
