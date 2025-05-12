@@ -907,6 +907,17 @@ ifeq ($(WOLFHSM_CLIENT),1)
   ifneq ($(WOLFHSM_CLIENT_LOCAL_KEYS),1)
     KEYGEN_OPTIONS += --nolocalkeys
     CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
+	# big enough for cert chain
+    CFLAGS += -DWOLFHSM_CFG_COMM_DATA_LEN=5000
+  endif
+
+  # Ensure wolfHSM is configured to use certificate manager if we are
+  # doing cert chain verification
+  ifneq ($(CERT_CHAIN_VERIFY),)
+    WOLFHSM_CLIENT_OBJS += \
+      $(LIBDIR)/wolfHSM/src/wh_client_cert.o \
+      $(LIBDIR)/wolfHSM/src/wh_message_cert.o
+    CFLAGS += -DWOLFHSM_CFG_CERTIFICATE_MANAGER
   endif
 endif
 
