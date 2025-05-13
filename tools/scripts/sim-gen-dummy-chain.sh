@@ -6,6 +6,9 @@
 
 set -e  # Exit on any error
 
+# Default output directory
+OUTPUT_DIR="test-dummy-ca"
+
 # Parse command line arguments
 LEAF_KEY_FILE=""
 while [[ $# -gt 0 ]]; do
@@ -14,9 +17,13 @@ while [[ $# -gt 0 ]]; do
       LEAF_KEY_FILE="$2"
       shift 2
       ;;
+    --outdir)
+      OUTPUT_DIR="$2"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [--leaf <private_key_file>]"
+      echo "Usage: $0 [--leaf <private_key_file>] [--outdir <output_directory>]"
       exit 1
       ;;
   esac
@@ -29,7 +36,7 @@ LEAF_SUBJECT="/C=US/ST=California/L=San Francisco/O=MyOrganization/OU=Services/C
 
 # Create directory structure
 echo "Creating directory structure..."
-mkdir -p ca/temp
+mkdir -p ${OUTPUT_DIR}/temp
 
 ##################
 # GENERATE CHAIN
@@ -38,81 +45,81 @@ echo "Generating Certificate Chain..."
 
 # Step 1: Generate Root key and certificate
 echo "Generating Root CA..."
-openssl ecparam -genkey -name prime256v1 -noout -out ca/temp/root.key.pem
+openssl ecparam -genkey -name prime256v1 -noout -out ${OUTPUT_DIR}/temp/root.key.pem
 
 # Create PEM format root certificate (temporary)
 openssl req -new -x509 -days 3650 -sha256 \
-    -key ca/temp/root.key.pem \
-    -out ca/temp/root.crt.pem \
+    -key ${OUTPUT_DIR}/temp/root.key.pem \
+    -out ${OUTPUT_DIR}/temp/root.crt.pem \
     -subj "$ROOT_SUBJECT" \
     -addext "basicConstraints=critical,CA:TRUE" \
     -addext "keyUsage=critical,keyCertSign,cRLSign,digitalSignature"
 
 # Convert root key and certificate to DER format
-openssl ec -in ca/temp/root.key.pem -outform DER -out ca/root-prvkey.der
-openssl x509 -in ca/temp/root.crt.pem -outform DER -out ca/root-cert.der
+openssl ec -in ${OUTPUT_DIR}/temp/root.key.pem -outform DER -out ${OUTPUT_DIR}/root-prvkey.der
+openssl x509 -in ${OUTPUT_DIR}/temp/root.crt.pem -outform DER -out ${OUTPUT_DIR}/root-cert.der
 
 # Step 2: Generate Intermediate key and CSR
 echo "Generating Intermediate CA..."
-openssl ecparam -genkey -name prime256v1 -noout -out ca/temp/intermediate.key.pem
+openssl ecparam -genkey -name prime256v1 -noout -out ${OUTPUT_DIR}/temp/intermediate.key.pem
 
 openssl req -new -sha256 \
-    -key ca/temp/intermediate.key.pem \
-    -out ca/temp/intermediate.csr \
+    -key ${OUTPUT_DIR}/temp/intermediate.key.pem \
+    -out ${OUTPUT_DIR}/temp/intermediate.csr \
     -subj "$INTERMEDIATE_SUBJECT"
 
 # Step 3: Sign Intermediate certificate with Root
 openssl x509 -req -days 1825 -sha256 \
-    -in ca/temp/intermediate.csr \
-    -out ca/temp/intermediate.crt.pem \
-    -CA ca/temp/root.crt.pem \
-    -CAkey ca/temp/root.key.pem \
+    -in ${OUTPUT_DIR}/temp/intermediate.csr \
+    -out ${OUTPUT_DIR}/temp/intermediate.crt.pem \
+    -CA ${OUTPUT_DIR}/temp/root.crt.pem \
+    -CAkey ${OUTPUT_DIR}/temp/root.key.pem \
     -CAcreateserial \
     -extfile <(printf "basicConstraints=critical,CA:TRUE,pathlen:0\nkeyUsage=critical,keyCertSign,cRLSign,digitalSignature")
 
 # Convert intermediate key and certificate to DER format
-openssl ec -in ca/temp/intermediate.key.pem -outform DER -out ca/intermediate-prvkey.der
-openssl x509 -in ca/temp/intermediate.crt.pem -outform DER -out ca/intermediate-cert.der
+openssl ec -in ${OUTPUT_DIR}/temp/intermediate.key.pem -outform DER -out ${OUTPUT_DIR}/intermediate-prvkey.der
+openssl x509 -in ${OUTPUT_DIR}/temp/intermediate.crt.pem -outform DER -out ${OUTPUT_DIR}/intermediate-cert.der
 
 # Step 4: Handle Leaf key (generate or use existing)
 echo "Handling Leaf Certificate..."
 if [ -z "$LEAF_KEY_FILE" ]; then
     echo "Generating new leaf private key..."
-    openssl ecparam -genkey -name prime256v1 -noout -out ca/temp/leaf.key.pem
+    openssl ecparam -genkey -name prime256v1 -noout -out ${OUTPUT_DIR}/temp/leaf.key.pem
 else
     echo "Using provided leaf private key: $LEAF_KEY_FILE"
-    cp "$LEAF_KEY_FILE" ca/temp/leaf.key.pem
+    cp "$LEAF_KEY_FILE" ${OUTPUT_DIR}/temp/leaf.key.pem
     # Ensure the key file is in the right format (ECC private key)
     # This will fail if the key isn't a valid EC key
-    openssl ec -in ca/temp/leaf.key.pem -noout
+    openssl ec -in ${OUTPUT_DIR}/temp/leaf.key.pem -noout
 fi
 
 # Create CSR for leaf certificate
 openssl req -new -sha256 \
-    -key ca/temp/leaf.key.pem \
-    -out ca/temp/leaf.csr \
+    -key ${OUTPUT_DIR}/temp/leaf.key.pem \
+    -out ${OUTPUT_DIR}/temp/leaf.csr \
     -subj "$LEAF_SUBJECT"
 
 # Step 5: Sign Leaf certificate with Intermediate
 openssl x509 -req -days 365 -sha256 \
-    -in ca/temp/leaf.csr \
-    -out ca/temp/leaf.crt.pem \
-    -CA ca/temp/intermediate.crt.pem \
-    -CAkey ca/temp/intermediate.key.pem \
+    -in ${OUTPUT_DIR}/temp/leaf.csr \
+    -out ${OUTPUT_DIR}/temp/leaf.crt.pem \
+    -CA ${OUTPUT_DIR}/temp/intermediate.crt.pem \
+    -CAkey ${OUTPUT_DIR}/temp/intermediate.key.pem \
     -CAcreateserial \
     -extfile <(printf "basicConstraints=CA:FALSE\nkeyUsage=critical,digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth")
 
 # Convert leaf key and certificate to DER format
-openssl ec -in ca/temp/leaf.key.pem -outform DER -out ca/leaf-prvkey.der
-openssl x509 -in ca/temp/leaf.crt.pem -outform DER -out ca/leaf-cert.der
+openssl ec -in ${OUTPUT_DIR}/temp/leaf.key.pem -outform DER -out ${OUTPUT_DIR}/leaf-prvkey.der
+openssl x509 -in ${OUTPUT_DIR}/temp/leaf.crt.pem -outform DER -out ${OUTPUT_DIR}/leaf-cert.der
 
 # Extract the public key from leaf certificate in DER format
 echo "Extracting public key from leaf certificate..."
-openssl x509 -in ca/temp/leaf.crt.pem -pubkey -noout > ca/temp/leaf_pubkey.pem
-openssl ec -pubin -in ca/temp/leaf_pubkey.pem -outform DER -out ca/leaf_pu-prvkey.der
+openssl x509 -in ${OUTPUT_DIR}/temp/leaf.crt.pem -pubkey -noout > ${OUTPUT_DIR}/temp/leaf_pubkey.pem
+openssl ec -pubin -in ${OUTPUT_DIR}/temp/leaf_pubkey.pem -outform DER -out ${OUTPUT_DIR}/leaf_pu-prvkey.der
 
 # Create raw DER format certificate chain
-cat ca/intermediate-cert.der ca/leaf-cert.der > ca/raw_chain.der
+cat ${OUTPUT_DIR}/intermediate-cert.der ${OUTPUT_DIR}/leaf-cert.der > ${OUTPUT_DIR}/raw_chain.der
 
 ##################################
 # GENERATE C ARRAYS FOR EMBEDDING
@@ -120,7 +127,7 @@ cat ca/intermediate-cert.der ca/leaf-cert.der > ca/raw_chain.der
 echo "Generating C arrays for embedding in programs..."
 
 # Create a header file for certificates
-HEADER_FILE="ca/gen_certificates.h"
+HEADER_FILE="${OUTPUT_DIR}/gen_certificates.h"
 
 # Initialize the header file with header guards and includes
 cat > "${HEADER_FILE}" << 'EOT'
@@ -156,12 +163,12 @@ append_cert_array() {
 
 ### Add certificates to the header file
 echo "/* Certificates */" >> "${HEADER_FILE}"
-append_cert_array "ca/root-cert.der" "ROOT_CERT" "Root CA Certificate (DER format)"
-append_cert_array "ca/intermediate-cert.der" "INTERMEDIATE_CERT" "Intermediate CA Certificate (DER format)"
-append_cert_array "ca/leaf-cert.der" "LEAF_CERT" "Leaf/Server Certificate (DER format)"
-append_cert_array "ca/raw_chain.der" "RAW_CERT_CHAIN" "Raw Certificate Chain (Intermediate+Leaf) (DER format)"
+append_cert_array "${OUTPUT_DIR}/root-cert.der" "ROOT_CERT" "Root CA Certificate (DER format)"
+append_cert_array "${OUTPUT_DIR}/intermediate-cert.der" "INTERMEDIATE_CERT" "Intermediate CA Certificate (DER format)"
+append_cert_array "${OUTPUT_DIR}/leaf-cert.der" "LEAF_CERT" "Leaf/Server Certificate (DER format)"
+append_cert_array "${OUTPUT_DIR}/raw_chain.der" "RAW_CERT_CHAIN" "Raw Certificate Chain (Intermediate+Leaf) (DER format)"
 # Add leaf certificate public key
-append_cert_array "ca/leaf_pu-prvkey.der" "LEAF_PUBKEY" "Leaf Certificate Public Key (DER format)"
+append_cert_array "${OUTPUT_DIR}/leaf_pu-prvkey.der" "LEAF_PUBKEY" "Leaf Certificate Public Key (DER format)"
 
 # Close the header guard
 echo "#endif /* GEN_CERTIFICATES_H */" >> "${HEADER_FILE}"
@@ -176,31 +183,28 @@ echo ""
 # Verify Chain
 echo "=== Verifying Certificate Chain ==="
 echo "Verifying intermediate certificate against root:"
-openssl verify -CAfile ca/temp/root.crt.pem ca/temp/intermediate.crt.pem
+openssl verify -CAfile ${OUTPUT_DIR}/temp/root.crt.pem ${OUTPUT_DIR}/temp/intermediate.crt.pem
 
 echo ""
 echo "Verifying leaf certificate against intermediate and root:"
-openssl verify -CAfile ca/temp/root.crt.pem -untrusted ca/temp/intermediate.crt.pem ca/temp/leaf.crt.pem
+openssl verify -CAfile ${OUTPUT_DIR}/temp/root.crt.pem -untrusted ${OUTPUT_DIR}/temp/intermediate.crt.pem ${OUTPUT_DIR}/temp/leaf.crt.pem
 
 # Display generated files summary
 echo ""
 echo "=== Generated Files Summary ==="
 echo ""
 echo "DER Format:"
-echo "  Root CA certificate:        ca/root-cert.der"
-echo "  Root CA key:                ca/root-prvkey.der"
-echo "  Intermediate certificate:   ca/intermediate-cert.der"
-echo "  Intermediate key:           ca/intermediate-prvkey.der"
-echo "  Leaf certificate:           ca/leaf-cert.der"
-echo "  Leaf key:                   ca/leaf-prvkey.der"
-echo "  Raw chain:                  ca/raw_chain.der"
-echo "  Leaf public key:            ca/leaf_pu-prvkey.der"
+echo "  Root CA certificate:        ${OUTPUT_DIR}/root-cert.der"
+echo "  Root CA key:                ${OUTPUT_DIR}/root-prvkey.der"
+echo "  Intermediate certificate:   ${OUTPUT_DIR}/intermediate-cert.der"
+echo "  Intermediate key:           ${OUTPUT_DIR}/intermediate-prvkey.der"
+echo "  Leaf certificate:           ${OUTPUT_DIR}/leaf-cert.der"
+echo "  Leaf key:                   ${OUTPUT_DIR}/leaf-prvkey.der"
+echo "  Raw chain:                  ${OUTPUT_DIR}/raw_chain.der"
+echo "  Leaf public key:            ${OUTPUT_DIR}/leaf_pu-prvkey.der"
 echo ""
 echo "C Header file:"
-echo "  Certificate arrays:         ca/gen_certificates.h"
+echo "  Certificate arrays:         ${OUTPUT_DIR}/gen_certificates.h"
 
 # Clean up temporary files
-rm -rf ca/temp ca/root.srl ca/intermediate.srl
-
-# copy the generated header file to the current directory
-cp ca/gen_certificates.h ./cert_chain_ecc.h
+rm -rf ${OUTPUT_DIR}/temp ${OUTPUT_DIR}/root.srl ${OUTPUT_DIR}/intermediate.srl
