@@ -8,7 +8,7 @@ set -e  # Exit on any error
 
 # Default output directory and algorithm
 OUTPUT_DIR="test-dummy-ca"
-ALGO="ecc"  # Default to ECC keys
+ALGO="ecc256"  # Default to ECC P-256 keys
 
 # Helper functions for key operations
 generate_private_key() {
@@ -16,8 +16,10 @@ generate_private_key() {
 
     if [[ "$ALGO" == "ecc256" ]]; then
         openssl ecparam -genkey -name prime256v1 -noout -out "$output_file"
-    elif [[ "$ALGO" == "rsa" ]]; then
+    elif [[ "$ALGO" == "rsa2048" ]]; then
         openssl genrsa -out "$output_file" 2048
+    elif [[ "$ALGO" == "rsa4096" ]]; then
+        openssl genrsa -out "$output_file" 4096
     fi
 }
 
@@ -27,7 +29,7 @@ convert_key_to_der() {
 
     if [[ "$ALGO" == "ecc256" ]]; then
         openssl ec -in "$input_file" -outform DER -out "$output_file"
-    elif [[ "$ALGO" == "rsa" ]]; then
+    elif [[ "$ALGO" == "rsa2048" || "$ALGO" == "rsa4096" ]]; then
         openssl rsa -in "$input_file" -outform DER -out "$output_file"
     fi
 }
@@ -43,7 +45,7 @@ extract_public_key() {
     # Convert public key to DER format
     if [[ "$ALGO" == "ecc256" ]]; then
         openssl ec -pubin -in "$pubkey_pem" -outform DER -out "$pubkey_der"
-    elif [[ "$ALGO" == "rsa" ]]; then
+    elif [[ "$ALGO" == "rsa2048" || "$ALGO" == "rsa4096" ]]; then
         openssl rsa -pubin -in "$pubkey_pem" -outform DER -out "$pubkey_der"
     fi
 }
@@ -53,7 +55,7 @@ validate_key_format() {
 
     if [[ "$ALGO" == "ecc256" ]]; then
         openssl ec -in "$key_file" -noout
-    elif [[ "$ALGO" == "rsa" ]]; then
+    elif [[ "$ALGO" == "rsa2048" || "$ALGO" == "rsa4096" ]]; then
         openssl rsa -in "$key_file" -noout
     fi
 }
@@ -72,15 +74,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --algo)
       ALGO="$2"
-      if [[ "$ALGO" != "ecc256" && "$ALGO" != "rsa" ]]; then
-        echo "Invalid algorithm: $ALGO. Use 'ecc256' or 'rsa'"
+      if [[ "$ALGO" != "ecc256" && "$ALGO" != "rsa2048" && "$ALGO" != "rsa4096" ]]; then
+        echo "Invalid algorithm: $ALGO. Use 'ecc256', 'rsa2048', or 'rsa4096'"
         exit 1
       fi
       shift 2
       ;;
     *)
       echo "Unknown option: $1"
-      echo "Usage: $0 [--leaf <private_key_file>] [--outdir <output_directory>] [--algo <ecc|rsa>]"
+      echo "Usage: $0 [--leaf <private_key_file>] [--outdir <output_directory>] [--algo <ecc256|rsa2048|rsa4096>]"
       exit 1
       ;;
   esac

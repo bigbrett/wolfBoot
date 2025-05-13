@@ -391,7 +391,7 @@ utilsclean: clean
 
 keysclean: clean
 	$(Q)rm -f *.pem *.der tags ./src/*_pub_key.c ./src/keystore.c include/target.h
-	$(Q)(test "$(CERT_CHAIN_GEN)" = "") || rm -r test-dummy-ca || true
+	$(Q)(test "$(CERT_CHAIN_GEN)" = "") || rm -rf test-dummy-ca || true
 
 distclean: clean keysclean utilsclean
 	$(Q)rm -f *.bin *.elf

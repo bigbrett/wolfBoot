@@ -937,6 +937,9 @@ ifneq ($(CERT_CHAIN_VERIFY),)
     ifeq ($(SIGN),RSA2048)
       CERT_CHAIN_GEN_ALGO+=rsa2048
     endif
+    ifeq ($(SIGN),RSA4096)
+      CERT_CHAIN_GEN_ALGO+=rsa4096
+    endif
   else
     ifeq ($(CERT_CHAIN_FILE),)
       $(error CERT_CHAIN_FILE must be specified when CERT_CHAIN_VERIFY is enabled and not using CERT_CHAIN_GEN)

@@ -298,6 +298,7 @@ static void wolfBoot_verify_signature_ecc(uint8_t key_slot,
     #if defined(WOLFBOOT_CERT_CHAIN_VERIFY)
         if (g_leafKeyIdValid) {
             (void)wh_Client_KeyEvict(&hsmClientCtx, g_certLeafKeyId);
+            g_leafKeyIdValid = 0;
         }
     #endif
     #else
@@ -468,6 +469,11 @@ static void wolfBoot_verify_signature_rsa(uint8_t key_slot,
     /* evict the key after use, since we aren't using the RSA import API */
     if (WH_ERROR_OK != wh_Client_KeyEvict(&hsmClientCtx, hsmKeyId)) {
         return;
+    }
+#elif defined(WOLFBOOT_CERT_CHAIN_VERIFY)
+    if (g_leafKeyIdValid) {
+        (void)wh_Client_KeyEvict(&hsmClientCtx, g_certLeafKeyId);
+        g_leafKeyIdValid = 0;
     }
 #endif /* !WOLFBOOT_USE_WOLFHSM_PUBKEY_ID */
 #else
