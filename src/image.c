@@ -247,7 +247,7 @@ static void wolfBoot_verify_signature_ecc(uint8_t key_slot,
         const int point_sz = ECC_IMAGE_SIGNATURE_SIZE / 2;
 
         /* Use the public key ID to verify the signature */
-#if defined(WOLFBOOT_CERT_CHAIN_VERIFY)
+    #if defined(WOLFBOOT_CERT_CHAIN_VERIFY)
         /* If using certificate chain verification and we have a verified leaf
          * key ID */
         if (g_leafKeyIdValid) {
@@ -261,9 +261,9 @@ static void wolfBoot_verify_signature_ecc(uint8_t key_slot,
             /* Default behavior: use the pre-configured public key ID */
             ret = wh_Client_EccSetKeyId(&ecc, hsmClientKeyIdPubKey);
         }
-#else
+    #else
         ret = wh_Client_EccSetKeyId(&ecc, hsmClientKeyIdPubKey);
-#endif
+    #endif
         if (ret != 0) {
             return;
         }
@@ -295,6 +295,11 @@ static void wolfBoot_verify_signature_ecc(uint8_t key_slot,
                       img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, &verify_res,
                       &ecc);
         }
+    #if defined(WOLFBOOT_CERT_CHAIN_VERIFY)
+        if (g_leafKeyIdValid) {
+            (void)wh_Client_KeyEvict(&hsmClientCtx, g_certLeafKeyId);
+        }
+    #endif
     #else
         /* Import public key */
         ret = wc_ecc_import_unsigned(&ecc, pubkey, pubkey + point_sz, NULL,
