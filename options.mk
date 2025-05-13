@@ -924,7 +924,15 @@ endif
 # Cert chain verification options
 ifneq ($(CERT_CHAIN_VERIFY),)
   CFLAGS += -DWOLFBOOT_CERT_CHAIN_VERIFY
-  ifneq ($(CERT_CHAIN_FILE),)
-    SIGN_OPTIONS += --cert-chain $(CERT_CHAIN_FILE)
+  # export the private key in DER format so it can be used with certificates
+  KEYGEN_OPTIONS += --der
+  ifneq ($(CERT_CHAIN_GEN),)
+    # Use dummy cert chain file if not provided (needs to be generated when keys are generated)
+    CERT_CHAIN_FILE = ca/raw_chain.der
+  else
+    ifeq ($(CERT_CHAIN_FILE),)
+      $(error CERT_CHAIN_FILE must be specified when CERT_CHAIN_VERIFY is enabled and not using CERT_CHAIN_GEN)
+    endif
   endif
+  SIGN_OPTIONS += --cert-chain $(CERT_CHAIN_FILE)
 endif
