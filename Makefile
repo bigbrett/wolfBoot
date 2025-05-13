@@ -229,7 +229,7 @@ $(PRIVATE_KEY):
 	$(Q)(test $(SIGN) = NONE) || ($(SIGN_ENV) "$(KEYGEN_TOOL)" $(KEYGEN_OPTIONS) -g $(PRIVATE_KEY)) || true
 	$(Q)(test $(SIGN) = NONE) && (echo "// SIGN=NONE" >  src/keystore.c) || true
 	$(Q)(test "$(FLASH_OTP_KEYSTORE)" = "1") && (make -C tools/keytools/otp) || true
-	$(Q)(test $(SIGN) = NONE) || (test "$(CERT_CHAIN_VERIFY)" = "") || (test "$(CERT_CHAIN_GEN)" = "") || (tools/scripts/sim-gen-dummy-chain.sh --leaf $(PRIVATE_KEY)) || true
+	$(Q)(test $(SIGN) = NONE) || (test "$(CERT_CHAIN_VERIFY)" = "") || (test "$(CERT_CHAIN_GEN)" = "") || (tools/scripts/sim-gen-dummy-chain.sh --algo $(CERT_CHAIN_GEN_ALGO) --leaf $(PRIVATE_KEY)) || true
 
 $(SECONDARY_PRIVATE_KEY): $(PRIVATE_KEY) keystore.der
 	$(Q)$(MAKE) keytools_check
