@@ -358,6 +358,10 @@ static int load_key_ecc(int sign_type, uint32_t curve_sz, int curve_id,
 
     *pubkey_sz = curve_sz * 2;
     *pubkey = malloc(*pubkey_sz); /* assume malloc works */
+    if (*pubkey == NULL) {
+        printf("Pubkey malloc error!\n");
+        return -1;
+    }
     initRet = ret = wc_ecc_init(&key.ecc);
     if (CMD.manual_sign || CMD.sha_only) {
         /* raw (public x + public y) */
@@ -459,9 +463,14 @@ static int load_key_rsa(int sign_type, uint32_t rsa_keysz, uint32_t rsa_pubkeysz
     uint32_t keySzOut = 0;
 
     if (CMD.manual_sign || CMD.sha_only) {
-        /* use public key directly */
-        *pubkey = *key_buffer;
+        /* Allocate and copy pubkey instead of using key_buffer directly */
         *pubkey_sz = *key_buffer_sz;
+        *pubkey = malloc(*pubkey_sz);
+        if (*pubkey == NULL) {
+            printf("Pubkey malloc error!\n");
+            return -1;
+        }
+        memcpy(*pubkey, *key_buffer, *pubkey_sz);
 
         if (*pubkey_sz <= rsa_pubkeysz) {
             CMD.header_sz = header_sz;
@@ -488,8 +497,18 @@ static int load_key_rsa(int sign_type, uint32_t rsa_keysz, uint32_t rsa_pubkeysz
         }
 
         if (ret > 0) {
-            *pubkey = *key_buffer;
+            /* Allocate and copy pubkey instead of using key_buffer directly */
             *pubkey_sz = ret;
+            *pubkey = malloc(*pubkey_sz);
+            if (*pubkey == NULL) {
+                printf("Pubkey malloc error!\n");
+                ret = -1;
+                if (initRet == 0) {
+                    wc_FreeRsaKey(&key.rsa);
+                }
+                return -1;
+            }
+            memcpy(*pubkey, *key_buffer, *pubkey_sz);
             ret = 0;
         }
 
@@ -569,6 +588,10 @@ static uint8_t *load_key(uint8_t **key_buffer, uint32_t *key_buffer_sz,
             initRet = -1;
             *pubkey_sz = ED25519_PUB_KEY_SIZE;
             *pubkey = malloc(*pubkey_sz);
+            if (*pubkey == NULL) {
+                printf("Pubkey malloc error!\n");
+                goto failure;
+            }
 
             if (CMD.manual_sign || CMD.sha_only) {
                 /* raw */
@@ -632,6 +655,10 @@ static uint8_t *load_key(uint8_t **key_buffer, uint32_t *key_buffer_sz,
             initRet = -1;
             *pubkey_sz = ED448_PUB_KEY_SIZE;
             *pubkey = malloc(*pubkey_sz);
+            if (*pubkey == NULL) {
+                printf("Pubkey malloc error!\n");
+                goto failure;
+            }
 
             if (CMD.manual_sign || CMD.sha_only) {
                 /* raw */
@@ -747,16 +774,26 @@ static uint8_t *load_key(uint8_t **key_buffer, uint32_t *key_buffer_sz,
             if (*key_buffer_sz == (HSS_MAX_PRIVATE_KEY_LEN +
                                     KEYSTORE_PUBKEY_SIZE_LMS)) {
                 /* priv + pub */
-                *pubkey = (*key_buffer) + HSS_MAX_PRIVATE_KEY_LEN;
-                *pubkey_sz = (*key_buffer_sz) - HSS_MAX_PRIVATE_KEY_LEN;
+                *pubkey_sz = KEYSTORE_PUBKEY_SIZE_LMS;
+                *pubkey = malloc(*pubkey_sz);
+                if (*pubkey == NULL) {
+                    printf("Pubkey malloc error!\n");
+                    goto failure;
+                }
+                memcpy(*pubkey, (*key_buffer) + HSS_MAX_PRIVATE_KEY_LEN, *pubkey_sz);
                 ret = 0;
                 printf("Found LMS key\n");
                 break;
             }
             else if (*key_buffer_sz == KEYSTORE_PUBKEY_SIZE_LMS) {
                 /* pub only */
-                *pubkey = (*key_buffer);
                 *pubkey_sz = KEYSTORE_PUBKEY_SIZE_LMS;
+                *pubkey = malloc(*pubkey_sz);
+                if (*pubkey == NULL) {
+                    printf("Pubkey malloc error!\n");
+                    goto failure;
+                }
+                memcpy(*pubkey, *key_buffer, *pubkey_sz);
                 ret = 0;
                 printf("Found LMS public only key\n");
                 break;
@@ -795,16 +832,26 @@ static uint8_t *load_key(uint8_t **key_buffer, uint32_t *key_buffer_sz,
 
             if (*key_buffer_sz == (priv_sz + KEYSTORE_PUBKEY_SIZE_XMSS)) {
                 /* priv + pub */
-                *pubkey = (*key_buffer) + priv_sz;
-                *pubkey_sz = (*key_buffer_sz) - priv_sz;
+                *pubkey_sz = KEYSTORE_PUBKEY_SIZE_XMSS;
+                *pubkey = malloc(*pubkey_sz);
+                if (*pubkey == NULL) {
+                    printf("Pubkey malloc error!\n");
+                    goto failure;
+                }
+                memcpy(*pubkey, (*key_buffer) + priv_sz, *pubkey_sz);
                 ret = 0;
                 printf("Found XMSS key\n");
                 break;
             }
             else if (*key_buffer_sz == KEYSTORE_PUBKEY_SIZE_XMSS) {
                 /* pub only */
-                *pubkey = (*key_buffer);
                 *pubkey_sz = KEYSTORE_PUBKEY_SIZE_XMSS;
+                *pubkey = malloc(*pubkey_sz);
+                if (*pubkey == NULL) {
+                    printf("Pubkey malloc error!\n");
+                    goto failure;
+                }
+                memcpy(*pubkey, *key_buffer, *pubkey_sz);
                 ret = 0;
                 printf("Found XMSS public only key\n");
                 break;
@@ -848,16 +895,26 @@ static uint8_t *load_key(uint8_t **key_buffer, uint32_t *key_buffer_sz,
                 /* priv + pub */
                 ret = wc_MlDsaKey_ImportPrivRaw(&key.ml_dsa, *key_buffer,
                                                 priv_sz);
-                *pubkey = (*key_buffer) + priv_sz;
-                *pubkey_sz = (*key_buffer_sz) - priv_sz;
+                *pubkey_sz = pub_sz;
+                *pubkey = malloc(*pubkey_sz);
+                if (*pubkey == NULL) {
+                    printf("Pubkey malloc error!\n");
+                    goto failure;
+                }
+                memcpy(*pubkey, (*key_buffer) + priv_sz, *pubkey_sz);
                 ret = 0;
                 printf("Found ml-dsa key\n");
                 break;
             }
             else if (*key_buffer_sz == pub_sz) {
                 /* pub only */
-                *pubkey = (*key_buffer);
                 *pubkey_sz = pub_sz;
+                *pubkey = malloc(*pubkey_sz);
+                if (*pubkey == NULL) {
+                    printf("Pubkey malloc error!\n");
+                    goto failure;
+                }
+                memcpy(*pubkey, *key_buffer, *pubkey_sz);
                 ret = 0;
                 printf("Found ml-dsa public only key\n");
                 break;
