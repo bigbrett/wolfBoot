@@ -1139,15 +1139,20 @@ static int make_header_ex(int is_diff, uint8_t *pubkey, uint32_t pubkey_sz,
         if (stat(CMD.cert_chain_file, &file_stat) == 0) {
             cert_chain_sz = file_stat.st_size;
 
-            /* Add enough space for the certificate chain TLV:
-             * tag (2 bytes) + length (2 bytes) + data + alignment padding (up
-             * to 7 bytes) */
-            uint32_t required_space = 4 + cert_chain_sz + 8;
+            /* 2 bytes for tag + 2 bytes for length field */
+            const uint32_t tag_len_size = 4;
+            /* Maximum alignment padding that might be needed */
+            const uint32_t max_alignment = 8;
+            /* Required space = tag(2) + length(2) + data + potential alignment
+             * * padding */
+            const uint32_t required_space =
+                tag_len_size + cert_chain_sz + max_alignment;
 
             /* If the current header size is too small, increase it */
             if (CMD.header_sz < required_space) {
                 /* Round up to nearest power of 2 that can hold the chain */
-                uint32_t new_size = 256;
+                const uint32_t min_header_size = 256;
+                uint32_t       new_size        = min_header_size;
                 while (new_size < required_space) {
                     new_size *= 2;
                 }
@@ -1282,7 +1287,8 @@ static int make_header_ex(int is_diff, uint8_t *pubkey, uint32_t pubkey_sz,
 
     /* Read certificate chain if provided */
     if (CMD.cert_chain_file != NULL) {
-        struct stat file_stat;
+        const size_t cert_chain_tlv_hdr_sz = 4;
+        struct stat  file_stat;
         f = fopen(CMD.cert_chain_file, "rb");
         if (f == NULL) {
             printf("Open certificate chain file %s failed: %s\n",
@@ -1301,10 +1307,12 @@ static int make_header_ex(int is_diff, uint8_t *pubkey, uint32_t pubkey_sz,
         cert_chain_sz = file_stat.st_size;
 
         /* Verify that the chain will fit in our header */
-        if (header_idx + 4 + cert_chain_sz > CMD.header_sz) {
+        if (header_idx + cert_chain_tlv_hdr_sz + cert_chain_sz >
+            CMD.header_sz) {
             printf("Error: Certificate chain too large for header (%u bytes "
                    "needed, %u available)\n",
-                   (unsigned int)(header_idx + 4 + cert_chain_sz),
+                   (unsigned int)(header_idx + cert_chain_tlv_hdr_sz +
+                                  cert_chain_sz),
                    CMD.header_sz);
             fclose(f);
             goto failure;
