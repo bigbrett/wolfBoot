@@ -158,7 +158,7 @@ static inline int fp_truncate(FILE *f, size_t len)
 #define HDR_SIGNATURE           0x20
 #define HDR_POLICY_SIGNATURE    0x21
 #define HDR_SECONDARY_SIGNATURE 0x22
-#define HDR_CERT_CHAIN 0x23
+#define HDR_CERT_CHAIN          0x23
 
 
 #define HDR_SHA256_LEN    32
