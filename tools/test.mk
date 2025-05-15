@@ -151,6 +151,7 @@ test-sim-external-flash-with-enc-update: wolfboot.bin test-app/image.elf FORCE
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) $(SIGN_ENC_ARGS) test-app/image.elf $(PRIVATE_KEY) 1
 	$(Q)cp test-app/image.bak.elf test-app/image.elf
 	$(Q)dd if=/dev/urandom of=test-app/image.elf bs=1k count=16 oflag=append conv=notrunc
+	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) $(SIGN_ENC_ARGS) test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) $(DELTA_UPDATE_OPTIONS) $(SIGN_ENC_ARGS) \
 		test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
 	# Assembling internal flash image
@@ -175,6 +176,7 @@ test-sim-internal-flash-with-update: wolfboot.bin test-app/image.elf FORCE
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) test-app/image.elf $(PRIVATE_KEY) 1
 	$(Q)cp test-app/image.bak.elf test-app/image.elf
 	$(Q)dd if=/dev/urandom of=test-app/image.elf bs=1k count=16 oflag=append conv=notrunc
+	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
 	$(Q)dd if=/dev/zero bs=$$(($(WOLFBOOT_SECTOR_SIZE))) count=1 2>/dev/null $(INVERSION) > erased_sec.dd
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) $(DELTA_UPDATE_OPTIONS) \
 		test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
