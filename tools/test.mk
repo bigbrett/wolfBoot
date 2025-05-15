@@ -148,10 +148,15 @@ test-sim-external-flash-with-enc-update: wolfboot.bin test-app/image.elf FORCE
 	$(Q)cp test-app/image.elf test-app/image.bak.elf
 	$(Q)dd if=/dev/urandom of=test-app/image.elf bs=1k count=16 oflag=append conv=notrunc
 	@printf "0123456789abcdef0123456789abcdef0123456789abcdef" > /tmp/enc_key.der
+	# First sign command: Create version 1 of the encrypted application (base image)
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) $(SIGN_ENC_ARGS) test-app/image.elf $(PRIVATE_KEY) 1
 	$(Q)cp test-app/image.bak.elf test-app/image.elf
 	$(Q)dd if=/dev/urandom of=test-app/image.elf bs=1k count=16 oflag=append conv=notrunc
+	# Second sign command: Create a full encrypted update (version 2 by default)
+	# This produces image_v2_signed_and_encrypted.bin which is needed for the first flash assembly step
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) $(SIGN_ENC_ARGS) test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
+	# Third sign command: Create update with delta option (if specified), producing image_v2_signed_diff_encrypted.bin
+	# This file is used by the test-sim-external-flash-with-enc-delta-update target
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) $(DELTA_UPDATE_OPTIONS) $(SIGN_ENC_ARGS) \
 		test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
 	# Assembling internal flash image
@@ -166,6 +171,9 @@ test-sim-external-flash-with-enc-update: wolfboot.bin test-app/image.elf FORCE
 		$(WOLFBOOT_PARTITION_SIZE) erased_sec.dd
 
 test-sim-external-flash-with-enc-delta-update:
+	# This target first calls test-sim-external-flash-with-enc-update to generate both
+	# image_v2_signed_and_encrypted.bin (full update) and image_v2_signed_diff_encrypted.bin (delta update)
+	# Then it rebuilds the external flash image using the delta update version
 	make test-sim-external-flash-with-enc-update DELTA_UPDATE_OPTIONS="--delta test-app/image_v1_signed.bin"
 	$(Q)$(BINASSEMBLE) external_flash.dd 0 test-app/image_v$(TEST_UPDATE_VERSION)_signed_diff_encrypted.bin \
 		$(WOLFBOOT_PARTITION_SIZE) erased_sec.dd
@@ -173,11 +181,16 @@ test-sim-external-flash-with-enc-delta-update:
 test-sim-internal-flash-with-update: wolfboot.bin test-app/image.elf FORCE
 	$(Q)cp test-app/image.elf test-app/image.bak.elf
 	$(Q)dd if=/dev/urandom of=test-app/image.elf bs=1k count=16 oflag=append conv=notrunc
+	# Create version 1 of the application (base image)
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) test-app/image.elf $(PRIVATE_KEY) 1
 	$(Q)cp test-app/image.bak.elf test-app/image.elf
 	$(Q)dd if=/dev/urandom of=test-app/image.elf bs=1k count=16 oflag=append conv=notrunc
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
 	$(Q)dd if=/dev/zero bs=$$(($(WOLFBOOT_SECTOR_SIZE))) count=1 2>/dev/null $(INVERSION) > erased_sec.dd
+	# Sign the update image (version 2 by default)
+	# This command handles both standard and delta update modes based on DELTA_UPDATE_OPTIONS
+	# empty DELTA_UPDATE_OPTIONS (Without --delta): Produces image_v2_signed.bin
+	# DELTA_UPDATE_OPTIONS="--delta test-app/image_v1_signed.bin": Produces image_v2_signed_diff.bin
 	$(Q)$(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) $(DELTA_UPDATE_OPTIONS) \
 		test-app/image.elf $(PRIVATE_KEY) $(TEST_UPDATE_VERSION)
 	$(Q)$(BINASSEMBLE) internal_flash.dd \
@@ -187,6 +200,9 @@ test-sim-internal-flash-with-update: wolfboot.bin test-app/image.elf FORCE
 		$$(($(WOLFBOOT_PARTITION_SWAP_ADDRESS)-$(ARCH_FLASH_OFFSET))) erased_sec.dd
 
 test-sim-internal-flash-with-delta-update:
+	# This target calls test-sim-internal-flash-with-update with the delta option
+	# The delta option causes the sign tool to produce image_v2_signed_diff.bin instead of image_v2_signed.bin
+	# Then it rebuilds the internal flash image using the delta update version
 	make test-sim-internal-flash-with-update DELTA_UPDATE_OPTIONS="--delta test-app/image_v1_signed.bin"
 	$(Q)$(BINASSEMBLE) internal_flash.dd \
 		0 wolfboot.bin \
@@ -203,6 +219,9 @@ test-sim-internal-flash-with-delta-update-no-base-sha:
 		$$(($(WOLFBOOT_PARTITION_SWAP_ADDRESS)-$(ARCH_FLASH_OFFSET))) erased_sec.dd
 
 test-sim-internal-flash-with-wrong-delta-update:
+	# This target tests the bootloader's ability to reject delta updates with wrong base hashes
+	# First it creates a delta update based on v1, then creates a different delta update based on v2
+	# The final image contains v1 as the base image but a delta update that expects v2 as its base
 	make test-sim-internal-flash-with-update DELTA_UPDATE_OPTIONS="--delta test-app/image_v1_signed.bin"
 	make test-sim-internal-flash-with-update DELTA_UPDATE_OPTIONS="--delta test-app/image_v2_signed.bin" TEST_UPDATE_VERSION=3
 	$(Q)$(BINASSEMBLE) internal_flash.dd \
