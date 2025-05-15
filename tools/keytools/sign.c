@@ -266,7 +266,7 @@ struct cmd_options {
     const char *policy_file;
     const char *encrypt_key_file;
     const char *delta_base_file;
-    const char* cert_chain_file; /* Certificate chain file */
+    const char *cert_chain_file;
     int no_base_sha;
     char output_image_file[PATH_MAX];
     char output_diff_file[PATH_MAX];

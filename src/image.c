@@ -2038,25 +2038,25 @@ int wolfBoot_verify_authenticity(struct wolfBoot_image *img)
         wolfBoot_printf("Found certificate chain (%d bytes)\n",
                         cert_chain_size);
 
-        /* Verify certificate chain using wolfHSM's cert chain verification API
-         */
+        /* Verify certificate chain using wolfHSM's verification API */
         hsm_ret = wh_Client_CertVerifyAndCacheLeafPubKey(
             &hsmClientCtx, cert_chain, cert_chain_size,
             hsmClientNvmIdCertRootCA, &g_certLeafKeyId, &cert_verify_result);
 
-        /* If HSM call failed or certificate chain verification failed */
+        /* Error or verification failure results in standard auth check failure
+         * path */
         if (hsm_ret != 0 || cert_verify_result != 0) {
             wolfBoot_printf("Certificate chain verification failed: "
                             "hsm_ret=%d, verify_result=%d\n",
                             hsm_ret, cert_verify_result);
-            return -1; /* Take standard authenticity check failure path */
+            return -1;
         }
 
         wolfBoot_printf("Certificate chain verified, using leaf key ID: %08x\n",
                         (unsigned int)g_certLeafKeyId);
 
         /* Set flag to use the leaf certificate's public key for signature
-         * verification */
+         * verification later */
         g_leafKeyIdValid = 1;
     }
 #endif
