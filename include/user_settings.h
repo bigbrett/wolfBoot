@@ -35,7 +35,10 @@
 #define WOLFSSL_GENERAL_ALIGNMENT 4
 #define SINGLE_THREADED
 #define WOLFSSL_USER_MUTEX /* avoid wc_port.c wc_InitAndAllocMutex */
+#if !(defined WOLFBOOT_ENABLE_WOLFHSM_SERVER && \
+        defined(WOLFBOOT_CERT_CHAIN_VERIFY))
 #define WOLFCRYPT_ONLY
+#endif
 #define SIZEOF_LONG_LONG 8
 
 /* Stdlib Types */
@@ -113,11 +116,14 @@ extern int tolower(int c);
 
 
     /* Some ECC options are disabled to reduce size */
-#   if !defined(WOLFCRYPT_SECURE_MODE)
+#   if !defined(WOLFCRYPT_SECURE_MODE) && \
+       !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && \
+       !defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 #       if !defined(WOLFBOOT_TPM)
 #          define NO_ECC_SIGN
 #          define NO_ECC_DHE
-#          if !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+#          if !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && \
+              !defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 #              define NO_ECC_EXPORT
 #              define NO_ECC_KEY_EXPORT
 #          endif
@@ -264,7 +270,8 @@ extern int tolower(int c);
 #   define WOLFSSL_DILITHIUM_SMALL
 #   define WOLFSSL_DILITHIUM_VERIFY_SMALL_MEM
 #   define WOLFSSL_DILITHIUM_VERIFY_NO_MALLOC
-#   ifndef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+#   if !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && \
+       !defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 #      define WOLFSSL_DILITHIUM_NO_ASN1
 #   endif
     /* dilithium needs these sha functions. */
@@ -343,7 +350,8 @@ extern int tolower(int c);
 #endif
 
 #if (defined(WOLFBOOT_TPM_SEAL) && defined(WOLFBOOT_ATA_DISK_LOCK)) || \
-    defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+    defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) || \
+    defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 #   define WOLFSSL_BASE64_ENCODE
 #else
 #   define NO_CODING
@@ -397,8 +405,10 @@ extern int tolower(int c);
 #endif
 
 #if !defined(WOLFCRYPT_SECURE_MODE) && !defined(WOLFBOOT_TPM_PARMENC)
-#if !(defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && defined(WOLFBOOT_SIGN_ML_DSA))
-    #define WC_NO_RNG
+#if !(defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && \
+      defined(WOLFBOOT_SIGN_ML_DSA)) && \
+    !defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
+#define WC_NO_RNG
 #endif
     #define WC_NO_HASHDRBG
     #define NO_AES_CBC
@@ -415,12 +425,15 @@ extern int tolower(int c);
 
 #if !defined(WOLFBOOT_TPM) && !defined(WOLFCRYPT_SECURE_MODE)
 #   define NO_HMAC
-#if !(defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && defined(WOLFBOOT_SIGN_ML_DSA))
-    #define WC_NO_RNG
+#if !(defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && \
+      defined(WOLFBOOT_SIGN_ML_DSA)) &&          \
+    !defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
+#define WC_NO_RNG
 #endif
 #   define WC_NO_HASHDRBG
 #   define NO_DEV_RANDOM
-#   if !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+#   if !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && \
+       !defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 #     define NO_ECC_KEY_EXPORT
 #     if defined(NO_RSA)
 #       define NO_ASN
@@ -472,7 +485,7 @@ extern int tolower(int c);
 #   define WOLFSSL_SP_NO_DYN_STACK
 #endif
 
-#ifndef WOLFBOOT_SMALL_STACK
+#if !defined(WOLFBOOT_SMALL_STACK) && !defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 #   if defined(WOLFSSL_SP_MATH) || defined(WOLFSSL_SP_MATH_ALL)
 #       define WOLFSSL_SP_NO_MALLOC
 #       define WOLFSSL_SP_NO_DYN_STACK
@@ -531,10 +544,20 @@ extern int tolower(int c);
 #define XTOLOWER(x) (x)
 #endif
 
-#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+#if defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) || \
+    defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 #   define WOLF_CRYPTO_CB
 #   define HAVE_ANONYMOUS_INLINE_AGGREGATES 1
 #   define WOLFSSL_KEY_GEN
-#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT || WOLFBOOT_ENABLE_WOLFHSM_SERVER */
+
+#if defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER) && \
+    defined(WOLFBOOT_CERT_CHAIN_VERIFY)
+#   define NO_TLS
+#   define NO_OLD_TLS
+#   define WOLFSSL_NO_TLS12
+#   define WOLFSSL_USER_IO
+#   define WOLFSSL_SP_MUL_D
+#endif
 
 #endif /* !_WOLFBOOT_USER_SETTINGS_H_ */
