@@ -40,6 +40,8 @@
 #define WOLFCRYPT_ONLY
 #endif
 #define SIZEOF_LONG_LONG 8
+#define HAVE_EMPTY_AGGREGATES 0
+#define HAVE_ANONYMOUS_INLINE_AGGREGATES 0
 
 /* Stdlib Types */
 #define CTYPE_USER /* don't let wolfCrypt types.h include ctype.h */
@@ -114,7 +116,6 @@ extern int tolower(int c);
 #      define FREESCALE_LTC_TFM
 #   endif
 
-
     /* Some ECC options are disabled to reduce size */
 #   if !defined(WOLFCRYPT_SECURE_MODE) && \
        !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && \
@@ -122,6 +123,11 @@ extern int tolower(int c);
 #       if !defined(WOLFBOOT_TPM)
 #          define NO_ECC_SIGN
 #          define NO_ECC_DHE
+           /* For Renesas RX do not enable the misc.c constant time code
+            * due to issue with 64-bit types */
+#          if defined(__RX__)
+#              define WOLFSSL_NO_CT_OPS /* don't use constant time ops in misc.c */
+#          endif
 #          if !defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && \
               !defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 #              define NO_ECC_EXPORT
@@ -512,6 +518,9 @@ extern int tolower(int c);
     #define WOLF_CRYPTO_CB_ONLY_ECC
     #define WOLF_CRYPTO_CB_ONLY_RSA
     #define WOLFSSL_NO_SW_MATH
+    #define MAX_CRYPTO_DEVID_CALLBACKS 2
+    #define WC_NO_DEFAULT_DEVID
+    #define WOLFSSL_AES_SMALL_TABLES
 
     #ifdef WOLFBOOT_RENESAS_TSIP
         #define WOLFSSL_RENESAS_TSIP
@@ -520,6 +529,10 @@ extern int tolower(int c);
         #define WOLFSSL_RENESAS_TSIP_CRYPTONLY
         #define NO_WOLFSSL_RENESAS_TSIP_CRYPT_HASH
         #define RENESAS_TSIP_INSTALLEDKEY_ADDR 0xFFFF0000
+        #ifndef RENESAS_TSIP_INSTALLEDENCKEY_ADDR
+            #define RENESAS_TSIP_INSTALLEDENCKEY_ADDR \
+                (RENESAS_TSIP_INSTALLEDKEY_ADDR + 0x100)
+        #endif
         #define ENCRYPTED_KEY_BYTE_SIZE ENC_PUB_KEY_SIZE
         #define RENESAS_DEVID 7890
     #endif
@@ -547,6 +560,7 @@ extern int tolower(int c);
 #if defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) || \
     defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 #   define WOLF_CRYPTO_CB
+#   undef  HAVE_ANONYMOUS_INLINE_AGGREGATES
 #   define HAVE_ANONYMOUS_INLINE_AGGREGATES 1
 #   define WOLFSSL_KEY_GEN
 #endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT || WOLFBOOT_ENABLE_WOLFHSM_SERVER */
