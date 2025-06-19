@@ -54,6 +54,7 @@ jobs:
           make clean && make test-sim-internal-flash-with-update
 
       - name: Build example POSIX TCP server
+        if: matrix.config.name != 'wolfHSM server cert chain verify'
         run: cd lib/wolfHSM/examples/posix/tcp/wh_server_tcp && make WOLFSSL_DIR=../../../../../wolfssl
 
       # Start the server in the background
