@@ -2107,14 +2107,14 @@ int wolfBoot_verify_authenticity(struct wolfBoot_image *img)
             hsmServerNvmIdCertRootCA, WH_CERT_FLAGS_CACHE_LEAF_PUBKEY,
             &g_certLeafKeyId);
         if (hsm_ret == WH_ERROR_OK) {
-            cert_verify_result = 1;
+            cert_verify_result = 0;
         }
         wolfBoot_printf("wh_Server_CertVerify returned %d\n", hsm_ret);
 #endif
 
         /* Error or verification failure results in standard auth check failure
          * path */
-        if (hsm_ret != 0 || cert_verify_result != 1) {
+        if (hsm_ret != 0 || cert_verify_result != 0) {
             wolfBoot_printf("Certificate chain verification failed: "
                             "hsm_ret=%d, verify_result=%d\n",
                             hsm_ret, cert_verify_result);

@@ -77,9 +77,10 @@ jobs:
       - name: Create NVM image for wolfHSM server cert chain verify
         if: matrix.config.name == 'wolfHSM server cert chain verify'
         run: |
+          make -C lib/wolfHSM/tools/whnvmtool
           tmpfile=$(mktemp)
           obj 1 0xFFFF 0x0000 \"cert CA\" test-dummy-ca/root-cert.der" >> $tmpfile
-          whnvmtool /lib/wolfHSM/tools/whnvmtool/whnvmtool --image=wolfBoot_wolfHSM_NVM.bin --size=16348 --invert-erased-byte $tmpfile
+          ./lib/wolfHSM/tools/whnvmtool/whnvmtool --image=wolfBoot_wolfHSM_NVM.bin --size=16348 --invert-erased-byte $tmpfile
 
       # Run the sunny day update test against the server
       - name: Run sunny day update test
