@@ -15,11 +15,11 @@ jobs:
       matrix:
         config:
           - name: "Standard wolfHSM"
-            file: "config/examples/sim-wolfHSM.config"
+            file: "config/examples/sim-wolfHSM-client.config"
           - name: "wolfHSM ML-DSA"
-            file: "config/examples/sim-wolfHSM-mldsa.config"
+            file: "config/examples/sim-wolfHSM-client-mldsa.config"
           - name: "wolfHSM cert chain verify"
-            file: "config/examples/sim-wolfHSM-certchain.config"
+            file: "config/examples/sim-wolfHSM-client-certchain.config"
           - name: "wolfHSM server cert chain verify"
             file: "config/examples/sim-wolfHSM-server-certchain.config"
 
