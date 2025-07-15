@@ -849,7 +849,9 @@ OBJS+=$(OBJS_EXTRA)
 
 ifeq ($(USE_GCC_HEADLESS),1)
   ifneq ($(ARCH),RENESAS_RX)
-    CFLAGS+="-Wstack-usage=$(STACK_USAGE)"
+    ifneq ($(ARCH),AURIX_TC3)
+      CFLAGS+="-Wstack-usage=$(STACK_USAGE)"
+    endif
   endif
 endif
 

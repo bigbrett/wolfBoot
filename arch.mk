@@ -1131,6 +1131,79 @@ ifeq ($(ARCH),sim)
   endif
 endif
 
+# Infineon AURIX Tricore
+ifeq ($(ARCH), AURIX_TC3)
+  # Default to AURIX IDE provided tricore-gcc
+  CROSS_COMPILE?=tricore-
+
+  # No asm for you!
+  MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.o
+
+  # TC3xx specific
+  ifeq ($(TARGET), aurix_tc3xx_wolf)
+    # BRN-TODO: change to submodule
+    TC3_DIR?=../wolf-startup-tc3xx/tc3
+
+    ARCH_FLASH_OFFSET=0x00000000
+
+    # Debug flags
+    DEBUG_CFLAGS= -g3 -ggdb -O0
+    DEBUG_AFLAGS= -Wa,--gdwarf-2
+
+    # Compiler flags
+    #CFLAGS+= -fshort-double -mtc162 -W -Wdiv-by-zero -Warray-bounds \
+    #         -Wformat -Wformat-security \
+    #         -fno-common -fno-short-enums -pipe \
+    #         -ffunction-sections -fdata-sections \
+    #         -fmessage-length=0 -fstrict-volatile-bitfields -std=c99 \
+    #         -DPART_BOOT_EXT
+
+	CFLAGS+= -mtc162 -DPART_BOOT_EXT -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
+
+    # Add debug flags if DEBUG=1
+    ifeq ($(DEBUG),1)
+      CFLAGS+= $(DEBUG_CFLAGS)
+    endif
+
+    # Assembler flags
+    AFLAGS:= -Wa,--insn32-preferred -fshort-double -mtc162
+
+    # Add debug flags if DEBUG=1
+    ifeq ($(DEBUG),1)
+      AFLAGS+= $(DEBUG_AFLAGS)
+    endif
+
+    # Linker flags
+    LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n -Wl,--extmap="a" \
+              -nocrt0 -nostartfiles -nostdlib \
+              -Wl,-Map="wolfboot.map" \
+              -fshort-double -mtc162 \
+              -Wl,-L$(TC3_DIR)/tc3
+
+    LSCRIPT_IN=$(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.ld
+
+    # Includes
+    CFLAGS += -I$(TC3_DIR) -Ihal/
+
+    # Tricore BSP layer
+    OBJS += $(TC3_DIR)/src/tc3_clock.o \
+            $(TC3_DIR)/src/tc3_flash.o \
+            $(TC3_DIR)/src/tc3_gpio.o \
+            $(TC3_DIR)/src/tc3_uart.o \
+            $(TC3_DIR)/src/tc3.o \
+            $(TC3_DIR)/src/tc3tc_isr.o \
+            $(TC3_DIR)/src/tc3tc_traps.o \
+            $(TC3_DIR)/src/tc3tc.o \
+            $(TC3_DIR)/src/tc3tc_crt.o
+
+  endif
+
+  # TC4xx specific
+  ifeq ($(TARGET), aurix_tc4xx)
+    # stuff
+  endif
+endif
+
 CFLAGS+=-DARCH_FLASH_OFFSET=$(ARCH_FLASH_OFFSET)
 BOOT_IMG?=test-app/image.bin
 
