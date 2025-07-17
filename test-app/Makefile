@@ -459,6 +459,25 @@ ifeq ($(TARGET), pic32cz)
   APP_OBJS+=../hal/pic32c.o
 endif
 
+ifeq ($(TARGET),aurix_tc3xx_wolf)
+  # Add BSP includes
+  #CFLAGS += -I$(TC3_DIR) -I../hal/ -DHAVE_TC3XX
+
+  # Add BSP objects (same as in arch.mk for wolfBoot)
+  APP_OBJS += $(TC3_DIR)/src/tc3_clock.o \
+              $(TC3_DIR)/src/tc3_flash.o \
+              $(TC3_DIR)/src/tc3_gpio.o \
+              $(TC3_DIR)/src/tc3_uart.o \
+              $(TC3_DIR)/src/tc3.o \
+              $(TC3_DIR)/src/tc3tc_isr.o \
+              $(TC3_DIR)/src/tc3tc_traps.o \
+              $(TC3_DIR)/src/tc3tc.o \
+              $(TC3_DIR)/src/tc3tc_crt.o
+
+  # Use TC3 app linker script
+  LSCRIPT_TEMPLATE = tc3tc_app.ld
+endif
+
 CFLAGS+=-I../lib/wolfssl
 
 ifeq ($(WOLFHSM_CLIENT),1)

@@ -1,0 +1,39 @@
+/* app_aurix_tc3xx_wolf.c */
+
+#ifdef HAVE_TC3XX
+#include "tc3_cfg.h"
+
+#ifdef TC3_CFG_HAVE_TRICORE
+#include <stdint.h>
+#include "tc3/tc3tc.h"
+
+#include <string.h>
+#include "target.h"
+#include "printf.h"
+#include "hal.h"
+#include "wolfboot/wolfboot.h"
+
+/* This function is called by the BSP after CRT initialization */
+void tc3tc_main(void)
+{
+    uint32_t coreIdx;
+    TC3TC_GET_COREIDX(coreIdx);
+
+    if (coreIdx != 0) {
+        /* Application should only run on core0 */
+        TC3_DEBUG();
+        TC3_PANIC();
+    }
+
+    /* UART is already initialized by BSP/HAL */
+    wolfBoot_printf("TC3xx Test Application\n");
+    wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
+
+    /* Main application loop */
+    while(1) {
+        /* Application logic here */
+    }
+}
+
+#endif /* TC3_CFG_HAVE_TRICORE */
+#endif /* HAVE_TC3XX */
