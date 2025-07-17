@@ -1142,12 +1142,11 @@ ifeq ($(ARCH), AURIX_TC3)
   # TC3xx specific
   ifeq ($(TARGET), aurix_tc3xx_wolf)
     # BRN-TODO: change to submodule
-    TC3_DIR?=../wolf-startup-tc3xx/tc3
+    #TC3_DIR?=$(realpath ../wolf-startup-tc3xx/tc3)
 
     ARCH_FLASH_OFFSET=0x00000000
 
     # Debug flags
-    DEBUG_CFLAGS= -g3 -ggdb -O0
     DEBUG_AFLAGS= -Wa,--gdwarf-2
 
     # Compiler flags
@@ -1158,12 +1157,7 @@ ifeq ($(ARCH), AURIX_TC3)
     #         -fmessage-length=0 -fstrict-volatile-bitfields -std=c99 \
     #         -DPART_BOOT_EXT
 
-	CFLAGS+= -mtc162 -DPART_BOOT_EXT -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
-
-    # Add debug flags if DEBUG=1
-    ifeq ($(DEBUG),1)
-      CFLAGS+= $(DEBUG_CFLAGS)
-    endif
+	CFLAGS+= -mtc162 -DPART_BOOT_EXT -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN -O0
 
     # Assembler flags
     AFLAGS:= -Wa,--insn32-preferred -fshort-double -mtc162
@@ -1194,7 +1188,8 @@ ifeq ($(ARCH), AURIX_TC3)
             $(TC3_DIR)/src/tc3tc_isr.o \
             $(TC3_DIR)/src/tc3tc_traps.o \
             $(TC3_DIR)/src/tc3tc.o \
-            $(TC3_DIR)/src/tc3tc_crt.o
+            $(TC3_DIR)/src/tc3tc_crt.o \
+            $(TC3_DIR)/../tc3tc_wolfboot/tc3tc_wolfboot_main.o
 
   endif
 

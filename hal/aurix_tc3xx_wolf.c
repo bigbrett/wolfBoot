@@ -130,14 +130,6 @@ void uart_write(const char* buf, unsigned int sz)
 }
 #endif /* DEBUG_UART || UART_FLASH */
 
-extern int loader_main(void);
-void tc3tc_main(void)
-{
-    /* Immediately jump to wolfBoot */
-    (void)loader_main();
-    /* we should never get here */
-    wolfBoot_panic();
-}
 
 /* This function is called by the bootloader at the very beginning of the
  * execution. Ideally, the implementation provided configures the clock settings
