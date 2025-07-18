@@ -1157,7 +1157,8 @@ ifeq ($(ARCH), AURIX_TC3)
     #         -fmessage-length=0 -fstrict-volatile-bitfields -std=c99 \
     #         -DPART_BOOT_EXT
 
-	CFLAGS+= -mtc162 -DPART_BOOT_EXT -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN -O0
+	CFLAGS+= -mtc162 -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
+			 -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
 
     # Assembler flags
     AFLAGS:= -Wa,--insn32-preferred -fshort-double -mtc162
