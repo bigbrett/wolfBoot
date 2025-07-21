@@ -1150,15 +1150,13 @@ ifeq ($(ARCH), AURIX_TC3)
     DEBUG_AFLAGS= -Wa,--gdwarf-2
 
     # Compiler flags
-    #CFLAGS+= -fshort-double -mtc162 -W -Wdiv-by-zero -Warray-bounds \
-    #         -Wformat -Wformat-security \
-    #         -fno-common -fno-short-enums -pipe \
-    #         -ffunction-sections -fdata-sections \
-    #         -fmessage-length=0 -fstrict-volatile-bitfields -std=c99 \
-    #         -DPART_BOOT_EXT
-
-	CFLAGS+= -mtc162 -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
-			 -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
+    CFLAGS+= -fshort-double -mtc162 -W -Wdiv-by-zero -Warray-bounds \
+             -Wformat -Wformat-security \
+             -fno-common -fno-short-enums -pipe \
+             -ffunction-sections -fdata-sections \
+             -fmessage-length=0 -fstrict-volatile-bitfields -std=c99 \
+             -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
+             -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
 
     # Assembler flags
     AFLAGS:= -Wa,--insn32-preferred -fshort-double -mtc162
@@ -1175,7 +1173,7 @@ ifeq ($(ARCH), AURIX_TC3)
               -fshort-double -mtc162 \
               -Wl,-L$(TC3_DIR)/tc3
 
-    LSCRIPT_IN=$(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.ld
+    #LSCRIPT_IN=$(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.ld
 
     # Includes
     CFLAGS += -I$(TC3_DIR) -Ihal/
@@ -1190,7 +1188,7 @@ ifeq ($(ARCH), AURIX_TC3)
             $(TC3_DIR)/src/tc3tc_traps.o \
             $(TC3_DIR)/src/tc3tc.o \
             $(TC3_DIR)/src/tc3tc_crt.o \
-            $(TC3_DIR)/../tc3tc_wolfboot/tc3tc_wolfboot_main.o
+            $(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.o
 
   endif
 
