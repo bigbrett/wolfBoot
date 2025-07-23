@@ -107,6 +107,9 @@ endif
 ifeq ($(TARGET),ti_hercules)
   LSCRIPT_FLAGS+=--run_linker $(LSCRIPT)
 endif
+ifeq ($(ARCH),AURIX_TC3)
+  LSCRIPT_FLAGS+=-T $(LSCRIPT)
+endif
 
 # Environment variables for sign tool
 SIGN_ENV=IMAGE_HEADER_SIZE=$(IMAGE_HEADER_SIZE) \

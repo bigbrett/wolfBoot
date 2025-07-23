@@ -70,13 +70,13 @@ REGION_ALIAS("DATA_DLMU_CPU5_", dlmu_cpu5)
 
 
 /* Local CSA per CPU.  256 max number, 64 byte entries */
-CSA_SIZE    = 256 * 64;  
+CSA_SIZE    = 256 * 64;
 
 /* Local stack per CPU. */
-STACK_SIZE = 4K;     
+STACK_SIZE = 4K;
 
-/* Shared heap.  Only use in a pinch for compatibility with stdlib */   
-__HEAP_SIZE = DEFINED (__HEAP_SIZE) ? __HEAP_SIZE : 4K;  
+/* Shared heap.  Only use in a pinch for compatibility with stdlib */
+__HEAP_SIZE = DEFINED (__HEAP_SIZE) ? __HEAP_SIZE : 4K;
 
 /* Pickup the common sections */
 INCLUDE tc3tc_sections.ld
