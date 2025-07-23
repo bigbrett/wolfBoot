@@ -600,7 +600,7 @@ ifeq ($(DEBUG_SYMBOLS),1)
   CFLAGS+=-g
   ifeq ($(USE_GCC),1)
     CFLAGS+=-ggdb3
-  else
+  else ifneq ($(ARCH),AURIX_TC3)
     CFLAGS+=-gstabs
   endif
 endif
