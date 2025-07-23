@@ -45,16 +45,16 @@ ifeq ($(TARGET),ti_hercules)
   APP_OBJS:=app_$(TARGET).o ../test-app/libwolfboot.o
   CFLAGS+=-I"../include"
 else
-  CFLAGS+=-Wall -ffreestanding -Wno-unused -nostartfiles
+  CFLAGS+=-Wall -ffreestanding -Wno-unused
   # Stack usage computation not supported on TriCore
   ifneq ($(ARCH),AURIX_TC3)
-    CFLAGS+=-Wstack-usage=1024
+    CFLAGS+=-Wstack-usage=1024 -nostartfiles
   endif
   CFLAGS+=-DTARGET_$(TARGET) -I../include
   CFLAGS+=-g
   ifeq ($(USE_GCC),1)
     CFLAGS+=-ggdb3
-  else
+  else ifneq ($(ARCH),AURIX_TC3)
     CFLAGS+=-gstabs
   endif
 
@@ -78,11 +78,6 @@ OBJCOPY_FLAGS+=--gap-fill $(FILL_BYTE)
 ifeq ($(DEBUG_UART),1)
     APP_OBJS+=../src/string.o
 endif
-
-# AURIX TC3 HAL uses memset, so always include string.o
-#ifeq ($(ARCH),AURIX_TC3)
-#    APP_OBJS+=../src/string.o
-#endif
 
 ifeq ($(TZEN),1)
     CFLAGS+=-DNONSECURE_APP

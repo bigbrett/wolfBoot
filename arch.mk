@@ -1133,8 +1133,20 @@ endif
 
 # Infineon AURIX Tricore
 ifeq ($(ARCH), AURIX_TC3)
-  # Default to AURIX IDE provided tricore-gcc
-  CROSS_COMPILE?=tricore-
+  USE_GCC?=0
+  ifeq ($(USE_GCC),1)
+    HT_ROOT?=/opt/hightec/gnutri_v4.9.4.1-11fcedf-lin64
+    CROSS_COMPILE?=$(HT_ROOT)/bin/tricore-
+  else
+    HT_ROOT?=~/HighTec/toolchains/tricore/v9.1.2
+    CROSS_COMPILE?=$(HT_ROOT)/bin
+    CC=$(CROSS_COMPILE)/clang
+    LD=$(CROSS_COMPILE)/clang
+    AS=$(CROSS_COMPILE)/clang
+    AR=$(CROSS_COMPILE)/llvm-ar
+    OBJCOPY=tricore-objcopy
+    SIZE=$(CROSS_COMPILE)/llvm-size
+  endif
 
   # No asm for you!
   MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.o
@@ -1150,30 +1162,38 @@ ifeq ($(ARCH), AURIX_TC3)
     DEBUG_AFLAGS= -Wa,--gdwarf-2
 
     # Compiler flags
-    CFLAGS+= -fshort-double -mtc162 -W -Wdiv-by-zero -Warray-bounds \
-             -Wformat -Wformat-security \
-             -fno-common -fno-short-enums -pipe \
-             -ffunction-sections -fdata-sections \
-             -fmessage-length=0 -fstrict-volatile-bitfields -std=c99 \
-             -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
-             -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
-
-    # Assembler flags
-    AFLAGS:= -Wa,--insn32-preferred -fshort-double -mtc162
-
-    # Add debug flags if DEBUG=1
-    ifeq ($(DEBUG),1)
-      AFLAGS+= $(DEBUG_AFLAGS)
+    ifeq ($(USE_GCC),1)
+      CFLAGS+= -fshort-double -mtc162 -fstrict-volatile-bitfields
+    else
+      CFLAGS+= --target=tricore -march=tc162
     endif
 
-    # Linker flags
-    LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n -Wl,--extmap="a" \
-              -nocrt0 -nostartfiles -nostdlib \
-              -Wl,-Map="wolfboot.map" \
-              -fshort-double -mtc162 \
-              -Wl,-L$(TC3_DIR)/tc3 -Wl,--relax
+    CFLAGS += -W -Wdiv-by-zero -Warray-bounds -Wformat -Wformat-security \
+              -Wno-implicit-function-declaration \
+              -fno-common -fno-short-enums -pipe \
+              -ffunction-sections -fdata-sections -fmessage-length=0 \
+              -std=c99 -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
+              -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
 
-    #LSCRIPT_IN=$(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.ld
+    # Assembler flags
+    #AFLAGS:= -Wa,--insn32-preferred -fshort-double -mtc162
+
+    # Add debug flags if DEBUG=1
+    #ifeq ($(DEBUG),1)
+    #  AFLAGS+= $(DEBUG_AFLAGS)
+    #endif
+
+    # Linker flags
+    ifeq ($(USE_GCC),1)
+      LDFLAGS+= -fshort-double -mtc162 -nostartfiles --extmap="a"
+    else
+      LDFLAGS+= --target=tricore -march=tc162
+    endif
+
+    LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n \
+              -nostdlib \
+              -Wl,-Map="wolfboot.map" \
+              -Wl,-L$(TC3_DIR)/tc3
 
     # Includes
     CFLAGS += -I$(TC3_DIR) -Ihal/
