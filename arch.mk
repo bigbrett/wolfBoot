@@ -1171,7 +1171,7 @@ ifeq ($(ARCH), AURIX_TC3)
               -nocrt0 -nostartfiles -nostdlib \
               -Wl,-Map="wolfboot.map" \
               -fshort-double -mtc162 \
-              -Wl,-L$(TC3_DIR)/tc3
+              -Wl,-L$(TC3_DIR)/tc3 -Wl,--relax
 
     #LSCRIPT_IN=$(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.ld
 

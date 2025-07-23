@@ -208,7 +208,7 @@ void arch_reboot(void)
  * interface, and len is the size of the payload. hal_flash_write should return
  * 0 upon success, or a negative value in case of failure.
  */
-int TC3_RAMCODE hal_flash_write(uint32_t address, const uint8_t* data, int size)
+int hal_flash_write(uint32_t address, const uint8_t* data, int size)
 {
     int      ret               = 0;
     uint32_t currentAddress    = address;
@@ -289,7 +289,7 @@ int TC3_RAMCODE hal_flash_write(uint32_t address, const uint8_t* data, int size)
  * that the bootloader wants to erase, and len specifies the size of the area to
  * be erased. This function must take into account the geometry of the flash
  * sectors, and erase all the sectors in between. */
-int TC3_RAMCODE hal_flash_erase(uint32_t address, int len)
+int hal_flash_erase(uint32_t address, int len)
 {
     int ret = 0;
     LED_ON(LED_ERASE);
@@ -322,7 +322,7 @@ void hal_flash_unlock(void) {}
  * operations. */
 void hal_flash_lock(void) {}
 
-int TC3_RAMCODE ext_flash_write(uintptr_t address, const uint8_t* data, int len)
+int ext_flash_write(uintptr_t address, const uint8_t* data, int len)
 {
     return hal_flash_write(address, data, len);
 }
@@ -331,7 +331,7 @@ int TC3_RAMCODE ext_flash_write(uintptr_t address, const uint8_t* data, int len)
  * Reads data from flash memory, first checking if the data is erased and
  * returning dummy erased byte values to prevent ECC errors
  */
-int TC3_RAMCODE ext_flash_read(uintptr_t address, uint8_t* data, int len)
+int ext_flash_read(uintptr_t address, uint8_t* data, int len)
 {
     int ret = 0;
     LED_ON(LED_READ);
@@ -342,7 +342,10 @@ int TC3_RAMCODE ext_flash_read(uintptr_t address, uint8_t* data, int len)
     }
 
     /* Fill buffer with erased values */
-    memset(data, FLASH_BYTE_ERASED, len);
+    // memset(data, FLASH_BYTE_ERASED, len);
+    for (int i=0; i<len; i++) {
+        *data = FLASH_BYTE_ERASED;
+    }
 
     /* Read and squash errors. */
     ret = tc3_flash_Read(address, data, len);
@@ -356,17 +359,17 @@ int TC3_RAMCODE ext_flash_read(uintptr_t address, uint8_t* data, int len)
     return ret;
 }
 
-int TC3_RAMCODE ext_flash_erase(uintptr_t address, int len)
+int ext_flash_erase(uintptr_t address, int len)
 {
     return hal_flash_erase(address, len);
 }
 
-void TC3_RAMCODE ext_flash_lock(void)
+void ext_flash_lock(void)
 {
     hal_flash_lock();
 }
 
-void TC3_RAMCODE ext_flash_unlock(void)
+void ext_flash_unlock(void)
 {
     hal_flash_unlock();
 }

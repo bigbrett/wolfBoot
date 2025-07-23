@@ -13,6 +13,8 @@
 #include "hal.h"
 #include "wolfboot/wolfboot.h"
 
+#define BASE_FW_VERSION 1
+
 /* This function is called by the BSP after CRT initialization */
 void tc3tc_main(void)
 {
@@ -28,6 +30,17 @@ void tc3tc_main(void)
     /* UART is already initialized by BSP/HAL */
     wolfBoot_printf("TC3xx Test Application\n");
     wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
+
+    if (wolfBoot_current_firmware_version() <= BASE_FW_VERSION) {
+        /* We are booting into the base firmware, so stage the update and set
+         * the LED to blink slow */
+        wolfBoot_update_trigger();
+    }
+    else {
+        /* we are booting into the updated firmware so acknowledge the update
+         * (to prevent rollback) and set the LED to blink fast */
+        wolfBoot_success();
+    }
 
     /* Main application loop */
     while(1) {
