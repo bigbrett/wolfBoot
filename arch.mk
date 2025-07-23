@@ -1184,9 +1184,9 @@ ifeq ($(ARCH), AURIX_TC3)
 
     # Linker flags
     ifeq ($(USE_GCC),1)
-      LDFLAGS+= -fshort-double -mtc162 -nostartfiles --extmap="a"
+      LDFLAGS+= -fshort-double -mtc162 -nostartfiles -Wl,--extmap="a"
     else
-      LDFLAGS+= --target=tricore -march=tc162
+      LDFLAGS+= --target=tricore -march=tc162 -Wl,--entry=tc3tc_start
     endif
 
     LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n \

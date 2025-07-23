@@ -27,6 +27,7 @@ void tc3tc_main(void)
         TC3_PANIC();
     }
 
+#if 0
     /* UART is already initialized by BSP/HAL */
     wolfBoot_printf("TC3xx Test Application\n");
     wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
@@ -41,6 +42,7 @@ void tc3tc_main(void)
          * (to prevent rollback) and set the LED to blink fast */
         wolfBoot_success();
     }
+#endif
 
     /* Main application loop */
     while(1) {
