@@ -28,7 +28,7 @@ REGION_ALIAS("BOOT", TEST_APP)
 REGION_ALIAS("CODE",     TEST_APP)
 REGION_ALIAS("RODATA",   TEST_APP)
 REGION_ALIAS("DATA", 	 dlmu_cpu0)
-REGION_ALIAS("RAM_CODE", dlmu_cpu0)
+REGION_ALIAS("RAM_CODE", pspr_cpu0)
 
 /* CPU0: Output sections to memory region mapping */
 REGION_ALIAS("CODE_CPU0_",      TEST_APP)

@@ -1162,7 +1162,7 @@ ifeq ($(ARCH), AURIX_TC3)
 
     # Compiler flags
     ifeq ($(USE_GCC),1)
-      CFLAGS+= -fshort-double -mtc162 -fstrict-volatile-bitfields
+      CFLAGS+= -fshort-double -mtc162 -fstrict-volatile-bitfields -fno-builtin
     else
       CFLAGS+= --target=tricore -march=tc162
     endif
@@ -1189,7 +1189,7 @@ ifeq ($(ARCH), AURIX_TC3)
       LDFLAGS+= --target=tricore -march=tc162 -Wl,--entry=tc3tc_start
     endif
 
-    LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n \
+    LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n -ffunction-sections -fdata-sections \
               -nostdlib \
               -Wl,-Map="wolfboot.map" \
               -Wl,-L$(TC3_DIR)/tc3

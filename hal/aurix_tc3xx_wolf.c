@@ -334,6 +334,7 @@ int ext_flash_write(uintptr_t address, const uint8_t* data, int len)
 int ext_flash_read(uintptr_t address, uint8_t* data, int len)
 {
     int ret = 0;
+    uint8_t* p = data;
     LED_ON(LED_READ);
 
     if (len <= 0) {
@@ -342,9 +343,9 @@ int ext_flash_read(uintptr_t address, uint8_t* data, int len)
     }
 
     /* Fill buffer with erased values */
-    // memset(data, FLASH_BYTE_ERASED, len);
+    //memset(data, FLASH_BYTE_ERASED, len);
     for (int i=0; i<len; i++) {
-        *data = FLASH_BYTE_ERASED;
+        *p++ = FLASH_BYTE_ERASED;
     }
 
     /* Read and squash errors. */
