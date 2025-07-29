@@ -15,6 +15,12 @@
 
 #define BASE_FW_VERSION 1
 
+/* Invoked before main, but after CSA and stack pointer setup */
+void tc3tc_crt_PreInit(void)
+{
+    tc3tc_PreInit();
+}
+
 /* This function is called by the BSP after CRT initialization */
 void tc3tc_main(void)
 {
@@ -27,7 +33,13 @@ void tc3tc_main(void)
         TC3_PANIC();
     }
 
-#if 0
+    /* Update BTV to use RAM Trap Table */
+    tc3tc_traps_InitBTV();
+
+    /* setup ISR sub-system */
+    tc3tc_isr_Init();
+
+#if 1
     /* UART is already initialized by BSP/HAL */
     wolfBoot_printf("TC3xx Test Application\n");
     wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
