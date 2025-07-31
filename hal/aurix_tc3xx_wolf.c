@@ -64,9 +64,9 @@
 /* Helper macros to gets the base address of the page, wordline, or sector that
  * contains byteAddress */
 #define GET_PAGE_ADDR(addr) \
-    ((uintptr_t)(addr) & ~(IFXFLASH_PFLASH_PAGE_LENGTH - 1))
+    ((uintptr_t)(addr) & ~(TC3_PFLASH_PAGE_SIZE - 1))
 #define GET_WORDLINE_ADDR(addr) \
-    ((uintptr_t)(addr) & ~(IFXFLASH_PFLASH_WORDLINE_LENGTH - 1))
+    ((uintptr_t)(addr) & ~(TC3_PFLASH_WORDLINE_SIZE - 1))
 #define GET_SECTOR_ADDR(addr) ((uintptr_t)(addr) & ~(WOLFBOOT_SECTOR_SIZE - 1))
 
 /* RAM buffer to hold the contents of an entire flash sector*/
@@ -201,6 +201,50 @@ void arch_reboot(void)
     tc3_Scu_TriggerSwReset(1, WOLFBOOT_AURIX_RESET_REASON);
 }
 
+/* Programs unaligned input data to flash, assuming the underlying memory is
+ * erased */
+int programBytesToErasedFlash(uint32_t address, const uint8_t* data, int size)
+{
+    uint32_t pageBuffer[TC3_PFLASH_PAGE_SIZE / sizeof(uint32_t)];
+    uint32_t pageAddress;
+    uint32_t offset;
+    uint32_t toWrite;
+    int ret = 0;
+
+    pageAddress = address & ~(TC3_PFLASH_PAGE_SIZE - 1);
+    offset      = address % TC3_PFLASH_PAGE_SIZE;
+
+    while (size > 0) {
+        /* Calculate the number of bytes to write in the current page */
+        toWrite = TC3_PFLASH_PAGE_SIZE - offset;
+        if (toWrite > (uint32_t)size) {
+            toWrite = (uint32_t)size;
+        }
+
+        /* Fill the page buffer with the erased byte value */
+        //memset(pageBuffer, FLASH_BYTE_ERASED, TC3_PFLASH_PAGE_SIZE);
+        for (int i = 0; i < (int)(TC3_PFLASH_PAGE_SIZE/sizeof(uint32_t)); i++) {
+            pageBuffer[i] = FLASH_BYTE_ERASED;
+        }
+
+        /* Copy the new data into the page buffer at the correct offset */
+        memcpy((uint8_t*)pageBuffer + offset, data, toWrite);
+
+        /* Write the modified page buffer back to flash */
+        ret = tc3_flash_Program(pageAddress, pageBuffer, TC3_PFLASH_PAGE_SIZE);
+        if (ret != 0) {
+            break;
+        }
+
+        size -= toWrite;
+        data += toWrite;
+        address += toWrite;
+        pageAddress = address & ~(TC3_PFLASH_PAGE_SIZE - 1);
+        offset      = address % TC3_PFLASH_PAGE_SIZE;
+    }
+    return ret;
+}
+
 /*
  * This function provides an implementation of the flash write function, using
  * the target's IAP interface. address is the offset from the beginning of the
@@ -264,8 +308,9 @@ int hal_flash_write(uint32_t address, const uint8_t* data, int size)
             }
         }
         else {
-            ret = tc3_flash_Program(address, data + bytesWrittenTotal,
-                                    bytesInThisSector);
+            ret = programBytesToErasedFlash(currentAddress,
+                                            data + bytesWrittenTotal,
+                                            bytesInThisSector);
             if (ret != 0) {
                 ret = -1;
                 break;
@@ -331,32 +376,83 @@ int ext_flash_write(uintptr_t address, const uint8_t* data, int len)
  * Reads data from flash memory, first checking if the data is erased and
  * returning dummy erased byte values to prevent ECC errors
  */
+// int ext_flash_read(uintptr_t address, uint8_t* data, int len)
+// {
+//     int ret = 0;
+//     uint8_t* p = data;
+//     LED_ON(LED_READ);
+
+//     if (len <= 0) {
+//         LED_OFF(LED_READ);
+//         return 0;
+//     }
+
+//     /* Fill buffer with erased values */
+//     //memset(data, FLASH_BYTE_ERASED, len);
+//     for (int i=0; i<len; i++) {
+//         *p++ = FLASH_BYTE_ERASED;
+//     }
+
+//     /* Read and squash errors. */
+//     ret = tc3_flash_Read(address, data, len);
+//     if ((ret != 0) && (ret != TC3_FLASH_ERROR_DSE)) {
+//         /* Error reading flash */
+//         ret = -1;
+//     }
+//     else {
+//         ret = 0;
+//     }
+
+//     LED_OFF(LED_READ);
+
+//     return ret;
+// }
+
+/*
+ * Reads data from flash memory, first checking if the data is erased and
+ * returning dummy erased byte values to prevent ECC errors
+ */
 int ext_flash_read(uintptr_t address, uint8_t* data, int len)
 {
     int ret = 0;
-    uint8_t* p = data;
-    LED_ON(LED_READ);
+    int bytesRead;
 
-    if (len <= 0) {
-        LED_OFF(LED_READ);
-        return 0;
-    }
+    bytesRead = 0;
+    while (bytesRead < len) {
+        uint32_t pageAddress;
+        uint32_t offset;
+        int      isErased;
 
-    /* Fill buffer with erased values */
-    //memset(data, FLASH_BYTE_ERASED, len);
-    for (int i=0; i<len; i++) {
-        *p++ = FLASH_BYTE_ERASED;
-    }
+        pageAddress = GET_PAGE_ADDR(address);
+        offset      = address % TC3_PFLASH_PAGE_SIZE;
+        ret         = tc3_flash_BlankCheck(pageAddress, TC3_PFLASH_PAGE_SIZE);
+        if ((ret != 0) && (ret != TC3_FLASH_NOTBLANK)) {
+            /* Error during blank check */
+            ret = -1;
+            break;
+        }
+        isErased = !(ret == TC3_FLASH_NOTBLANK);
 
-    /* Read and squash errors. */
-    ret = tc3_flash_Read(address, data, len);
-    if ((ret != 0) && (ret != TC3_FLASH_ERROR_DSE)) {
-        /* Error reading flash */
-        ret = -1;
+        while (offset < TC3_PFLASH_PAGE_SIZE && bytesRead < len) {
+            if (isErased) {
+                data[bytesRead] = FLASH_BYTE_ERASED;
+            }
+            else {
+                int ret = tc3_flash_Read(address, data+bytesRead, 1);
+                if (ret != 0) {
+                    break;
+                }
+            }
+            address++;
+            bytesRead++;
+            offset++;
+        }
     }
 
     LED_OFF(LED_READ);
-
+    if (ret == TC3_FLASH_NOTBLANK) {
+        ret = 0;
+    }
     return ret;
 }
 

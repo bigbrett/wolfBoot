@@ -39,8 +39,13 @@ void tc3tc_main(void)
     /* setup ISR sub-system */
     tc3tc_isr_Init();
 
+    /* setup clock system */
+    tc3_clock_SetMax();
+
+    /* disable external WATCHDOG on the board */
+    bsp_board_wdg_Disable();
 #if 1
-    /* UART is already initialized by BSP/HAL */
+    uart_init();
     wolfBoot_printf("TC3xx Test Application\n");
     wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
 
