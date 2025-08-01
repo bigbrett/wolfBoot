@@ -72,6 +72,76 @@
 /* RAM buffer to hold the contents of an entire flash sector*/
 static uint32_t sectorBuffer[WOLFBOOT_SECTOR_SIZE / sizeof(uint32_t)];
 
+/* Directly reads a page from PFLASH using word-aligned reads/writes */
+static void RAMFUNCTION readPage32Aligned(uint32_t pageAddr, uint32_t* data)
+{
+    /* Use the tc3_flash_Read API for bulk reading */
+    tc3_flash_Read(pageAddr, (uint8_t*)data, TC3_PFLASH_PAGE_SIZE);
+}
+
+/* Returns true if any of the pages spanned by address and len are erased */
+static int RAMFUNCTION containsErasedPage(uint32_t address, size_t len)
+{
+    const uint32_t startPage = GET_PAGE_ADDR(address);
+    const uint32_t endPage   = GET_PAGE_ADDR(address + len - 1);
+    uint32_t       page;
+    int            ret;
+
+    for (page = startPage; page <= endPage; page += TC3_PFLASH_PAGE_SIZE) {
+        ret = tc3_flash_BlankCheck(page, TC3_PFLASH_PAGE_SIZE);
+        if (ret == 0) {
+            /* Page is erased */
+            return 1;
+        }
+        else if (ret != TC3_FLASH_NOTBLANK) {
+            /* Error during blank check */
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+/* reads an entire flash sector into the RAM cache, making sure to never read
+ * any pages from flash that are erased */
+static void RAMFUNCTION cacheSector(uint32_t sectorAddress)
+{
+    const uint32_t startPage = GET_PAGE_ADDR(sectorAddress);
+    const uint32_t endPage =
+        GET_PAGE_ADDR(sectorAddress + WOLFBOOT_SECTOR_SIZE - 1);
+    uint32_t* pageInSectorBuffer;
+    uint32_t  page;
+    int       ret;
+
+    /* Iterate over every page in the sector, caching its contents if not
+     * erased, and caching 0xFF if erased */
+    for (page = startPage; page <= endPage; page += TC3_PFLASH_PAGE_SIZE) {
+        pageInSectorBuffer =
+            sectorBuffer + ((page - sectorAddress) / sizeof(uint32_t));
+
+        ret = tc3_flash_BlankCheck(page, TC3_PFLASH_PAGE_SIZE);
+        if (ret == 0) {
+            /* Page is erased, fill with erased value */
+            {
+                uint32_t i;
+                for (i = 0; i < TC3_PFLASH_PAGE_SIZE / sizeof(uint32_t); i++) {
+                    pageInSectorBuffer[i] = FLASH_BYTE_ERASED;
+                }
+            }
+        }
+        else if (ret == TC3_FLASH_NOTBLANK) {
+            /* Page has data, read it */
+            readPage32Aligned(page, pageInSectorBuffer);
+        }
+        else {
+            /* Error during blank check */
+            // wolfBoot_panic();
+            while (1) {
+            }
+        }
+    }
+}
+
 #ifdef WOLFBOOT_AURIX_GPIO_TIMING
 #define LED_PROG (0)
 #define LED_ERASE (1)
@@ -203,7 +273,8 @@ void arch_reboot(void)
 
 /* Programs unaligned input data to flash, assuming the underlying memory is
  * erased */
-int programBytesToErasedFlash(uint32_t address, const uint8_t* data, int size)
+static int RAMFUNCTION programBytesToErasedFlash(uint32_t       address,
+                                                 const uint8_t* data, int size)
 {
     uint32_t pageBuffer[TC3_PFLASH_PAGE_SIZE / sizeof(uint32_t)];
     uint32_t pageAddress;
@@ -222,9 +293,11 @@ int programBytesToErasedFlash(uint32_t address, const uint8_t* data, int size)
         }
 
         /* Fill the page buffer with the erased byte value */
-        //memset(pageBuffer, FLASH_BYTE_ERASED, TC3_PFLASH_PAGE_SIZE);
-        for (int i = 0; i < (int)(TC3_PFLASH_PAGE_SIZE/sizeof(uint32_t)); i++) {
-            pageBuffer[i] = FLASH_BYTE_ERASED;
+        {
+            uint32_t i;
+            for (i = 0; i < TC3_PFLASH_PAGE_SIZE / sizeof(uint32_t); i++) {
+                pageBuffer[i] = FLASH_BYTE_ERASED;
+            }
         }
 
         /* Copy the new data into the page buffer at the correct offset */
@@ -245,6 +318,29 @@ int programBytesToErasedFlash(uint32_t address, const uint8_t* data, int size)
     return ret;
 }
 
+/* Programs the contents of the cached sector buffer to flash */
+static void RAMFUNCTION programCachedSector(uint32_t sectorAddress)
+{
+    uint32_t pageAddr;
+    size_t   bufferIdx;
+    int      ret;
+
+    /* Program the whole sector page by page from sectorBuffer */
+    for (bufferIdx = 0, pageAddr = sectorAddress;
+         bufferIdx < WOLFBOOT_SECTOR_SIZE / sizeof(uint32_t);
+         bufferIdx += TC3_PFLASH_PAGE_SIZE / sizeof(uint32_t),
+        pageAddr += TC3_PFLASH_PAGE_SIZE) {
+
+        ret = tc3_flash_Program(pageAddr, &sectorBuffer[bufferIdx],
+                                TC3_PFLASH_PAGE_SIZE);
+        if (ret != 0) {
+            // wolfBoot_panic();
+            while (1) {
+            }
+        }
+    }
+}
+
 /*
  * This function provides an implementation of the flash write function, using
  * the target's IAP interface. address is the offset from the beginning of the
@@ -252,7 +348,7 @@ int programBytesToErasedFlash(uint32_t address, const uint8_t* data, int size)
  * interface, and len is the size of the payload. hal_flash_write should return
  * 0 upon success, or a negative value in case of failure.
  */
-int hal_flash_write(uint32_t address, const uint8_t* data, int size)
+int RAMFUNCTION hal_flash_write(uint32_t address, const uint8_t* data, int size)
 {
     int      ret               = 0;
     uint32_t currentAddress    = address;
@@ -263,8 +359,8 @@ int hal_flash_write(uint32_t address, const uint8_t* data, int size)
 
     /* Process the data sector by sector */
     while (remainingSize > 0) {
-        uint32_t offsetInSector       = currentAddress % WOLFBOOT_SECTOR_SIZE;
-        uint32_t currentSectorAddress = currentAddress - offsetInSector;
+        uint32_t currentSectorAddress = GET_SECTOR_ADDR(currentAddress);
+        uint32_t offsetInSector       = currentAddress - currentSectorAddress;
         uint32_t bytesInThisSector    = WOLFBOOT_SECTOR_SIZE - offsetInSector;
 
         /* Adjust bytes to write if this would overflow the current sector */
@@ -272,25 +368,36 @@ int hal_flash_write(uint32_t address, const uint8_t* data, int size)
             bytesInThisSector = remainingSize;
         }
 
+        /* Determine the range of pages affected in this sector */
+        const uint32_t startPage = GET_PAGE_ADDR(currentAddress);
+        const uint32_t endPage =
+            GET_PAGE_ADDR(currentAddress + bytesInThisSector - 1);
+        uint32_t page;
+        int      needsSectorRmw = 0;
+
         /* Check if any page within the range is not erased */
-        ret = tc3_flash_BlankCheck(currentAddress, bytesInThisSector);
-        if ((ret != 0) && (ret != TC3_FLASH_NOTBLANK)) {
-            /* Error during blank check */
-            ret = -1;
-            break;
+        for (page = startPage; page <= endPage; page += TC3_PFLASH_PAGE_SIZE) {
+            ret = tc3_flash_BlankCheck(page, TC3_PFLASH_PAGE_SIZE);
+            if (ret == TC3_FLASH_NOTBLANK) {
+                needsSectorRmw = 1;
+                break;
+            }
+            else if (ret != 0) {
+                /* Error during blank check */
+                ret = -1;
+                LED_OFF(LED_PROG);
+                return ret;
+            }
         }
 
         /* If a page within the range is not erased, we need to
          * read-modify-write the sector */
-        if (ret == TC3_FLASH_NOTBLANK) {
-            /* Read entire sector into RAM, filling in erased bytes */
-            ret = ext_flash_read(currentSectorAddress, (uint8_t*)sectorBuffer,
-                                 sizeof(sectorBuffer));
-            if (ret != 0) {
-                break;
-            }
+        if (needsSectorRmw) {
+            /* Read entire sector into RAM */
+            cacheSector(currentSectorAddress);
+
             /* Erase the entire sector */
-            ret = ext_flash_erase(currentSectorAddress, WOLFBOOT_SECTOR_SIZE);
+            ret = hal_flash_erase(currentSectorAddress, WOLFBOOT_SECTOR_SIZE);
             if (ret != 0) {
                 break;
             }
@@ -300,14 +407,10 @@ int hal_flash_write(uint32_t address, const uint8_t* data, int size)
                    data + bytesWrittenTotal, bytesInThisSector);
 
             /* Program the modified sector back into flash */
-            ret = tc3_flash_Program(currentSectorAddress, sectorBuffer,
-                                    sizeof(sectorBuffer));
-            if (ret != 0) {
-                ret = -1;
-                break;
-            }
+            programCachedSector(currentSectorAddress);
         }
         else {
+            /* All affected pages are erased, program the data directly */
             ret = programBytesToErasedFlash(currentAddress,
                                             data + bytesWrittenTotal,
                                             bytesInThisSector);
@@ -334,9 +437,8 @@ int hal_flash_write(uint32_t address, const uint8_t* data, int size)
  * that the bootloader wants to erase, and len specifies the size of the area to
  * be erased. This function must take into account the geometry of the flash
  * sectors, and erase all the sectors in between. */
-int hal_flash_erase(uint32_t address, int len)
+int RAMFUNCTION hal_flash_erase(uint32_t address, int len)
 {
-    int ret = 0;
     LED_ON(LED_ERASE);
 
     /* Handle zero length case */
@@ -345,10 +447,81 @@ int hal_flash_erase(uint32_t address, int len)
         return 0;
     }
 
-    ret = tc3_flash_Erase(address, len);
-    if (ret != 0) {
-        /* Error during erase */
-        ret = -1;
+    const uint32_t startSectorAddr = GET_SECTOR_ADDR(address);
+    const uint32_t endAddress      = address + len - 1;
+    const uint32_t endSectorAddr   = GET_SECTOR_ADDR(endAddress);
+    uint32_t       currentSectorAddr;
+    int            ret = 0;
+
+    /* If address and len are both sector-aligned, perform simple bulk erase */
+    if ((address == startSectorAddr) &&
+        (endAddress == endSectorAddr + WOLFBOOT_SECTOR_SIZE - 1)) {
+
+        ret = tc3_flash_Erase(startSectorAddr, endSectorAddr - startSectorAddr +
+                                                   WOLFBOOT_SECTOR_SIZE);
+        if (ret != 0) {
+            ret = -1;
+        }
+    }
+    /* For non-sector aligned erases, handle each sector carefully */
+    else {
+        /* Process each affected sector */
+        for (currentSectorAddr = startSectorAddr;
+             currentSectorAddr <= endSectorAddr;
+             currentSectorAddr += WOLFBOOT_SECTOR_SIZE) {
+
+            /* Check if this is a partial sector erase */
+            const int isFirstSector = (currentSectorAddr == startSectorAddr);
+            const int isLastSector  = (currentSectorAddr == endSectorAddr);
+            const int isPartialStart =
+                isFirstSector && (address > startSectorAddr);
+            const int isPartialEnd =
+                isLastSector &&
+                (endAddress < (endSectorAddr + WOLFBOOT_SECTOR_SIZE - 1));
+
+            /* For partial sectors, need to read-modify-write */
+            if (isPartialStart || isPartialEnd) {
+                /* Read the sector into the sector buffer */
+                cacheSector(currentSectorAddr);
+
+                /* Calculate which bytes within the sector to erase */
+                uint32_t eraseStartOffset =
+                    isPartialStart ? (address - currentSectorAddr) : 0;
+
+                uint32_t eraseEndOffset = isPartialEnd
+                                              ? (endAddress - currentSectorAddr)
+                                              : (WOLFBOOT_SECTOR_SIZE - 1);
+
+                uint32_t eraseLen = eraseEndOffset - eraseStartOffset + 1;
+
+                /* Fill the section to be erased with the erased byte value */
+                {
+                    uint32_t i;
+                    for (i = 0; i < eraseLen; i++) {
+                        ((uint8_t*)sectorBuffer)[eraseStartOffset + i] =
+                            FLASH_BYTE_ERASED;
+                    }
+                }
+
+                /* Erase the sector */
+                ret = tc3_flash_Erase(currentSectorAddr, WOLFBOOT_SECTOR_SIZE);
+                if (ret != 0) {
+                    ret = -1;
+                    break;
+                }
+
+                /* Program the modified buffer back */
+                programCachedSector(currentSectorAddr);
+            }
+            /* For full sector erase, just erase directly */
+            else {
+                ret = tc3_flash_Erase(currentSectorAddr, WOLFBOOT_SECTOR_SIZE);
+                if (ret != 0) {
+                    ret = -1;
+                    break;
+                }
+            }
+        }
     }
 
     LED_OFF(LED_ERASE);
@@ -376,84 +549,60 @@ int ext_flash_write(uintptr_t address, const uint8_t* data, int len)
  * Reads data from flash memory, first checking if the data is erased and
  * returning dummy erased byte values to prevent ECC errors
  */
-// int ext_flash_read(uintptr_t address, uint8_t* data, int len)
-// {
-//     int ret = 0;
-//     uint8_t* p = data;
-//     LED_ON(LED_READ);
-
-//     if (len <= 0) {
-//         LED_OFF(LED_READ);
-//         return 0;
-//     }
-
-//     /* Fill buffer with erased values */
-//     //memset(data, FLASH_BYTE_ERASED, len);
-//     for (int i=0; i<len; i++) {
-//         *p++ = FLASH_BYTE_ERASED;
-//     }
-
-//     /* Read and squash errors. */
-//     ret = tc3_flash_Read(address, data, len);
-//     if ((ret != 0) && (ret != TC3_FLASH_ERROR_DSE)) {
-//         /* Error reading flash */
-//         ret = -1;
-//     }
-//     else {
-//         ret = 0;
-//     }
-
-//     LED_OFF(LED_READ);
-
-//     return ret;
-// }
-
-/*
- * Reads data from flash memory, first checking if the data is erased and
- * returning dummy erased byte values to prevent ECC errors
- */
-int ext_flash_read(uintptr_t address, uint8_t* data, int len)
+int RAMFUNCTION ext_flash_read(uintptr_t address, uint8_t* data, int len)
 {
-    int ret = 0;
     int bytesRead;
+
+    LED_ON(LED_READ);
 
     bytesRead = 0;
     while (bytesRead < len) {
         uint32_t pageAddress;
         uint32_t offset;
         int      isErased;
+        int      ret;
 
         pageAddress = GET_PAGE_ADDR(address);
         offset      = address % TC3_PFLASH_PAGE_SIZE;
         ret         = tc3_flash_BlankCheck(pageAddress, TC3_PFLASH_PAGE_SIZE);
         if ((ret != 0) && (ret != TC3_FLASH_NOTBLANK)) {
             /* Error during blank check */
-            ret = -1;
-            break;
+            LED_OFF(LED_READ);
+            return -1;
         }
-        isErased = !(ret == TC3_FLASH_NOTBLANK);
+        isErased = (ret == 0);
 
-        while (offset < TC3_PFLASH_PAGE_SIZE && bytesRead < len) {
-            if (isErased) {
-                data[bytesRead] = FLASH_BYTE_ERASED;
-            }
-            else {
-                int ret = tc3_flash_Read(address, data+bytesRead, 1);
-                if (ret != 0) {
-                    break;
+        /* Calculate how many bytes to read from this page */
+        uint32_t bytesInThisPage = TC3_PFLASH_PAGE_SIZE - offset;
+        if (bytesInThisPage > (uint32_t)(len - bytesRead)) {
+            bytesInThisPage = len - bytesRead;
+        }
+
+        if (isErased) {
+            /* Page is erased, fill with erased value */
+            {
+                uint32_t i;
+                for (i = 0; i < bytesInThisPage; i++) {
+                    data[bytesRead + i] = FLASH_BYTE_ERASED;
                 }
             }
-            address++;
-            bytesRead++;
-            offset++;
         }
+        else {
+            /* Page has data, read it in bulk */
+            ret = tc3_flash_Read(address, data + bytesRead, bytesInThisPage);
+            if (ret != 0 && ret != TC3_FLASH_ERROR_DSE) {
+                /* Error reading flash (ignore DSE errors) */
+                LED_OFF(LED_READ);
+                return -1;
+            }
+        }
+
+        address += bytesInThisPage;
+        bytesRead += bytesInThisPage;
     }
 
     LED_OFF(LED_READ);
-    if (ret == TC3_FLASH_NOTBLANK) {
-        ret = 0;
-    }
-    return ret;
+    return 0;
 }
 
 int ext_flash_erase(uintptr_t address, int len)
