@@ -466,7 +466,7 @@ endif
 
 CFLAGS+=-I"$(WOLFBOOT_LIB_WOLFSSL)"
 
-ifeq ($(TARGET),aurix_tc3xx_wolf)
+ifeq ($(TARGET),aurix_tc3xx)
   # Add BSP includes
   #CFLAGS += -I$(TC3_DIR) -I../hal/ -DHAVE_TC3XX
 
