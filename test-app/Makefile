@@ -463,7 +463,7 @@ ifeq ($(TARGET), pic32cz)
   APP_OBJS+=../hal/pic32c.o
 endif
 
-ifeq ($(TARGET),aurix_tc3xx_wolf)
+ifeq ($(TARGET),aurix_tc3xx)
   # Add BSP includes
   #CFLAGS += -I$(TC3_DIR) -I../hal/ -DHAVE_TC3XX
 

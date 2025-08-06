@@ -1151,7 +1151,7 @@ ifeq ($(ARCH), AURIX_TC3)
   MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.o
 
   # TC3xx specific
-  ifeq ($(TARGET), aurix_tc3xx_wolf)
+  ifeq ($(TARGET), aurix_tc3xx)
     # BRN-TODO: change to submodule
     #TC3_DIR?=$(realpath ../wolf-startup-tc3xx/tc3)
 
