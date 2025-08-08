@@ -1133,83 +1133,113 @@ endif
 
 # Infineon AURIX Tricore
 ifeq ($(ARCH), AURIX_TC3)
-  USE_GCC?=0
-  ifeq ($(USE_GCC),1)
-    HT_ROOT?=/opt/hightec/gnutri_v4.9.4.1-11fcedf-lin64
-    CROSS_COMPILE?=$(HT_ROOT)/bin/tricore-
-  else
-    HT_ROOT?=~/HighTec/toolchains/tricore/v9.1.2
-    CROSS_COMPILE?=$(HT_ROOT)/bin
-    CC=$(CROSS_COMPILE)/clang
-    LD=$(CROSS_COMPILE)/clang
-    AS=$(CROSS_COMPILE)/clang
-    AR=$(CROSS_COMPILE)/llvm-ar
-    OBJCOPY=tricore-objcopy
-    SIZE=$(CROSS_COMPILE)/llvm-size
-  endif
-
-  # No asm for you!
-  MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.o
-
   # TC3xx specific
   ifeq ($(TARGET), aurix_tc3xx)
-    # BRN-TODO: change to submodule
-    #TC3_DIR?=$(realpath ../wolf-startup-tc3xx/tc3)
-
+    USE_GCC?=1
     ARCH_FLASH_OFFSET=0x00000000
 
-    # Debug flags
-    DEBUG_AFLAGS= -Wa,--gdwarf-2
+    # No asm for you!
+    MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.o
 
-    # Compiler flags
-    ifeq ($(USE_GCC),1)
-      CFLAGS+= -fshort-double -mtc162 -fstrict-volatile-bitfields -fno-builtin
+	CFLAGS += -I$(TC3_DIR) -Ihal
+
+    # Add generic TC3 BSP files and defines here that apply to both tricore + HSM
+
+    ifeq ($(AURIX_TC3_HSM),1)
+      # HSM compiler flags, build options, source code, etc
+      ifeq ($(USE_GCC),1)
+        # Just arm-none-eabi-gcc for now
+        CROSS_COMPILE?=arm-none-eabi-
+      else
+      endif
+
+      # Compiler flags
+      CFLAGS += -march=armv7-m -mcpu=cortex-m3 -mthumb -mlittle-endian -g \
+                -Wall -Wdiv-by-zero -Warray-bounds -Wformat -Wformat-security \
+				-Wignored-qualifiers \
+                -Wno-implicit-function-declaration \
+                -fstrict-volatile-bitfields -fomit-frame-pointer \
+                -fno-common -fno-short-enums -pipe \
+                -ffunction-sections -fdata-sections -fmessage-length=0 \
+                -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
+                -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN -DWOLFBOOT_AURIX_TC3XX_HSM
+
+      LDFLAGS += -march=armv7-m -mcpu=cortex-m3 -mthumb -mlittle-endian -g \
+                --specs=nano.specs -Wl,--gc-sections -static -Wl,--cref -Wl,-n \
+                -ffunction-sections -fdata-sections \
+                -nostdlib -nodefaultlibs -nostartfiles \
+                -Wl,-Map="wolfboot.map" \
+                -Wl,-L$(TC3_DIR)/tc3
+
+      LSCRIPT_IN=hal/$(TARGET)_hsm.ld
+
+      # HSM specific object files
+      OBJS += $(TC3_DIR)/src/tc3_clock.o \
+              $(TC3_DIR)/src/tc3_flash.o \
+              $(TC3_DIR)/src/tc3_gpio.o \
+              $(TC3_DIR)/src/tc3_uart.o \
+              $(TC3_DIR)/src/tc3.o \
+              $(TC3_DIR)/src/tc3arm.o \
+              $(TC3_DIR)/src/tc3arm_crt.o \
+              $(TC3_DIR)/../tc3arm_bootloader/tc3arm_bootloader.o
+
     else
-      CFLAGS+= --target=tricore -march=tc162
-    endif
+      # Tricore compiler settings
+      ifeq ($(USE_GCC),1)
+        HT_ROOT?=/opt/hightec/gnutri_v4.9.4.1-11fcedf-lin64
+        CROSS_COMPILE?=$(HT_ROOT)/bin/tricore-
+      else
+        HT_ROOT?=~/HighTec/toolchains/tricore/v9.1.2
+        CROSS_COMPILE?=$(HT_ROOT)/bin
+        CC=$(CROSS_COMPILE)/clang
+        LD=$(CROSS_COMPILE)/clang
+        AS=$(CROSS_COMPILE)/clang
+        AR=$(CROSS_COMPILE)/llvm-ar
+        OBJCOPY=tricore-objcopy
+        SIZE=$(CROSS_COMPILE)/llvm-size
+      endif
 
-    CFLAGS += -W -Wdiv-by-zero -Warray-bounds -Wformat -Wformat-security \
-              -Wno-implicit-function-declaration \
-              -fno-common -fno-short-enums -pipe \
-              -ffunction-sections -fdata-sections -fmessage-length=0 \
-              -std=c99 -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
-              -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
+      # Arch settings for tricore
+      ifeq ($(USE_GCC),1)
+        CFLAGS+= -fshort-double -mtc162 -fstrict-volatile-bitfields -fno-builtin
+      else
+        CFLAGS+= --target=tricore -march=tc162
+      endif
 
-    # Assembler flags
-    #AFLAGS:= -Wa,--insn32-preferred -fshort-double -mtc162
+      CFLAGS += -W -Wdiv-by-zero -Warray-bounds -Wformat -Wformat-security \
+                -Wno-implicit-function-declaration \
+                -fno-common -fno-short-enums -pipe \
+                -ffunction-sections -fdata-sections -fmessage-length=0 \
+                -std=c99 -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
+                -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
 
-    # Add debug flags if DEBUG=1
-    #ifeq ($(DEBUG),1)
-    #  AFLAGS+= $(DEBUG_AFLAGS)
-    #endif
+      DEBUG_AFLAGS= -Wa,--gdwarf-2
 
-    # Linker flags
-    ifeq ($(USE_GCC),1)
-      LDFLAGS+= -fshort-double -mtc162 -nostartfiles -Wl,--extmap="a"
-    else
-      LDFLAGS+= --target=tricore -march=tc162 -Wl,--entry=tc3tc_start
-    endif
+      # Linker flags
+      ifeq ($(USE_GCC),1)
+        LDFLAGS+= -fshort-double -mtc162 -nostartfiles -Wl,--extmap="a"
+      else
+        LDFLAGS+= --target=tricore -march=tc162 -Wl,--entry=tc3tc_start
+      endif
 
-    LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n -ffunction-sections -fdata-sections \
-              -nostdlib \
-              -Wl,-Map="wolfboot.map" \
-              -Wl,-L$(TC3_DIR)/tc3
+      LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n \
+	  		  -ffunction-sections -fdata-sections \
+                -nostdlib \
+                -Wl,-Map="wolfboot.map" \
+                -Wl,-L$(TC3_DIR)/tc3
 
-    # Includes
-    CFLAGS += -I$(TC3_DIR) -Ihal/
-
-    # Tricore BSP layer
-    OBJS += $(TC3_DIR)/src/tc3_clock.o \
-            $(TC3_DIR)/src/tc3_flash.o \
-            $(TC3_DIR)/src/tc3_gpio.o \
-            $(TC3_DIR)/src/tc3_uart.o \
-            $(TC3_DIR)/src/tc3.o \
-            $(TC3_DIR)/src/tc3tc_isr.o \
-            $(TC3_DIR)/src/tc3tc_traps.o \
-            $(TC3_DIR)/src/tc3tc.o \
-            $(TC3_DIR)/src/tc3tc_crt.o \
-            $(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.o
-
+      # Tricore BSP layer (replace with only tricore specific stuff)
+      OBJS += $(TC3_DIR)/src/tc3_clock.o \
+              $(TC3_DIR)/src/tc3_flash.o \
+              $(TC3_DIR)/src/tc3_gpio.o \
+              $(TC3_DIR)/src/tc3_uart.o \
+              $(TC3_DIR)/src/tc3.o \
+              $(TC3_DIR)/src/tc3tc_isr.o \
+              $(TC3_DIR)/src/tc3tc_traps.o \
+              $(TC3_DIR)/src/tc3tc.o \
+              $(TC3_DIR)/src/tc3tc_crt.o \
+              $(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.o
+    endif # !AURIX_TC3_HSM
   endif
 
   # TC4xx specific

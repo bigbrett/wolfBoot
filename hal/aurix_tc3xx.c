@@ -39,9 +39,13 @@
 #include "tc3/tc3_flash.h"
 #include "tc3/tc3_clock.h"
 
+#ifdef WOLFBOOT_AURIX_TC3XX_HSM
+#include "tc3/tc3arm.h"
+#else
 #include "tc3/tc3tc.h"
 #include "tc3/tc3tc_isr.h"
 #include "tc3/tc3tc_traps.h"
+#endif
 
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
 /* wolfHSM headers */
@@ -208,11 +212,13 @@ void uart_write(const char* buf, unsigned int sz)
  * the firmware images*/
 void hal_init(void)
 {
+#ifndef WOLFBOOT_AURIX_TC3XX_HSM
     /* Update BTV to use RAM Trap Table */
     tc3tc_traps_InitBTV();
 
     /* setup ISR sub-system */
     tc3tc_isr_Init();
+#endif
 
     /* setup clock system */
     tc3_clock_SetMax();
@@ -253,18 +259,23 @@ void hal_prepare_boot(void)
 #endif
 
     tc3_clock_SetBoot();
+
+#ifndef WOLFBOOT_AURIX_TC3XX_HSM
     tc3tc_isr_Cleanup();
     tc3tc_traps_DeinitBTV();
 
     /* Undo pre-init*/
     tc3tc_UnpreInit();
+#endif
 }
 
+#ifndef WOLFBOOT_AURIX_TC3XX_HSM
 void do_boot(const uint32_t* app_offset)
 {
     LED_OFF(LED_WOLFBOOT);
     TC3TC_JMPI((uint32_t)app_offset);
 }
+#endif
 
 void arch_reboot(void)
 {
