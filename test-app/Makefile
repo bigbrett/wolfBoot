@@ -464,22 +464,27 @@ ifeq ($(TARGET), pic32cz)
 endif
 
 ifeq ($(TARGET),aurix_tc3xx)
-  # Add BSP includes
-  #CFLAGS += -I$(TC3_DIR) -I../hal/ -DHAVE_TC3XX
-
   # Add BSP objects (same as in arch.mk for wolfBoot)
   APP_OBJS += $(TC3_DIR)/src/tc3_clock.o \
               $(TC3_DIR)/src/tc3_flash.o \
               $(TC3_DIR)/src/tc3_gpio.o \
               $(TC3_DIR)/src/tc3_uart.o \
-              $(TC3_DIR)/src/tc3.o \
-              $(TC3_DIR)/src/tc3tc_isr.o \
-              $(TC3_DIR)/src/tc3tc_traps.o \
-              $(TC3_DIR)/src/tc3tc.o \
-              $(TC3_DIR)/src/tc3tc_crt.o
+              $(TC3_DIR)/src/tc3.o
 
-  # Use TC3 app linker script
-  LSCRIPT_TEMPLATE = tc3tc_app.ld
+  ifeq ($(AURIX_TC3_HSM),1)
+    APP_OBJS += $(TC3_DIR)/src/tc3arm_crt.o \
+                $(TC3_DIR)/src/tc3arm.o
+	# Use TC3 Arm app linker script
+    LSCRIPT_TEMPLATE = tc3arm_app.ld
+  else
+    APP_OBJS += $(TC3_DIR)/src/tc3tc_isr.o \
+                $(TC3_DIR)/src/tc3tc_traps.o \
+                $(TC3_DIR)/src/tc3tc.o \
+                $(TC3_DIR)/src/tc3tc_crt.o
+
+    # Use TC3 app linker script
+    LSCRIPT_TEMPLATE = tc3tc_app.ld
+  endif
 endif
 
 CFLAGS+=-I../lib/wolfssl

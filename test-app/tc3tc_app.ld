@@ -17,6 +17,10 @@ MEMORY {
     TEST_APP (rx) : ORIGIN = @WOLFBOOT_TEST_APP_ADDRESS@, LENGTH = @WOLFBOOT_TEST_APP_SIZE@
 }
 
+ASSERT(ORIGIN(TEST_APP) >= ORIGIN(app_flash), "test app not located within app_flash")
+ASSERT((ORIGIN(TEST_APP) + LENGTH(TEST_APP)) <= (ORIGIN(app_flash) + LENGTH(app_flash)), "test app memory region overflows app_flash")
+
+
 /* BMHD sections */
 REGION_ALIAS("BMHD_ORIG", ucb_bmhd_orig)
 REGION_ALIAS("BMHD_COPY", ucb_bmhd_copy)

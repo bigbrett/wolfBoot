@@ -3,7 +3,6 @@
 #ifndef TC3_CFG_H
 #define TC3_CFG_H
 
-
 #if defined(WOLFBOOT_AURIX_TC3XX_HSM)
 #define TC3_CFG_HAVE_ARM
 #else

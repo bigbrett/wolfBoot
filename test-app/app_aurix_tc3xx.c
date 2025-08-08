@@ -3,10 +3,7 @@
 #ifdef HAVE_TC3XX
 #include "tc3_cfg.h"
 
-#ifdef TC3_CFG_HAVE_TRICORE
 #include <stdint.h>
-#include "tc3/tc3tc.h"
-
 #include <string.h>
 #include "target.h"
 #include "printf.h"
@@ -14,6 +11,9 @@
 #include "wolfboot/wolfboot.h"
 
 #define BASE_FW_VERSION 1
+
+#ifdef TC3_CFG_HAVE_TRICORE
+#include "tc3/tc3tc.h"
 
 /* Invoked before main, but after CSA and stack pointer setup */
 void tc3tc_crt_PreInit(void)
@@ -44,7 +44,7 @@ void tc3tc_main(void)
 
     /* disable external WATCHDOG on the board */
     bsp_board_wdg_Disable();
-#if 1
+
     uart_init();
     wolfBoot_printf("TC3xx Test Application\n");
     wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
@@ -59,13 +59,43 @@ void tc3tc_main(void)
          * (to prevent rollback) and set the LED to blink fast */
         wolfBoot_success();
     }
-#endif
 
     /* Main application loop */
     while(1) {
         /* Application logic here */
     }
 }
+#elif defined(TC3_CFG_HAVE_ARM)
+void tc3arm_main(void)
+{
+    /* setup clock system */
+    tc3_clock_SetMax();
 
-#endif /* TC3_CFG_HAVE_TRICORE */
+    /* disable external WATCHDOG on the board */
+    bsp_board_wdg_Disable();
+
+    uart_init();
+    wolfBoot_printf("TC3xx Test Application\n");
+    wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
+
+    if (wolfBoot_current_firmware_version() <= BASE_FW_VERSION) {
+        /* We are booting into the base firmware, so stage the update and set
+         * the LED to blink slow */
+        wolfBoot_update_trigger();
+    }
+    else {
+        /* we are booting into the updated firmware so acknowledge the update
+         * (to prevent rollback) and set the LED to blink fast */
+        wolfBoot_success();
+    }
+
+    /* Main application loop */
+    while(1) {
+        /* Application logic here */
+    }
+
+}
+#endif /* !TC3_CFG_HAVE_TRICORE */
+
+
 #endif /* HAVE_TC3XX */
