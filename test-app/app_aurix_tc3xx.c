@@ -75,7 +75,7 @@ void tc3arm_main(void)
     bsp_board_wdg_Disable();
 
     uart_init();
-    wolfBoot_printf("TC3xx Test Application\n");
+    wolfBoot_printf("TC3xx HSM Test Application\n");
     wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
 
     if (wolfBoot_current_firmware_version() <= BASE_FW_VERSION) {
