@@ -26,5 +26,3 @@ REGION_ALIAS("RAM_CODE", arm_sram)
 
 /* Pickup the common sections */
 INCLUDE tc3arm_sections.ld
-
-PROVIDE(_start_text = ADDR(.tc3arm_crt_boot));
