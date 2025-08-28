@@ -210,10 +210,6 @@ void uart_write(const char* buf, unsigned int sz)
  * for the target microcontroller, to ensure that it runs at at the required
  * speed to shorten the time required for the cryptography primitives to verify
  * the firmware images*/
-extern uint32_t WDT_BEFORE;
-extern uint32_t WDT_AFTER;
-extern uint32_t WDTS_BEFORE;
-extern uint32_t WDTS_AFTER;
 void hal_init(void)
 {
 #ifndef WOLFBOOT_AURIX_TC3XX_HSM
@@ -244,8 +240,6 @@ void hal_init(void)
 
     char hello_string[] = "Hello from wolfBoot for Tricore on TC3xx\n";
     uart_write(hello_string, sizeof(hello_string) - 1);
-    wolfBoot_printf("WDT_BEFORE = 0x%08lx\nWDT_AFTER = 0x%08lx\n",WDT_BEFORE, WDT_AFTER);
-    wolfBoot_printf("WDTS_BEFORE = 0x%08lx\nWDTS_AFTER = 0x%08lx\n",WDTS_BEFORE, WDTS_AFTER);
 #endif
 }
 
