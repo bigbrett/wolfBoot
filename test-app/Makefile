@@ -482,8 +482,12 @@ ifeq ($(TARGET),aurix_tc3xx)
                 $(TC3_DIR)/src/tc3tc.o \
                 $(TC3_DIR)/src/tc3tc_crt.o
 
-    # Use TC3 app linker script
-    LSCRIPT_TEMPLATE = tc3tc_app.ld
+    # Select TC3 app linker script based on ELF loading mode
+    ifeq ($(WOLFBOOT_ELF),1)
+      LSCRIPT_TEMPLATE = tc3tc_app_elf.ld
+    else
+      LSCRIPT_TEMPLATE = tc3tc_app.ld
+    endif
   endif
 endif
 
@@ -563,10 +567,23 @@ $(LSCRIPT): $(LSCRIPT_TEMPLATE) FORCE
 	$(Q)printf "%d" $(WOLFBOOT_PARTITION_BOOT_ADDRESS) > .wolfboot-offset
 	$(Q)printf "%d" $(WOLFBOOT_PARTITION_SIZE) > .partition-size
 	$(Q)printf "%d" $(IMAGE_HEADER_SIZE) > .header-size
+ifeq ($(WOLFBOOT_ELF),1)
+	# For ELF mode, use execution space address directly (no header offset)
+ifdef WOLFBOOT_ELF_EXEC_ADDRESS
+	$(Q)printf "%d" $(WOLFBOOT_ELF_EXEC_ADDRESS) > .entry-point
+	$(Q)printf "0x%X" `cat .entry-point` > .entry-point
+	$(Q)printf "%d" $(WOLFBOOT_ELF_EXEC_SIZE) > .app-size
+	$(Q)printf "0x%X" `cat .app-size` > .app-size
+else
+	$(Q)echo "ERROR: WOLFBOOT_ELF_EXEC_ADDRESS not defined for ELF mode" && exit 1
+endif
+else
+	# Standard mode: boot address + header offset  
 	$(Q)expr `cat .wolfboot-offset` + `cat .header-size` > .entry-point
 	$(Q)printf "0x%X" `cat .entry-point` > .entry-point
 	$(Q)expr `cat .partition-size` - `cat .header-size` > .app-size
 	$(Q)printf "0x%X" `cat .app-size` > .app-size
+endif
 	$(Q)cat $(LSCRIPT_TEMPLATE) | \
 		sed -e "s/@WOLFBOOT_TEST_APP_SIZE@/`cat .app-size`/g" | \
 		sed -e "s/@WOLFBOOT_TEST_APP_ADDRESS@/`cat .entry-point`/g" | \
