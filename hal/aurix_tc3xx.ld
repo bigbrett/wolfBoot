@@ -6,18 +6,18 @@ OUTPUT_ARCH(tricore)
 /* This is defined global in tc3tc_crt.S */
 ENTRY(tc3tc_crt_entry)
 
-/* Include TC3mem linker script */ 
+/* Include TC3mem linker script */
 INCLUDE tc3_mem.ld
 
 /* Reallocate regions */
 INCLUDE tc3_layout.ld
 
 
-/* BMHD sections */ 
+/* BMHD sections */
 REGION_ALIAS("BMHD_ORIG", ucb_bmhd_orig)
 REGION_ALIAS("BMHD_COPY", ucb_bmhd_copy)
 
-/* CRT0 Boot Code Start */ 
+/* CRT0 Boot Code Start */
 REGION_ALIAS("BOOT", bl_flash)
 
 /* Shared code and data */
@@ -25,7 +25,7 @@ REGION_ALIAS("CODE",     bl_flash)
 REGION_ALIAS("RODATA",   bl_flash)
 REGION_ALIAS("DATA", 	 dlmu_cpu0)
 REGION_ALIAS("RAM_CODE", pspr_cpu0)
- 
+
 /* CPU0: Output sections to memory region mapping */
 REGION_ALIAS("CODE_CPU0_",      bl_flash)
 REGION_ALIAS("RODATA_CPU0_",    bl_flash)
