@@ -227,7 +227,7 @@ wolfboot.bin: wolfboot.elf
 	@echo
 
 test-app/image.bin: wolfboot.elf
-	$(Q)$(MAKE) -C test-app WOLFBOOT_ROOT="$(WOLFBOOT_ROOT)"
+	$(Q)$(MAKE) -C test-app WOLFBOOT_ROOT="$(WOLFBOOT_ROOT)" ELF_FLASH_SCATTER="$(ELF_FLASH_SCATTER)"
 	$(Q)$(SIZE) test-app/image.elf
 
 standalone:
@@ -296,7 +296,7 @@ test-app/image_v1_signed.bin: $(BOOT_IMG)
 	$(Q)(test $(SIGN) = NONE) && $(SIGN_ENV) $(SIGN_TOOL) $(SIGN_OPTIONS) $(BOOT_IMG) 1 || true
 
 test-app/image.elf: wolfboot.elf
-	$(Q)$(MAKE) -C test-app WOLFBOOT_ROOT="$(WOLFBOOT_ROOT)" image.elf
+	$(Q)$(MAKE) -C test-app WOLFBOOT_ROOT="$(WOLFBOOT_ROOT)" ELF_FLASH_SCATTER="$(ELF_FLASH_SCATTER)" image.elf
 	$(Q)$(SIZE) test-app/image.elf
 
 ifeq ($(ELF_FLASH_SCATTER),1)
