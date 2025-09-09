@@ -1238,6 +1238,11 @@ ifeq ($(ARCH), AURIX_TC3)
               $(TC3_DIR)/src/tc3tc.o \
               $(TC3_DIR)/src/tc3tc_crt.o \
               $(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.o
+
+      # Set BOOT_IMG to ELF format when ELF_FLASH_SCATTER is enabled
+      ifeq ($(ELF_FLASH_SCATTER),1)
+        BOOT_IMG=test-app/image.elf
+      endif
     endif # !AURIX_TC3_HSM
   endif
 
