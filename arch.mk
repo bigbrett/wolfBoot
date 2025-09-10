@@ -1143,7 +1143,10 @@ ifeq ($(ARCH), AURIX_TC3)
 
 	CFLAGS += -I$(TC3_DIR) -Ihal
 
-    # Add generic TC3 BSP files and defines here that apply to both tricore + HSM
+    # Set BOOT_IMG to the ELF file instead of default bin when ELF_FLASH_SCATTER is enabled
+    ifeq ($(ELF_FLASH_SCATTER),1)
+      BOOT_IMG=test-app/image.elf
+    endif
 
     ifeq ($(AURIX_TC3_HSM),1)
       # HSM compiler flags, build options, source code, etc
@@ -1240,10 +1243,6 @@ ifeq ($(ARCH), AURIX_TC3)
               $(TC3_DIR)/src/tc3tc_crt.o \
               $(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.o
 
-      # Set BOOT_IMG to ELF format when ELF_FLASH_SCATTER is enabled
-      ifeq ($(ELF_FLASH_SCATTER),1)
-        BOOT_IMG=test-app/image.elf
-      endif
     endif # !AURIX_TC3_HSM
   endif
 
