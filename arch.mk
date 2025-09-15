@@ -1140,7 +1140,16 @@ ifeq ($(ARCH), AURIX_TC3)
     # No asm for you!
     MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.o
 
-	CFLAGS += -I$(TC3_DIR) -Ihal
+    CFLAGS += -I$(TC3_DIR) -Ihal
+
+    ifeq ($(WOLFHSM_CLIENT),1)
+	  # Common wolfHSM port files
+      CFLAGS += -I$(WOLFHSM_PORT_DIR)/port -DWOLFHSM_CFG_DMA
+      OBJS += $(WOLFHSM_PORT_DIR)/port/tchsm_common.o \
+	          $(WOLFHSM_PORT_DIR)/port/tchsm_hsmhost.o
+	  # General wolfHSM files
+      OBJS += $(LIBDIR)/wolfHSM/src/wh_transport_mem.o
+    endif
 
     # Set BOOT_IMG to the ELF file instead of default bin when ELF_FLASH_SCATTER is enabled
     ifeq ($(ELF_FLASH_SCATTER),1)
@@ -1175,7 +1184,7 @@ ifeq ($(ARCH), AURIX_TC3)
 
       LSCRIPT_IN=hal/$(TARGET)_hsm.ld
 
-      # HSM specific object files
+      # HSM BSP specific object files
       OBJS += $(TC3_DIR)/src/tc3_clock.o \
               $(TC3_DIR)/src/tc3_flash.o \
               $(TC3_DIR)/src/tc3_gpio.o \
@@ -1210,12 +1219,16 @@ ifeq ($(ARCH), AURIX_TC3)
 
       CFLAGS += -W -Wdiv-by-zero -Warray-bounds -Wformat -Wformat-security \
                 -Wno-implicit-function-declaration \
+				-Wno-missing-braces -Wno-unused-parameter \
                 -fno-common -fno-short-enums -pipe \
                 -ffunction-sections -fdata-sections -fmessage-length=0 \
                 -std=c99 -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
                 -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
 
       DEBUG_AFLAGS= -Wa,--gdwarf-2
+
+	  # temporary hacks to work with wolfHSM port with -Wall
+      CFLAGS += -Wno-missing-braces -Wno-unused-parameter -Wno-implicit-function-declaration -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-function
 
       # Linker flags
       ifeq ($(USE_GCC),1)
@@ -1226,7 +1239,6 @@ ifeq ($(ARCH), AURIX_TC3)
 
       LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n \
 	  		  -ffunction-sections -fdata-sections \
-                -nostdlib \
                 -Wl,-Map="wolfboot.map" \
                 -Wl,-L$(TC3_DIR)/tc3
 
@@ -1241,6 +1253,12 @@ ifeq ($(ARCH), AURIX_TC3)
               $(TC3_DIR)/src/tc3tc.o \
               $(TC3_DIR)/src/tc3tc_crt.o \
               $(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.o
+
+      ifeq ($(WOLFHSM_CLIENT),1)
+        CFLAGS += -I$(WOLFHSM_PORT_DIR)/port/client
+		# All source files in port/client but listed as *.o files
+        OBJS += $(patsubst %.c,%.o,$(wildcard $(WOLFHSM_PORT_DIR)/port/client/*.c))
+      endif
 
     endif # !AURIX_TC3_HSM
   endif
