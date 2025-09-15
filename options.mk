@@ -913,6 +913,7 @@ ifeq ($(WOLFHSM_CLIENT),1)
     KEYGEN_OPTIONS += --nolocalkeys
     CFLAGS += -DWOLFBOOT_USE_WOLFHSM_PUBKEY_ID
     # big enough for cert chain
+	# BRN-TODO this should be set by the port in arch.mk not globally
     CFLAGS += -DWOLFHSM_CFG_COMM_DATA_LEN=5000
   endif
 
@@ -923,6 +924,18 @@ ifeq ($(WOLFHSM_CLIENT),1)
       $(WOLFBOOT_LIB_WOLFHSM)/src/wh_client_cert.o \
       $(WOLFBOOT_LIB_WOLFHSM)/src/wh_message_cert.o
     CFLAGS += -DWOLFHSM_CFG_CERTIFICATE_MANAGER
+  endif
+
+  # NVM image generation variables
+  # BRN-TODO these addresses should be set by the port
+  WH_NVM_BIN = whNvmImage.bin
+  WH_NVM_HEX = whNvmImage.hex
+  NVM_BASE_ADDRESS = 0xAFC00000
+  # Select config file based on certificate chain verification
+  ifneq ($(CERT_CHAIN_VERIFY),)
+    NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-dummy-certchain.nvminit
+  else
+    NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-keys.nvminit
   endif
 endif
 
