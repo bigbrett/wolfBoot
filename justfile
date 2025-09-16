@@ -82,4 +82,5 @@ tc3-hsm-certs:
 # Utilities
 clean:
     make clean
+    make keysclean
     find ../wolf-startup-tc3xx/tc3/src -type f -name "*.o" -delete
