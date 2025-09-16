@@ -238,7 +238,11 @@ void hal_init(void)
 #ifdef DEBUG_UART
     uart_init();
 
-    char hello_string[] = "Hello from wolfBoot for Tricore on TC3xx\n";
+#ifndef WOLFBOOT_AURIX_TC3XX_HSM
+    char hello_string[] = "Hello from TC3xx wolfBoot on Tricore\n";
+#else
+    char hello_string[] = "Hello from TC3xx wolfBoot on HSM\n";
+#endif
     uart_write(hello_string, sizeof(hello_string) - 1);
 #endif
 }
