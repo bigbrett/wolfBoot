@@ -1,7 +1,6 @@
 system.down
 system.up
 
-
 LOCAL &wolfBoot &testApp &updateApp
 &wolfBoot="wolfboot.elf"
 &testApp="test-app/image_v1_signed.bin"
@@ -18,16 +17,19 @@ IC HSM SYStem.CONFIG.CORE 2. 1.
 IC TC SYstem.up
 IC TC SYnch
 
+
 ; Attach and connect HSM side
 IC HSM System.Attach
 IC HSM TargetSystem.state all
 IC HSM System
 IC ALL synch.connect others
 
+; Protect shim loader region
 IC TC DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
-IC TC flash.CHANGEtype 0xA0000000--0xA0028000 NOP
-IC TC flash.CHANGEtype 0x80000000--0x80028000 NOP
+IC TC flash.CHANGEtype 0xA0000000--0xA0027FFF NOP
+IC TC flash.CHANGEtype 0x80000000--0x80027FFF NOP
 
+; Load the applications
 IC TC flash.reprogram all /erase
 IC TC data.load.IntelHex whNvmImage.hex
 IC TC data.load.elf "&wolfHsmServer"
@@ -38,8 +40,8 @@ IC TC flash.reprogram off
 
 IC HSM data.LOAD.Elf "&wolfHsmServer" /NoCode /noregister
 IC HSM Register.Set PC Reset_Handler
-;IC HSM Register.Set MSP _estack
-;IC HSM PER.Set.simple ESD:0xE000ED08 %Long 0x80028000
+IC HSM Register.Set MSP _estack
+IC HSM PER.Set.simple ESD:0xE000ED08 %Long 0x80028000
 
 IC HSM list.auto
 IC HSM synch

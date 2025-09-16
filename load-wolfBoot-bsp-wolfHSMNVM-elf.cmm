@@ -6,19 +6,15 @@ LOCAL &wolfBoot &testApp &updateApp
 &wolfBoot="wolfboot.elf"
 &testApp="test-app/image_v1_signed.bin"
 &updateApp="test-app/image_v2_signed.bin"
-&wolfHsmServer="../wolfhsm-private/infineon/tc3xx/tchsm-server/Build/HSM_App.elf"
 
 DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 flash.CHANGEtype 0xA0000000--0xA009FFFF NOP
 flash.CHANGEtype 0x80000000--0x8009FFFF NOP
-;flash.CHANGEtype 0xA0000000--0xA0028000 NOP
-;flash.CHANGEtype 0x80000000--0x80028000 NOP
 
 flash.erase all
 
 flash.reprogram all /erase
 data.load.IntelHex whNvmImage.hex
-;data.load.elf "&wolfHsmServer"
 data.load.binary "&testApp" 0xA047C000
 data.load.binary "&updateApp" 0xA053C000
 data.load.elf "&wolfBoot"

@@ -40,7 +40,7 @@ tc3-elf-wolfHSM:
     tools/keytools/sign --ecc256 test-app/image.elf wolfboot_signing_private_key.der 2
 
 
-# TC375 wolfBoot b uild with elf scatter loading with certc chain images verification using wolfHSM
+# TC375 wolfBoot build with elf scatter loading with certc chain images verification using wolfHSM
 tc3-elf-certs-wolfHSM:
     cp config/examples/aurix-tc375-elf-wolfHSM-certs.config .config
     # Build wolfBoot
