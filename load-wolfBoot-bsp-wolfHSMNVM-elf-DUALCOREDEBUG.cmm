@@ -1,0 +1,52 @@
+system.down
+system.up
+
+
+LOCAL &wolfBoot &testApp &updateApp
+&wolfBoot="wolfboot.elf"
+&testApp="test-app/image_v1_signed.bin"
+&updateApp="test-app/image_v2_signed.bin"
+&wolfHsmServer="../wolfhsm-private/infineon/tc3xx/tchsm-server/Build/HSM_App.elf"
+
+TargetSystem.NewInstance HSM /ONCE /ARCHitecture arm
+IC ALL RESet
+IC.NAME TC
+IC ALL System.CPU TC375TP
+IC TC SYStem.Down
+IC TC SYStem.CONFIG.CORE 1. 1.
+IC HSM SYStem.CONFIG.CORE 2. 1.
+IC TC SYstem.up
+IC TC SYnch
+
+; Attach and connect HSM side
+IC HSM System.Attach
+IC HSM TargetSystem.state all
+IC HSM System
+IC ALL synch.connect others
+
+IC TC DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
+IC TC flash.CHANGEtype 0xA0000000--0xA0028000 NOP
+IC TC flash.CHANGEtype 0x80000000--0x80028000 NOP
+
+IC TC flash.reprogram all /erase
+IC TC data.load.IntelHex whNvmImage.hex
+IC TC data.load.elf "&wolfHsmServer"
+IC TC data.load.binary "&testApp" 0xA047C000
+IC TC data.load.binary "&updateApp" 0xA053C000
+IC TC data.load.elf "&wolfBoot"
+IC TC flash.reprogram off
+
+IC HSM data.LOAD.Elf "&wolfHsmServer" /NoCode /noregister
+IC HSM Register.Set PC Reset_Handler
+;IC HSM Register.Set MSP _estack
+;IC HSM PER.Set.simple ESD:0xE000ED08 %Long 0x80028000
+
+IC HSM list.auto
+IC HSM synch
+IC ALL SYnch.MasterSystemMode ON
+IC ALL SYnch.SlaveSystemMode ON
+IC TC SYnch.MasterGo ON
+IC HSM SYnch.SlaveGo ON
+IC ALL synch.off
+
+
