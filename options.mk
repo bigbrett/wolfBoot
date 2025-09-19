@@ -953,26 +953,25 @@ ifeq ($(WOLFHSM_SERVER),1)
   endif
 
   WOLFHSM_OBJS += \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_utils.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_comm.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_nvm.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_nvm_flash.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_flash_unit.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_crypto.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_server.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_server_nvm.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_server_crypto.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_server_counter.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_server_keystore.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_server_customcb.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_message_customcb.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_message_keystore.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_message_crypto.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_message_counter.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_message_nvm.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_message_comm.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o \
-    $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_flash_file.o
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_utils.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_comm.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_nvm.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_nvm_flash.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_flash_unit.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_crypto.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_server.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_server_nvm.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_server_crypto.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_server_counter.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_server_keystore.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_server_customcb.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_message_customcb.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_message_keystore.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_message_crypto.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_message_counter.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_message_nvm.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_message_comm.o \
+    $(WOLFBOOT_LIB_WOLFHSM)/wolfHSM/src/wh_transport_mem.o
 
   #includes
   CFLAGS += -I"$(WOLFBOOT_LIB_WOLFHSM)"

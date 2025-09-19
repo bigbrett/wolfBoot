@@ -1129,6 +1129,9 @@ ifeq ($(ARCH),sim)
   ifeq ($(WOLFHSM_CLIENT),1)
     WOLFHSM_OBJS += $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_transport_tcp.o
   endif
+  ifeq ($(WOLFHSM_SERVER),1)
+    WOLFHSM_OBJ += $(LIBDIR)/wolfHSM/port/posix/posix_flash_file.o
+  endif
 endif
 
 # Infineon AURIX Tricore
@@ -1150,6 +1153,8 @@ ifeq ($(ARCH), AURIX_TC3)
 	          $(WOLFHSM_PORT_DIR)/port/tchsm_hsmhost.o
 	  # General wolfHSM files
       OBJS += $(LIBDIR)/wolfHSM/src/wh_transport_mem.o
+    endif
+    ifeq ($(WOLFHSM_SERVER),1)
     endif
 
     # Set BOOT_IMG to the ELF file instead of default bin when ELF_FLASH_SCATTER is enabled
