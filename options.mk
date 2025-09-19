@@ -970,8 +970,7 @@ ifeq ($(WOLFHSM_SERVER),1)
     $(LIBDIR)/wolfHSM/src/wh_message_counter.o \
     $(LIBDIR)/wolfHSM/src/wh_message_nvm.o \
     $(LIBDIR)/wolfHSM/src/wh_message_comm.o \
-    $(LIBDIR)/wolfHSM/src/wh_transport_mem.o \
-    $(LIBDIR)/wolfHSM/port/posix/posix_flash_file.o
+    $(LIBDIR)/wolfHSM/src/wh_transport_mem.o
 
   #includes
   CFLAGS += -I"$(LIBDIR)/wolfHSM"
