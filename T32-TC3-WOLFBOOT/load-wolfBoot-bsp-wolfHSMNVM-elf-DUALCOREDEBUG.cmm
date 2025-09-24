@@ -1,3 +1,7 @@
+; Loads wolf BSP version of wolfBoot for tricore with the ELF loading memory map.
+; Also loads the legacy wolfHSM server app and the wolfHSM NVM image into DF1
+; NOTE: DF1 must be configured to single ended mode
+
 system.down
 system.up
 
@@ -5,6 +9,8 @@ LOCAL &wolfBoot &testApp &updateApp
 &wolfBoot="wolfboot.elf"
 &testApp="test-app/image_v1_signed.bin"
 &updateApp="test-app/image_v2_signed.bin"
+&wolfHsmServer="../wolfhsm-private/infineon/tc3xx/tchsm-server/Build/HSM_App.elf"
+&nvmImage="../whNvmImage.hex"
 
 TargetSystem.NewInstance HSM /ONCE /ARCHitecture arm
 IC ALL RESet
@@ -25,36 +31,29 @@ IC ALL synch.connect others
 
 ; Protect shim loader region
 IC TC DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
-IC TC flash.CHANGEtype 0x80000000--0x80027FFF NOP
 IC TC flash.CHANGEtype 0xA0000000--0xA0027FFF NOP
+IC TC flash.CHANGEtype 0x80000000--0x80027FFF NOP
 
 ; Load the applications
 IC TC flash.reprogram all /erase
-IC TC data.load.binary "&testApp" 0x80038000
-IC TC data.load.binary "&updateApp" 0x80068000
+IC TC data.load.IntelHex "&nvmImage"
+IC TC data.load.elf "&wolfHsmServer"
+IC TC data.load.binary "&testApp" 0xA047C000
+IC TC data.load.binary "&updateApp" 0xA053C000
 IC TC data.load.elf "&wolfBoot"
 IC TC flash.reprogram off
 
-IC HSM data.LOAD.Elf wolfboot.elf /NoCode /noregister
-
-IC HSM Register.Set PC tc3arm_crt_entry
-IC HSM Register.Set MSP _end_stack
+IC HSM data.LOAD.Elf "&wolfHsmServer" /NoCode /noregister
+IC HSM Register.Set PC Reset_Handler
+IC HSM Register.Set MSP _estack
 IC HSM PER.Set.simple ESD:0xE000ED08 %Long 0x80028000
 
-; Bring up the important views
-;SYStem
-;Frame /Locals /Caller
-;List
-
 IC HSM list.auto
-
 IC HSM synch
-
 IC ALL SYnch.MasterSystemMode ON
 IC ALL SYnch.SlaveSystemMode ON
 IC TC SYnch.MasterGo ON
 IC HSM SYnch.SlaveGo ON
-
 IC ALL synch.off
 
 

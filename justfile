@@ -68,7 +68,7 @@ tc3-hsm-certs:
     #tools/keytools/sign --ecc256 test-app/image.bin test-dummy-ca/leaf-prvkey.der 2
 
 
-# Utilities
+# Delete all wolfBoot build artifacts including keys and certificates
 clean:
     make clean
     make keysclean

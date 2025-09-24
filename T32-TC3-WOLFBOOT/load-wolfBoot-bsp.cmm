@@ -1,11 +1,13 @@
+; Loads wolf BSP version of wolfBoot for tricore
+
 system.down
 system.up
 
 
 LOCAL &wolfBoot &testApp &updateApp
-&wolfBoot="wolfboot.elf"
-&testApp="test-app/image_v1_signed.bin"
-&updateApp="test-app/image_v2_signed.bin"
+&wolfBoot="../wolfboot.elf"
+&testApp="../test-app/image_v1_signed.bin"
+&updateApp="../test-app/image_v2_signed.bin"
 
 DO  ~~/demo/tricore/flash/tc37x.cmm PREPAREONLY
 flash.CHANGEtype 0xA0000000--0xA009FFFF NOP
@@ -14,8 +16,8 @@ flash.CHANGEtype 0x80000000--0x8009FFFF NOP
 flash.erase all
 
 flash.reprogram all /erase
-data.load.binary "&testApp" 0xA047C000
-data.load.binary "&updateApp" 0xA053C000
+data.load.binary "&testApp" 0xA0300000
+data.load.binary "&updateApp" 0xA047C000
 data.load.elf "&wolfBoot"
 flash.reprogram off
 
@@ -23,11 +25,11 @@ break.set tc3tc_main
 
 system.down
 system.up
-;go
+go
 
 ; Bring up the important views
-SYStem
-Frame /Locals /Caller
-List
+;SYStem
+;Frame /Locals /Caller
+;List
 
 
