@@ -1130,7 +1130,7 @@ ifeq ($(ARCH),sim)
     WOLFHSM_OBJS += $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_transport_tcp.o
   endif
   ifeq ($(WOLFHSM_SERVER),1)
-    WOLFHSM_OBJ += $(LIBDIR)/wolfHSM/port/posix/posix_flash_file.o
+    WOLFHSM_OBJ += $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_flash_file.o
   endif
 endif
 
@@ -1142,7 +1142,7 @@ ifeq ($(ARCH), AURIX_TC3)
     ARCH_FLASH_OFFSET=0x00000000
 
     # No asm for you!
-    MATH_OBJS+=./lib/wolfssl/wolfcrypt/src/sp_c32.o
+    MATH_OBJS+=$(WOLFBOOT_LIB_WOLFSSL)/wolfcrypt/src/sp_c32.o
 
     CFLAGS += -I$(TC3_DIR) -Ihal
 
@@ -1152,7 +1152,7 @@ ifeq ($(ARCH), AURIX_TC3)
       OBJS += $(WOLFHSM_PORT_DIR)/port/tchsm_common.o \
 	          $(WOLFHSM_PORT_DIR)/port/tchsm_hsmhost.o
 	  # General wolfHSM files
-      OBJS += $(LIBDIR)/wolfHSM/src/wh_transport_mem.o
+      OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
     endif
     ifeq ($(WOLFHSM_SERVER),1)
     endif

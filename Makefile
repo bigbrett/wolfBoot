@@ -304,11 +304,11 @@ swtpmtools: include/target.h
 ifeq ($(WOLFHSM_CLIENT),1)
 whnvmtool:
 	@echo "Building wolfHSM NVM tool"
-	@$(MAKE) -C lib/wolfHSM/tools/whnvmtool
+	@$(MAKE) -C $(WOLFBOOT_LIB_WOLFHSM)/tools/whnvmtool
 
 nvm-image: $(PRIVATE_KEY) whnvmtool
 	@echo "Generating wolfHSM NVM image"
-	$(Q)lib/wolfHSM/tools/whnvmtool/whnvmtool --image=$(WH_NVM_BIN) --size=0x10000 --invert-erased-byte $(NVM_CONFIG)
+	$(Q)$(WOLFBOOT_LIB_WOLFHSM)/tools/whnvmtool/whnvmtool --image=$(WH_NVM_BIN) --size=0x8000 --invert-erased-byte $(NVM_CONFIG)
 	@echo "Converting NVM image to Intel HEX format"
 	$(Q)$(OBJCOPY) -I binary -O ihex --change-address $(NVM_BASE_ADDRESS) $(WH_NVM_BIN) $(WH_NVM_HEX)
 	@echo "NVM images generated: $(WH_NVM_BIN) and $(WH_NVM_HEX)"
