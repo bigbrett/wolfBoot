@@ -353,7 +353,7 @@ internal_flash.dd: $(BINASSEMBLE) wolfboot.bin $(BOOT_IMG) $(PRIVATE_KEY) test-a
 
 ifeq ($(WOLFHSM_CLIENT),1)
 factory.bin: $(BINASSEMBLE) wolfboot.bin $(BOOT_IMG) $(PRIVATE_KEY) test-app/image_v1_signed.bin nvm-image
-else ifeq($(WOLFHSM_SERVER),1)
+else ifeq ($(WOLFHSM_SERVER),1)
 factory.bin: $(BINASSEMBLE) wolfboot.bin $(BOOT_IMG) $(PRIVATE_KEY) test-app/image_v1_signed.bin nvm-image
 else
 factory.bin: $(BINASSEMBLE) wolfboot.bin $(BOOT_IMG) $(PRIVATE_KEY) test-app/image_v1_signed.bin
