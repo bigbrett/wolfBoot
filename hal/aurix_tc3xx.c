@@ -27,18 +27,16 @@
 #include "image.h"  /* for RAMFUNCTION */
 #include "loader.h" /* for wolfBoot_panic */
 
+/* TC3 BSP specific headers */
 #include "tc3_cfg.h"
-
-#ifdef TC3_CFG_HAVE_BOARD
-#include "tc3/tc3_board.h"
-#endif
-
 #include "tc3/tc3.h"
 #include "tc3/tc3_gpio.h"
 #include "tc3/tc3_uart.h"
 #include "tc3/tc3_flash.h"
 #include "tc3/tc3_clock.h"
-
+#ifdef TC3_CFG_HAVE_BOARD
+#include "tc3/tc3_board.h"
+#endif
 #ifdef WOLFBOOT_AURIX_TC3XX_HSM
 #include "tc3/tc3arm.h"
 #else
@@ -47,19 +45,33 @@
 #include "tc3/tc3tc_traps.h"
 #endif
 
-#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+#if defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) || \
+    defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
+
 /* wolfHSM headers */
 #include "wolfhsm/wh_error.h"
-#include "wolfhsm/wh_client.h"
 #include "wolfhsm/wh_transport_mem.h"
-
 /* wolfHSM AURIX port headers */
-#include "tchsm_hh_host.h"
 #include "tchsm_hsmhost.h"
 #include "tchsm_config.h"
 #include "tchsm_common.h"
+
+#if defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+
+#include "wolfhsm/wh_client.h"
+/* wolfHSM AURIX port headers */
+#include "tchsm_hh_host.h"
 #include "hsm_ipc.h"
-#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
+
+#elif defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
+#include "wolfhsm/wh_nvm_flash.h"
+//#include "ccb_hsm.h"
+#include "tchsm_hh_hsm.h"
+#include "port_halflash_df1.h"
+
+#endif
+
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT || WOLFBOOT_ENABLE_WOLFHSM_SERVER */
 
 #define FLASH_MODULE (0)
 #define UNUSED_PARAMETER (0)
@@ -72,6 +84,53 @@
 #define GET_WORDLINE_ADDR(addr) \
     ((uintptr_t)(addr) & ~(TC3_PFLASH_WORDLINE_SIZE - 1))
 #define GET_SECTOR_ADDR(addr) ((uintptr_t)(addr) & ~(WOLFBOOT_SECTOR_SIZE - 1))
+
+
+/* wolfHSM client context and configuration */
+#if defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+
+static int _cancelCb(uint16_t cancelSeq);
+static int _connectCb(void* context, whCommConnected connect);
+
+/* Client configuration/contexts */
+static whTransportMemClientContext tmcCtx[1] = {0};
+static whTransportClientCb         tmcCb[1]  = {WH_TRANSPORT_MEM_CLIENT_CB};
+
+/* Globally exported HAL symbols */
+whClientContext hsmClientCtx = {0};
+const int       hsmDevIdHash = WH_DEV_ID_DMA;
+#ifdef WOLFBOOT_SIGN_ML_DSA
+/* Use DMA for massive ML DSA keys/signatures, too big for shm transport */
+const int hsmDevIdPubKey = WH_DEV_ID_DMA;
+#else
+const int hsmDevIdPubKey = WH_DEV_ID;
+#endif
+const int hsmKeyIdPubKey = 0xFF;
+#ifdef EXT_ENCRYPT
+#error "AURIX TC3xx does not support firmware encryption with wolfHSM (yet)"
+const int hsmDevIdCrypt = WH_DEV_ID;
+const int hsmKeyIdCrypt = 0xFF;
+#endif
+#ifdef WOLFBOOT_CERT_CHAIN_VERIFY
+const whNvmId hsmNvmIdCertRootCA = 1;
+#endif
+
+#elif defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER) /*WOLFBOOT_ENABLE_WOLFHSM_CLIENT*/
+
+/* map wolfBoot HAL layer wofHSM exports to their tchsm config vals */
+const int     hsmDevIdHash       = INVALID_DEVID; /*HSM_DEVID;*/
+const int     hsmDevIdPubKey     = INVALID_DEVID; /*HSM_DEVID;*/
+const whNvmId hsmNvmIdCertRootCA = 1;
+#ifdef EXT_ENCRYPT
+#error "AURIX does not support firmware encryption with wolfHSM(yet)"
+const int     hsmDevIdCrypt      = INVALID_DEVID; /*HSM_DEVID;*/
+const int     hsmKeyIdCrypt      = 0xFF;
+#endif
+
+int hal_hsm_server_init(void);
+int hal_hsm_server_cleanup(void);
+
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_SERVER */
 
 /* RAM buffer to hold the contents of an entire flash sector*/
 static uint32_t sectorBuffer[WOLFBOOT_SECTOR_SIZE / sizeof(uint32_t)];
@@ -637,32 +696,6 @@ void ext_flash_unlock(void)
 
 
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-static int _cancelCb(uint16_t cancelSeq);
-static int _connectCb(void* context, whCommConnected connect);
-
-/* Client configuration/contexts */
-static whTransportMemClientContext tmcCtx[1] = {0};
-static whTransportClientCb         tmcCb[1]  = {WH_TRANSPORT_MEM_CLIENT_CB};
-
-/* Globally exported HAL symbols */
-whClientContext hsmClientCtx = {0};
-const int       hsmDevIdHash = WH_DEV_ID_DMA;
-#ifdef WOLFBOOT_SIGN_ML_DSA
-/* Use DMA for massive ML DSA keys/signatures, too big for shm transport */
-const int hsmDevIdPubKey = WH_DEV_ID_DMA;
-#else
-const int hsmDevIdPubKey = WH_DEV_ID;
-#endif
-const int hsmKeyIdPubKey = 0xFF;
-#ifdef EXT_ENCRYPT
-#error "AURIX TC3xx does not support firmware encryption with wolfHSM (yet)"
-const int hsmDevIdCrypt = WH_DEV_ID;
-const int hsmKeyIdCrypt = 0xFF;
-#endif
-#ifdef WOLFBOOT_CERT_CHAIN_VERIFY
-const whNvmId hsmNvmIdCertRootCA = 1;
-#endif
-
 
 static int _cancelCb(uint16_t cancelSeq)
 {
@@ -761,5 +794,108 @@ int hal_hsm_disconnect(void)
     return 0;
 }
 
+#elif defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER) /*WOLFBOOT_ENABLE_WOLFHSM_CLIENT*/
 
-#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
+/* #include "ccb_hsm.h" */
+
+/* HAL Flash state and configuration */
+static HalFlashDf1Context tchsmFlashCtx[1]   = {{0}};
+static whNvmFlashContext nvmFlashCtx[1]  = {{0}};
+static whNvmContext      nvmCtx[1] = {0};
+
+static whServerCryptoContext cryptoCtx[1] = {{
+    .devId = INVALID_DEVID, /* HSM_DEVID */
+}};
+
+/* Global server context */
+whServerContext hsmServerCtx = {0};
+
+int hal_hsm_server_init(void)
+{
+    int rc = 0;
+
+    /* Dummy request and response buffers */
+    static uint8_t req[] = {0};
+    static uint8_t resp[] = {0};
+    /* Dummy transport config */
+    whTransportMemConfig        transportMemCfg[1] = {{
+           .req       = (whTransportMemCsr*)req,
+           .req_size  = sizeof(req),
+           .resp      = (whTransportMemCsr*)resp,
+           .resp_size = sizeof(resp),
+    }};
+    whTransportServerCb transportMemCb[1] = {WH_TRANSPORT_MEM_SERVER_CB};
+    static whTransportMemServerContext transportMemCtx[1] = {{0}};
+    /* Dummy comm config */
+    whCommServerConfig commServerConfig[1] = {{
+        .transport_cb      = transportMemCb,
+        .transport_context = (void*)&transportMemCtx[0],
+        .transport_config  = (void*)&transportMemCfg[0],
+        .server_id         = 0,
+    }};
+
+    /* NVM callbacks and config */
+    HalFlashDf1Config  tchsmFlashCfg[1]   = {{0}};
+    whFlashCb    tchsmFlashCb[1] = {HAL_FLASH_DF1_CB};
+    /* NVM Configuration using tricore HAL Flash */
+    whNvmFlashConfig  nvmFlashCfg[1]  = {{
+          .config  = tchsmFlashCfg,
+          .context = tchsmFlashCtx,
+          .cb      = tchsmFlashCb,
+    }};
+    whNvmCb           nvmCb[1] = {WH_NVM_FLASH_CB};
+    whNvmConfig nvmCfg[1] = {{
+         .config  = nvmFlashCfg,
+         .context = nvmFlashCtx,
+         .cb      = nvmCb,
+    }};
+
+    whServerConfig serverCfg[1] = {{
+            .comm_config = commServerConfig,
+            .nvm         = nvmCtx,
+            .crypto      = cryptoCtx,
+            .devId       = INVALID_DEVID, /*HSM_DEVID,*/
+    }};
+
+    rc = wh_Nvm_Init(nvmCtx, nvmCfg);
+    if (rc != WH_ERROR_OK) {
+        wolfBoot_panic();
+    }
+
+    (void)wolfCrypt_Init();
+
+    rc = wc_InitRng_ex(cryptoCtx->rng, NULL, INVALID_DEVID);
+    if (rc != WH_ERROR_OK) {
+        wolfBoot_panic();
+    }
+
+    rc = wh_Server_Init(&hsmServerCtx, serverCfg);
+    if (rc != WH_ERROR_OK) {
+        wolfBoot_panic();
+    }
+
+    return rc;
+}
+
+int hal_hsm_server_cleanup(void) {
+    int rc = 0;
+
+    rc = wh_Server_Cleanup(&hsmServerCtx);
+    if (rc != WH_ERROR_OK) {
+        wolfBoot_panic();
+    }
+
+    rc = wc_FreeRng(cryptoCtx->rng);
+    if (rc != WH_ERROR_OK) {
+        wolfBoot_panic();
+    }
+
+    rc = wolfCrypt_Cleanup();
+    if (rc != WH_ERROR_OK) {
+        wolfBoot_panic();
+    }
+
+    return rc;
+}
+
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_SERVER */

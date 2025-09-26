@@ -104,6 +104,7 @@ CFLAGS+= \
 
 # Setup default optimizations (for GCC)
 ifeq ($(USE_GCC_HEADLESS),1)
+  $(error USE_GCC_HEADLESS==1)
   CFLAGS+=-Wall -Wextra -Wno-main -ffreestanding -Wno-unused -nostartfiles
   CFLAGS+=-ffunction-sections -fdata-sections -fomit-frame-pointer
   LDFLAGS+=-Wl,-gc-sections -Wl,-Map=wolfboot.map -ffreestanding -nostartfiles

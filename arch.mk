@@ -1130,7 +1130,9 @@ ifeq ($(ARCH),sim)
     WOLFHSM_OBJS += $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_transport_tcp.o
   endif
   ifeq ($(WOLFHSM_SERVER),1)
-    WOLFHSM_OBJ += $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_flash_file.o
+    WOLFHSM_OBJ += $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_flash_file.o \
+                   $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
+
   endif
 endif
 
@@ -1155,6 +1157,12 @@ ifeq ($(ARCH), AURIX_TC3)
       OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
     endif
     ifeq ($(WOLFHSM_SERVER),1)
+	  # Common wolfHSM port files
+      CFLAGS += -I$(WOLFHSM_PORT_DIR)/port -DWOLFHSM_CFG_DMA
+      OBJS += $(WOLFHSM_PORT_DIR)/port/tchsm_common.o \
+	          $(WOLFHSM_PORT_DIR)/port/tchsm_hsmhost.o
+	  # General wolfHSM files
+      OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
     endif
 
     # Set BOOT_IMG to the ELF file instead of default bin when ELF_FLASH_SCATTER is enabled
@@ -1174,7 +1182,8 @@ ifeq ($(ARCH), AURIX_TC3)
       CFLAGS += -march=armv7-m -mcpu=cortex-m3 -mthumb -mlittle-endian -g \
                 -Wall -Wdiv-by-zero -Warray-bounds -Wformat -Wformat-security \
 				-Wignored-qualifiers \
-                -Wno-implicit-function-declaration \
+                -Wno-implicit-function-declaration -Wno-type-limits \
+                -Wno-unused-variable -Wno-unused-parameter \
                 -fstrict-volatile-bitfields -fomit-frame-pointer \
                 -fno-common -fno-short-enums -pipe \
                 -ffunction-sections -fdata-sections -fmessage-length=0 \
@@ -1184,11 +1193,34 @@ ifeq ($(ARCH), AURIX_TC3)
       LDFLAGS += -march=armv7-m -mcpu=cortex-m3 -mthumb -mlittle-endian -g \
                 --specs=nano.specs -Wl,--gc-sections -static -Wl,--cref -Wl,-n \
                 -ffunction-sections -fdata-sections \
-                -nostdlib -nodefaultlibs -nostartfiles \
+                -nostartfiles \
                 -Wl,-Map="wolfboot.map" \
                 -Wl,-L$(TC3_DIR)/tc3
 
       LSCRIPT_IN=hal/$(TARGET)_hsm.ld
+
+	  # wolfHSM port server-specific files
+      ifeq ($(WOLFHSM_SERVER),1)
+        USE_GCC_HEADLESS=0
+
+        CFLAGS += -I$(WOLFHSM_PORT_DIR)/tchsm-server/cfg \
+				  -I$(WOLFHSM_PORT_DIR)/port/server
+
+        OBJS += $(WOLFHSM_PORT_DIR)/port/server/port_halflash_df1.o \
+				$(WOLFHSM_PORT_DIR)/port/server/io.o \
+				$(WOLFHSM_PORT_DIR)/port/server/sysmem.o \
+				$(WOLFHSM_PORT_DIR)/port/server/tchsm_hh_hsm.o \
+				$(WOLFHSM_PORT_DIR)/port/server/tchsm_utils.o
+
+				# SW only for now, as we dont have the right protection macros
+				#$(WOLFHSM_PORT_DIR)/port/server/ccb_hsm.o \
+				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_hash.o \
+				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_aes.o \
+				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_cmac.o \
+				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_pk.o \
+				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_trng.o
+
+      endif
 
       # HSM BSP specific object files
       OBJS += $(TC3_DIR)/src/tc3_clock.o \
@@ -1218,7 +1250,8 @@ ifeq ($(ARCH), AURIX_TC3)
 
       # Arch settings for tricore
       ifeq ($(USE_GCC),1)
-        CFLAGS+= -fshort-double -mtc162 -fstrict-volatile-bitfields -fno-builtin
+        CFLAGS+= -fshort-double -mtc162 -fstrict-volatile-bitfields -fno-builtin \
+                 -fno-strict-aliasing
       else
         CFLAGS+= --target=tricore -march=tc162
       endif
