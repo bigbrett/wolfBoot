@@ -252,6 +252,10 @@ ifeq ($(TARGET),sim)
     APP_OBJS=app_sim.o
     APP_OBJS+=../test-app/libwolfboot.o ../hal/$(TARGET).o
   endif
+  ifeq ($(WOLFHSM_SERVER),1)
+    # Needed for dummy transport in test app initialization
+    APP_OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
+  endif
 endif
 
 ifeq ($(EXT_FLASH),1)
@@ -486,6 +490,12 @@ ifeq ($(TARGET),aurix_tc3xx)
                 $(TC3_DIR)/src/tc3tc_crt.o
 	# Use TC3 app linker script
     LSCRIPT_TEMPLATE = tc3tc_app.ld
+  endif
+
+
+  ifeq ($(WOLFHSM_SERVER),1)
+    APP_OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
+    APP_OBJS += $(WOLFHSM_PORT_DIR)/port/server/port_halflash_df1.o
   endif
 endif
 

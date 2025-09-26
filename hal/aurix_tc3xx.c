@@ -64,6 +64,7 @@
 #include "hsm_ipc.h"
 
 #elif defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
+
 #include "wolfhsm/wh_nvm_flash.h"
 //#include "ccb_hsm.h"
 #include "tchsm_hh_hsm.h"
@@ -797,10 +798,14 @@ int hal_hsm_disconnect(void)
 #elif defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER) /*WOLFBOOT_ENABLE_WOLFHSM_CLIENT*/
 
 /* #include "ccb_hsm.h" */
+static whTransportServerCb transportMemCb[1] = {WH_TRANSPORT_MEM_SERVER_CB};
+static whTransportMemServerContext transportMemCtx[1] = {{0}};
 
 /* HAL Flash state and configuration */
 static HalFlashDf1Context tchsmFlashCtx[1]   = {{0}};
+static whFlashCb    tchsmFlashCb[1] = {HAL_FLASH_DF1_CB};
 static whNvmFlashContext nvmFlashCtx[1]  = {{0}};
+static whNvmCb           nvmCb[1] = {WH_NVM_FLASH_CB};
 static whNvmContext      nvmCtx[1] = {0};
 
 static whServerCryptoContext cryptoCtx[1] = {{
@@ -824,8 +829,6 @@ int hal_hsm_server_init(void)
            .resp      = (whTransportMemCsr*)resp,
            .resp_size = sizeof(resp),
     }};
-    whTransportServerCb transportMemCb[1] = {WH_TRANSPORT_MEM_SERVER_CB};
-    static whTransportMemServerContext transportMemCtx[1] = {{0}};
     /* Dummy comm config */
     whCommServerConfig commServerConfig[1] = {{
         .transport_cb      = transportMemCb,
@@ -836,14 +839,12 @@ int hal_hsm_server_init(void)
 
     /* NVM callbacks and config */
     HalFlashDf1Config  tchsmFlashCfg[1]   = {{0}};
-    whFlashCb    tchsmFlashCb[1] = {HAL_FLASH_DF1_CB};
     /* NVM Configuration using tricore HAL Flash */
     whNvmFlashConfig  nvmFlashCfg[1]  = {{
           .config  = tchsmFlashCfg,
           .context = tchsmFlashCtx,
           .cb      = tchsmFlashCb,
     }};
-    whNvmCb           nvmCb[1] = {WH_NVM_FLASH_CB};
     whNvmConfig nvmCfg[1] = {{
          .config  = nvmFlashCfg,
          .context = nvmFlashCtx,

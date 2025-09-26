@@ -1148,6 +1148,7 @@ ifeq ($(ARCH), AURIX_TC3)
 
     CFLAGS += -I$(TC3_DIR) -Ihal
 
+	# BRN-TODO: this is an "OR" block and should be condensed
     ifeq ($(WOLFHSM_CLIENT),1)
 	  # Common wolfHSM port files
       CFLAGS += -I$(WOLFHSM_PORT_DIR)/port -DWOLFHSM_CFG_DMA
@@ -1155,6 +1156,18 @@ ifeq ($(ARCH), AURIX_TC3)
 	          $(WOLFHSM_PORT_DIR)/port/tchsm_hsmhost.o
 	  # General wolfHSM files
       OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
+
+      # NVM image generation variables
+      # BRN-TODO these addresses should be set by the port
+      WH_NVM_BIN = whNvmImage.bin
+      WH_NVM_HEX = whNvmImage.hex
+      NVM_BASE_ADDRESS = 0xAFC00000
+      # Select config file based on certificate chain verification
+      ifneq ($(CERT_CHAIN_VERIFY),)
+        NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-dummy-certchain.nvminit
+      else
+        NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-keys.nvminit
+      endif
     endif
     ifeq ($(WOLFHSM_SERVER),1)
 	  # Common wolfHSM port files
@@ -1163,6 +1176,18 @@ ifeq ($(ARCH), AURIX_TC3)
 	          $(WOLFHSM_PORT_DIR)/port/tchsm_hsmhost.o
 	  # General wolfHSM files
       OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
+
+      # NVM image generation variables
+      # BRN-TODO these addresses should be set by the port
+      WH_NVM_BIN = whNvmImage.bin
+      WH_NVM_HEX = whNvmImage.hex
+      NVM_BASE_ADDRESS = 0xAFC00000
+      # Select config file based on certificate chain verification
+      ifneq ($(CERT_CHAIN_VERIFY),)
+        NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-dummy-certchain.nvminit
+      else
+        NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-keys.nvminit
+      endif
     endif
 
     # Set BOOT_IMG to the ELF file instead of default bin when ELF_FLASH_SCATTER is enabled
@@ -1185,6 +1210,7 @@ ifeq ($(ARCH), AURIX_TC3)
                 -Wno-implicit-function-declaration -Wno-type-limits \
                 -Wno-unused-variable -Wno-unused-parameter \
                 -fstrict-volatile-bitfields -fomit-frame-pointer \
+				-fno-builtin \
                 -fno-common -fno-short-enums -pipe \
                 -ffunction-sections -fdata-sections -fmessage-length=0 \
                 -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
@@ -1219,7 +1245,6 @@ ifeq ($(ARCH), AURIX_TC3)
 				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_cmac.o \
 				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_pk.o \
 				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_trng.o
-
       endif
 
       # HSM BSP specific object files

@@ -926,17 +926,17 @@ ifeq ($(WOLFHSM_CLIENT),1)
     CFLAGS += -DWOLFHSM_CFG_CERTIFICATE_MANAGER
   endif
 
-  # NVM image generation variables
-  # BRN-TODO these addresses should be set by the port
-  WH_NVM_BIN = whNvmImage.bin
-  WH_NVM_HEX = whNvmImage.hex
-  NVM_BASE_ADDRESS = 0xAFC00000
-  # Select config file based on certificate chain verification
-  ifneq ($(CERT_CHAIN_VERIFY),)
-    NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-dummy-certchain.nvminit
-  else
-    NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-keys.nvminit
-  endif
+  ## NVM image generation variables
+  ## BRN-TODO these addresses should be set by the port
+  #WH_NVM_BIN = whNvmImage.bin
+  #WH_NVM_HEX = whNvmImage.hex
+  #NVM_BASE_ADDRESS = 0xAFC00000
+  ## Select config file based on certificate chain verification
+  #ifneq ($(CERT_CHAIN_VERIFY),)
+  #  NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-dummy-certchain.nvminit
+  #else
+  #  NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-keys.nvminit
+  #endif
 endif
 
 # wolfHSM server options

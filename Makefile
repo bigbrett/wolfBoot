@@ -104,7 +104,6 @@ CFLAGS+= \
 
 # Setup default optimizations (for GCC)
 ifeq ($(USE_GCC_HEADLESS),1)
-  $(error USE_GCC_HEADLESS==1)
   CFLAGS+=-Wall -Wextra -Wno-main -ffreestanding -Wno-unused -nostartfiles
   CFLAGS+=-ffunction-sections -fdata-sections -fomit-frame-pointer
   LDFLAGS+=-Wl,-gc-sections -Wl,-Map=wolfboot.map -ffreestanding -nostartfiles
@@ -302,7 +301,14 @@ swtpmtools: include/target.h
 	@$(MAKE) -C tools/tpm -s clean
 	@$(MAKE) -C tools/tpm -j swtpm
 
+# Generate NVM image if either WOLFHSM_CLIENT or WOLFHSM_SERVER
 ifeq ($(WOLFHSM_CLIENT),1)
+    _DO_WH_NVMTOOL:=1
+endif
+ifeq ($(WOLFHSM_SERVER),1)
+    _DO_WH_NVMTOOL:=1
+endif
+ifeq ($(_DO_WH_NVMTOOL),1)
 whnvmtool:
 	@echo "Building wolfHSM NVM tool"
 	@$(MAKE) -C $(WOLFBOOT_LIB_WOLFHSM)/tools/whnvmtool
@@ -346,6 +352,8 @@ internal_flash.dd: $(BINASSEMBLE) wolfboot.bin $(BOOT_IMG) $(PRIVATE_KEY) test-a
 	make assemble_internal_flash.dd
 
 ifeq ($(WOLFHSM_CLIENT),1)
+factory.bin: $(BINASSEMBLE) wolfboot.bin $(BOOT_IMG) $(PRIVATE_KEY) test-app/image_v1_signed.bin nvm-image
+else ifeq($(WOLFHSM_SERVER),1)
 factory.bin: $(BINASSEMBLE) wolfboot.bin $(BOOT_IMG) $(PRIVATE_KEY) test-app/image_v1_signed.bin nvm-image
 else
 factory.bin: $(BINASSEMBLE) wolfboot.bin $(BOOT_IMG) $(PRIVATE_KEY) test-app/image_v1_signed.bin
