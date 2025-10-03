@@ -1151,9 +1151,9 @@ ifeq ($(ARCH), AURIX_TC3)
 	# BRN-TODO: this is an "OR" block and should be condensed
     ifeq ($(WOLFHSM_CLIENT),1)
 	  # Common wolfHSM port files
-      CFLAGS += -I$(WOLFHSM_PORT_DIR)/port -DWOLFHSM_CFG_DMA
-      OBJS += $(WOLFHSM_PORT_DIR)/port/tchsm_common.o \
-	          $(WOLFHSM_PORT_DIR)/port/tchsm_hsmhost.o
+      CFLAGS += -I$(WOLFHSM_INFINEON_TC3XX)/port -DWOLFHSM_CFG_DMA
+      OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_common.o \
+	          $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_hsmhost.o
 	  # General wolfHSM files
       OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
 
@@ -1171,9 +1171,9 @@ ifeq ($(ARCH), AURIX_TC3)
     endif
     ifeq ($(WOLFHSM_SERVER),1)
 	  # Common wolfHSM port files
-      CFLAGS += -I$(WOLFHSM_PORT_DIR)/port -DWOLFHSM_CFG_DMA
-      OBJS += $(WOLFHSM_PORT_DIR)/port/tchsm_common.o \
-	          $(WOLFHSM_PORT_DIR)/port/tchsm_hsmhost.o
+      CFLAGS += -I$(WOLFHSM_INFINEON_TC3XX)/port -DWOLFHSM_CFG_DMA
+      OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_common.o \
+	          $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_hsmhost.o
 	  # General wolfHSM files
       OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
 
@@ -1229,22 +1229,22 @@ ifeq ($(ARCH), AURIX_TC3)
       ifeq ($(WOLFHSM_SERVER),1)
         USE_GCC_HEADLESS=0
 
-        CFLAGS += -I$(WOLFHSM_PORT_DIR)/tchsm-server/cfg \
-				  -I$(WOLFHSM_PORT_DIR)/port/server
+        CFLAGS += -I$(WOLFHSM_INFINEON_TC3XX)/tchsm-server/cfg \
+				  -I$(WOLFHSM_INFINEON_TC3XX)/port/server
 
-        OBJS += $(WOLFHSM_PORT_DIR)/port/server/port_halflash_df1.o \
-				$(WOLFHSM_PORT_DIR)/port/server/io.o \
-				$(WOLFHSM_PORT_DIR)/port/server/sysmem.o \
-				$(WOLFHSM_PORT_DIR)/port/server/tchsm_hh_hsm.o \
-				$(WOLFHSM_PORT_DIR)/port/server/tchsm_utils.o
+        OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/server/port_halflash_df1.o \
+				$(WOLFHSM_INFINEON_TC3XX)/port/server/io.o \
+				$(WOLFHSM_INFINEON_TC3XX)/port/server/sysmem.o \
+				$(WOLFHSM_INFINEON_TC3XX)/port/server/tchsm_hh_hsm.o \
+				$(WOLFHSM_INFINEON_TC3XX)/port/server/tchsm_utils.o
 
 				# SW only for now, as we dont have the right protection macros
-				#$(WOLFHSM_PORT_DIR)/port/server/ccb_hsm.o \
-				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_hash.o \
-				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_aes.o \
-				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_cmac.o \
-				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_pk.o \
-				#$(WOLFHSM_PORT_DIR)/port/server/tchsm_trng.o
+				#$(WOLFHSM_INFINEON_TC3XX)/port/server/ccb_hsm.o \
+				#$(WOLFHSM_INFINEON_TC3XX)/port/server/tchsm_hash.o \
+				#$(WOLFHSM_INFINEON_TC3XX)/port/server/tchsm_aes.o \
+				#$(WOLFHSM_INFINEON_TC3XX)/port/server/tchsm_cmac.o \
+				#$(WOLFHSM_INFINEON_TC3XX)/port/server/tchsm_pk.o \
+				#$(WOLFHSM_INFINEON_TC3XX)/port/server/tchsm_trng.o
       endif
 
       # HSM BSP specific object files
@@ -1319,9 +1319,9 @@ ifeq ($(ARCH), AURIX_TC3)
               $(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.o
 
       ifeq ($(WOLFHSM_CLIENT),1)
-        CFLAGS += -I$(WOLFHSM_PORT_DIR)/port/client
+        CFLAGS += -I$(WOLFHSM_INFINEON_TC3XX)/port/client
 		# All source files in port/client but listed as *.o files
-        OBJS += $(patsubst %.c,%.o,$(wildcard $(WOLFHSM_PORT_DIR)/port/client/*.c))
+        OBJS += $(patsubst %.c,%.o,$(wildcard $(WOLFHSM_INFINEON_TC3XX)/port/client/*.c))
       endif
 
     endif # !AURIX_TC3_HSM

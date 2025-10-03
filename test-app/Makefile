@@ -495,7 +495,7 @@ ifeq ($(TARGET),aurix_tc3xx)
 
   ifeq ($(WOLFHSM_SERVER),1)
     APP_OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
-    APP_OBJS += $(WOLFHSM_PORT_DIR)/port/server/port_halflash_df1.o
+    APP_OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/server/port_halflash_df1.o
   endif
 endif
 
