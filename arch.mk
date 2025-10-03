@@ -1148,33 +1148,13 @@ ifeq ($(ARCH), AURIX_TC3)
 
     CFLAGS += -I$(TC3_DIR) -Ihal
 
-	# BRN-TODO: this is an "OR" block and should be condensed
-    ifeq ($(WOLFHSM_CLIENT),1)
-	  # Common wolfHSM port files
+    # Makefile shennanigans for "if (WOLFHSM_CLIENT==1 || WOLFHSM_SERVER==1)"
+    ifneq ($(filter 1,$(WOLFHSM_CLIENT) $(WOLFHSM_SERVER)),)
+      # Common wolfHSM port files
       CFLAGS += -I$(WOLFHSM_INFINEON_TC3XX)/port -DWOLFHSM_CFG_DMA
       OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_common.o \
 	          $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_hsmhost.o
-	  # General wolfHSM files
-      OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
-
-      # NVM image generation variables
-      # BRN-TODO these addresses should be set by the port
-      WH_NVM_BIN = whNvmImage.bin
-      WH_NVM_HEX = whNvmImage.hex
-      NVM_BASE_ADDRESS = 0xAFC00000
-      # Select config file based on certificate chain verification
-      ifneq ($(CERT_CHAIN_VERIFY),)
-        NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-dummy-certchain.nvminit
-      else
-        NVM_CONFIG = tools/scripts/tc3xx/wolfBoot-wolfHSM-keys.nvminit
-      endif
-    endif
-    ifeq ($(WOLFHSM_SERVER),1)
-	  # Common wolfHSM port files
-      CFLAGS += -I$(WOLFHSM_INFINEON_TC3XX)/port -DWOLFHSM_CFG_DMA
-      OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_common.o \
-	          $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_hsmhost.o
-	  # General wolfHSM files
+      # General wolfHSM files
       OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
 
       # NVM image generation variables
