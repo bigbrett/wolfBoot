@@ -252,10 +252,6 @@ ifeq ($(TARGET),sim)
     APP_OBJS=app_sim.o
     APP_OBJS+=../test-app/libwolfboot.o ../hal/$(TARGET).o
   endif
-  ifeq ($(WOLFHSM_SERVER),1)
-    # Needed for dummy transport in test app initialization
-    APP_OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
-  endif
 endif
 
 ifeq ($(EXT_FLASH),1)
