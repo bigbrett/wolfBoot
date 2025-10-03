@@ -574,15 +574,14 @@ $(LSCRIPT): $(LSCRIPT_TEMPLATE) FORCE
 	$(Q)printf "%d" $(WOLFBOOT_PARTITION_SIZE) > .partition-size
 	$(Q)printf "%d" $(IMAGE_HEADER_SIZE) > .header-size
 ifeq ($(ELF_FLASH_SCATTER),1)
-# For ELF mode, use execution space address direcly (with no header offset)
-# instead of boot partition
+# Optionally set the base address for the test-app linker MEMORY{} region if the
+# HAL allows for it to be specified in the config via WOLFBOOT_ELF_EXEC_ADDRESS
 ifdef WOLFBOOT_ELF_EXEC_ADDRESS
+	# For ELF scatter mode, use execution space address directly (with no header offset)
 	$(Q)printf "%d" $(WOLFBOOT_ELF_EXEC_ADDRESS) > .entry-point
 	$(Q)printf "0x%X" `cat .entry-point` > .entry-point
 	$(Q)printf "%d" $(WOLFBOOT_ELF_EXEC_SIZE) > .app-size
 	$(Q)printf "0x%X" `cat .app-size` > .app-size
-else
-	$(Q)echo "ERROR: WOLFBOOT_ELF_EXEC_ADDRESS not defined for ELF scatter mode" && exit 1
 endif
 else
 	# Standard mode: boot partition address + header offset
