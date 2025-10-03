@@ -1130,8 +1130,8 @@ ifeq ($(ARCH),sim)
     WOLFHSM_OBJS += $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_transport_tcp.o
   endif
   ifeq ($(WOLFHSM_SERVER),1)
-    WOLFHSM_OBJ += $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_flash_file.o \
-                   $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
+    WOLFHSM_OBJS += $(WOLFBOOT_LIB_WOLFHSM)/port/posix/posix_flash_file.o \
+                    $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
 
   endif
 endif
