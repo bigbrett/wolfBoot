@@ -8,7 +8,7 @@ relying on wolfCrypt for firmware authentication, providing firmware update mech
 Due to the minimalist design of the bootloader and the tiny HAL API, wolfBoot is completely independent
 from any OS or bare-metal application, and can be easily ported and integrated in existing embedded software
 projects to provide a secure firmware update mechanism.
-
+asdf
 Design based on [RFC 9019](https://datatracker.ietf.org/doc/rfc9019/) - A Firmware Update Architecture for Internet of Things.
 
 ## Features
