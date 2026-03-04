@@ -1463,10 +1463,10 @@ int wolfBoot_open_self(struct wolfBoot_image* img)
         return -1;
     }
 
-    ret = wolfBoot_open_self_address(img, hdr, (uint8_t*)ARCH_FLASH_OFFSET);
+    ret = wolfBoot_open_self_address(img, hdr, (uint8_t*)WOLFBOOT_ORIGIN);
     if (ret == 0) {
         /* PART_SELF may be marked external for header storage, but wolfBoot
-         * firmware bytes are always in internal flash at ARCH_FLASH_OFFSET. */
+         * firmware bytes are always in internal flash at WOLFBOOT_ORIGIN. */
         img->not_ext = 1;
     }
     return ret;
@@ -1526,7 +1526,7 @@ int wolfBoot_verify_integrity(struct wolfBoot_image *img)
 #include "elf.h"
 
 #ifdef ARCH_SIM
-#define BASE_OFF ARCH_FLASH_OFFSET
+#define BASE_OFF WOLFBOOT_ORIGIN
 #else
 #define BASE_OFF 0
 #endif

@@ -354,24 +354,21 @@ static int wolfboot_get_boot_image_hash(uint8_t *out, size_t *out_len)
 
 static int wolfboot_get_wolfboot_hash(uint8_t *out, size_t *out_len)
 {
-#if !defined(WOLFBOOT_PARTITION_BOOT_ADDRESS) || !defined(ARCH_FLASH_OFFSET)
+#if !defined(BOOTLOADER_PARTITION_SIZE) || !defined(WOLFBOOT_ORIGIN)
     (void)out;
     (void)out_len;
     return -1;
 #else
-    uintptr_t start = (uintptr_t)ARCH_FLASH_OFFSET;
-    uintptr_t end = (uintptr_t)WOLFBOOT_PARTITION_BOOT_ADDRESS;
-    uint32_t size;
+    uintptr_t start = (uintptr_t)WOLFBOOT_ORIGIN;
+    uint32_t size = (uint32_t)BOOTLOADER_PARTITION_SIZE;
 
     if (out == NULL || out_len == NULL || *out_len < WOLFBOOT_SHA_DIGEST_SIZE) {
         return -1;
     }
 
-    if (end <= start) {
+    if (size == 0) {
         return -1;
     }
-
-    size = (uint32_t)(end - start);
     if (wolfboot_hash_region(start, size, out) != 0) {
         return -1;
     }

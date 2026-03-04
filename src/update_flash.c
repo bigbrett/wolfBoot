@@ -77,9 +77,9 @@ static void RAMFUNCTION wolfBoot_erase_bootloader(uint32_t len)
             WOLFBOOT_SECTOR_SIZE) * WOLFBOOT_SECTOR_SIZE;
 #else
     (void)len;
-    len = WOLFBOOT_PARTITION_BOOT_ADDRESS - ARCH_FLASH_OFFSET;
+    len = BOOTLOADER_PARTITION_SIZE;
 #endif
-    hal_flash_erase(ARCH_FLASH_OFFSET, len);
+    hal_flash_erase(WOLFBOOT_ORIGIN, len);
 }
 
 #include <string.h>
@@ -156,7 +156,7 @@ static void RAMFUNCTION wolfBoot_self_update(struct wolfBoot_image *src)
     uintptr_t pos = 0;
     uintptr_t src_offset = IMAGE_HEADER_SIZE;
 #ifdef ARCH_SIM
-    uintptr_t start_text = ARCH_FLASH_OFFSET;
+    uintptr_t start_text = WOLFBOOT_ORIGIN;
 #else
     uintptr_t start_text = (uintptr_t)&_start_text; /* save off before erase */
 #endif
