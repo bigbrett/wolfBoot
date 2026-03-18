@@ -617,7 +617,16 @@ static void wolfBoot_verify_signature_rsa_pss(uint8_t key_slot,
     wc_FreeRsaKey(&rsa);
     /* wc_RsaPSS_VerifyCheckInline returns the PSS-verified data length on
      * success (>= digest size), or a negative error code on failure.
-     * The hash comparison is performed internally by the function. */
+     * The hash comparison is performed internally by the function.
+     *
+     * Note: uses '>=' rather than '==' because PSS verify returns the digest
+     * size on success, unlike PKCS#1 v1.5 which returns exact decoded length.
+     *
+     * ARMORED limitation: the PKCS#1 v1.5 path uses both RSA_VERIFY_FN and
+     * RSA_VERIFY_HASH armored macros (two hardened gates), but PSS only uses
+     * RSA_VERIFY_FN because wc_RsaPSS_VerifyCheckInline performs the hash
+     * comparison internally. The branch below is not armored. Full armored
+     * hardening for PSS would require a new macro or restructuring. */
     if (ret >= WOLFBOOT_SHA_DIGEST_SIZE && img) {
         wolfBoot_image_confirm_signature_ok(img);
     }
@@ -2411,7 +2420,10 @@ int wolfBoot_verify_authenticity(struct wolfBoot_image *img)
       defined (WOLFBOOT_SIGN_SECONDARY_RSA4096) || \
       defined (WOLFBOOT_SIGN_SECONDARY_RSA2048ENC) || \
       defined (WOLFBOOT_SIGN_SECONDARY_RSA3072ENC) || \
-      defined (WOLFBOOT_SIGN_SECONDARY_RSA4096ENC)
+      defined (WOLFBOOT_SIGN_SECONDARY_RSA4096ENC) || \
+      defined (WOLFBOOT_SIGN_SECONDARY_RSAPSS2048) || \
+      defined (WOLFBOOT_SIGN_SECONDARY_RSAPSS3072) || \
+      defined (WOLFBOOT_SIGN_SECONDARY_RSAPSS4096)
             expected_secondary_signature_size = RSA_IMAGE_SIGNATURE_SIZE;
 #elif defined (WOLFBOOT_SIGN_SECONDARY_ECC256) || \
       defined (WOLFBOOT_SIGN_SECONDARY_ECC384) || \

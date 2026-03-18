@@ -535,7 +535,16 @@ void keystore_add(uint32_t ktype, uint8_t *key, uint32_t sz, const char *keyfile
 
     memset(&sl, 0, sizeof(sl));
     sl.slot_id = id_slot;
-    sl.key_type = ktype;
+    /* Map keygen key type to AUTH_KEY_* value for binary keystore.
+     * KEYGEN_RSAPSS* values (12-14) differ from AUTH_KEY_RSAPSS* (0x0A-0x0C). */
+    if (ktype == KEYGEN_RSAPSS2048)
+        sl.key_type = AUTH_KEY_RSAPSS2048;
+    else if (ktype == KEYGEN_RSAPSS3072)
+        sl.key_type = AUTH_KEY_RSAPSS3072;
+    else if (ktype == KEYGEN_RSAPSS4096)
+        sl.key_type = AUTH_KEY_RSAPSS4096;
+    else
+        sl.key_type = ktype;
     sl.part_id_mask = id_mask;
 
     sl.pubkey_size = get_pubkey_size(ktype);
