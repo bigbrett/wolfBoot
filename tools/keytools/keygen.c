@@ -108,6 +108,9 @@
 #define KEYGEN_LMS     9
 #define KEYGEN_XMSS    10
 #define KEYGEN_ML_DSA  11
+#define KEYGEN_RSAPSS2048 12
+#define KEYGEN_RSAPSS3072 13
+#define KEYGEN_RSAPSS4096 14
 
 /* Globals */
 static FILE *fpub, *fpub_image;
@@ -296,7 +299,7 @@ static void fwritekey(uint8_t *key, int len, FILE *f)
     }
 }
 
-const char KType[][17] = {
+const char KType[][21] = {
     "AUTH_KEY_NONE",
     "AUTH_KEY_ED25519",
     "AUTH_KEY_ECC256",
@@ -308,7 +311,10 @@ const char KType[][17] = {
     "AUTH_KEY_RSA3072",
     "AUTH_KEY_LMS",
     "AUTH_KEY_XMSS",
-    "AUTH_KEY_ML_DSA"
+    "AUTH_KEY_ML_DSA",
+    "AUTH_KEY_RSAPSS2048",
+    "AUTH_KEY_RSAPSS3072",
+    "AUTH_KEY_RSAPSS4096"
 };
 
 const char KSize[][29] = {
@@ -323,10 +329,13 @@ const char KSize[][29] = {
     "KEYSTORE_PUBKEY_SIZE_RSA3072",
     "KEYSTORE_PUBKEY_SIZE_LMS",
     "KEYSTORE_PUBKEY_SIZE_XMSS",
-    "KEYSTORE_PUBKEY_SIZE_ML_DSA"
+    "KEYSTORE_PUBKEY_SIZE_ML_DSA",
+    "KEYSTORE_PUBKEY_SIZE_RSA2048",
+    "KEYSTORE_PUBKEY_SIZE_RSA3072",
+    "KEYSTORE_PUBKEY_SIZE_RSA4096"
 };
 
-const char KName[][8] = {
+const char KName[][12] = {
     "NONE",
     "ED25519",
     "ECC256",
@@ -338,7 +347,10 @@ const char KName[][8] = {
     "RSA3072",
     "LMS",
     "XMSS",
-    "ML_DSA"
+    "ML_DSA",
+    "RSAPSS2048",
+    "RSAPSS3072",
+    "RSAPSS4096"
 };
 
 #define MAX_PUBKEYS 64
@@ -446,6 +458,15 @@ static uint32_t get_pubkey_size(uint32_t keyType)
         case KEYGEN_RSA4096:
             size = KEYSTORE_PUBKEY_SIZE_RSA4096;
             break;
+        case KEYGEN_RSAPSS2048:
+            size = KEYSTORE_PUBKEY_SIZE_RSA2048;
+            break;
+        case KEYGEN_RSAPSS3072:
+            size = KEYSTORE_PUBKEY_SIZE_RSA3072;
+            break;
+        case KEYGEN_RSAPSS4096:
+            size = KEYSTORE_PUBKEY_SIZE_RSA4096;
+            break;
         case KEYGEN_LMS:
             size = KEYSTORE_PUBKEY_SIZE_LMS;
             break;
@@ -541,7 +562,8 @@ void keystore_add(uint32_t ktype, uint8_t *key, uint32_t sz, const char *keyfile
 }
 
 
-static void keygen_rsa(const char *keyfile, int kbits, uint32_t id_mask)
+static void keygen_rsa(const char *keyfile, int kbits, uint32_t id_mask,
+    int ktype)
 {
     RsaKey k;
     uint8_t priv_der[4096], pub_der[2048];
@@ -583,12 +605,7 @@ static void keygen_rsa(const char *keyfile, int kbits, uint32_t id_mask)
         }
     }
 
-    if (kbits == 2048)
-        keystore_add(KEYGEN_RSA2048, pub_der, publen, keyfile, id_mask);
-    else if (kbits == 3072)
-        keystore_add(KEYGEN_RSA3072, pub_der, publen, keyfile, id_mask);
-    else if (kbits == 4096)
-        keystore_add(KEYGEN_RSA4096, pub_der, publen, keyfile, id_mask);
+    keystore_add(ktype, pub_der, publen, keyfile, id_mask);
 }
 
 #define MAX_ECC_KEY_SIZE 66
@@ -1210,13 +1227,22 @@ static void key_generate(uint32_t ktype, const char *kfilename, uint32_t id_mask
 
 #ifndef NO_RSA
         case KEYGEN_RSA2048:
-            keygen_rsa(kfilename, 2048, id_mask);
+            keygen_rsa(kfilename, 2048, id_mask, KEYGEN_RSA2048);
             break;
         case KEYGEN_RSA3072:
-            keygen_rsa(kfilename, 3072, id_mask);
+            keygen_rsa(kfilename, 3072, id_mask, KEYGEN_RSA3072);
             break;
         case KEYGEN_RSA4096:
-            keygen_rsa(kfilename, 4096, id_mask);
+            keygen_rsa(kfilename, 4096, id_mask, KEYGEN_RSA4096);
+            break;
+        case KEYGEN_RSAPSS2048:
+            keygen_rsa(kfilename, 2048, id_mask, KEYGEN_RSAPSS2048);
+            break;
+        case KEYGEN_RSAPSS3072:
+            keygen_rsa(kfilename, 3072, id_mask, KEYGEN_RSAPSS3072);
+            break;
+        case KEYGEN_RSAPSS4096:
+            keygen_rsa(kfilename, 4096, id_mask, KEYGEN_RSAPSS4096);
             break;
 #endif
 
@@ -1390,6 +1416,15 @@ int main(int argc, char** argv)
         }
         else if (strcmp(argv[i], "--rsa4096") == 0) {
             keytype = KEYGEN_RSA4096;
+        }
+        else if (strcmp(argv[i], "--rsapss2048") == 0) {
+            keytype = KEYGEN_RSAPSS2048;
+        }
+        else if (strcmp(argv[i], "--rsapss3072") == 0) {
+            keytype = KEYGEN_RSAPSS3072;
+        }
+        else if (strcmp(argv[i], "--rsapss4096") == 0) {
+            keytype = KEYGEN_RSAPSS4096;
         }
 #if defined(WOLFSSL_HAVE_LMS)
         else if (strcmp(argv[i], "--lms") == 0) {
