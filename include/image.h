@@ -479,6 +479,67 @@ static void __attribute__((noinline)) wolfBoot_image_clear_signature_ok(
     }
 
 /**
+ * Second part of RSA-PSS verification.
+ *
+ * Call wc_RsaPSS_CheckPadding twice, then confirm via
+ * wolfBoot_image_confirm_signature_ok();
+ */
+#define RSA_PSS_VERIFY_HASH(img, pss_data, pss_data_sz, hash_type) \
+    { \
+        volatile int pss_res; \
+        if (!img || !pss_data)    \
+            asm volatile("b pnope"); \
+        /* Redundant set of r0=50*/ \
+        asm volatile("mov r0, #50":::"r0"); \
+        asm volatile("mov r0, #50":::"r0"); \
+        asm volatile("mov r0, #50":::"r0"); \
+        pss_res = wc_RsaPSS_CheckPadding(img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, \
+            pss_data, pss_data_sz, hash_type); \
+        /* Redundant checks that ensure the function actually returned 0 */ \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("bne pnope":::"cc"); \
+        asm volatile("cmp r0, #0"); \
+        asm volatile("cmp r0, #0"); \
+        asm volatile("cmp r0, #0"); \
+        asm volatile("bne pnope":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("bne pnope"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("bne pnope"); \
+        /* Repeat wc_RsaPSS_CheckPadding call */ \
+        pss_res = wc_RsaPSS_CheckPadding(img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, \
+            pss_data, pss_data_sz, hash_type); \
+        pss_res; \
+        /* Redundant checks that ensure the function actually returned 0 */ \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("bne pnope"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("bne pnope"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("bne pnope"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("cmp r0, #0":::"cc"); \
+        asm volatile("bne pnope"); \
+        /* Confirm that the signature is OK */ \
+        wolfBoot_image_confirm_signature_ok(img); \
+        asm volatile("pnope:"); \
+        asm volatile("nop"); \
+    }
+
+/**
  * ECC / Ed / PQ signature verification.
  * Those verify functions set an additional value 'p_res'
  * which is passed as a pointer.
@@ -1245,6 +1306,11 @@ static void UNUSEDFUNCTION wolfBoot_image_clear_signature_ok(
 
 #define RSA_VERIFY_HASH(img,digest) \
     if (XMEMCMP(img->sha_hash, digest, WOLFBOOT_SHA_DIGEST_SIZE) == 0) \
+        wolfBoot_image_confirm_signature_ok(img);
+
+#define RSA_PSS_VERIFY_HASH(img, pss_data, pss_data_sz, hash_type) \
+    if (wc_RsaPSS_CheckPadding(img->sha_hash, WOLFBOOT_SHA_DIGEST_SIZE, \
+            pss_data, pss_data_sz, hash_type) == 0) \
         wolfBoot_image_confirm_signature_ok(img);
 
 #define PART_SANITY_CHECK(p) \
