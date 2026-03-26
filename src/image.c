@@ -442,7 +442,7 @@ static void wolfBoot_verify_signature_rsa_common(uint8_t key_slot,
     (void)inOutIdx;
     (void)is_pss;
 
-#ifdef WOLFBOOT_RSA_PSS
+#ifdef WOLFBOOT_SIGN_RSAPSS_ANY
     enum wc_HashType hash_type;
     int mgf;
 #if defined(WOLFBOOT_HASH_SHA256)
@@ -454,7 +454,7 @@ static void wolfBoot_verify_signature_rsa_common(uint8_t key_slot,
 #else
     #error "RSA-PSS requires SHA-256 or SHA-384"
 #endif
-#endif /* WOLFBOOT_RSA_PSS */
+#endif /* WOLFBOOT_SIGN_RSAPSS_ANY */
 
 #if (!defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) && \
      !defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)) || \
@@ -471,7 +471,10 @@ static void wolfBoot_verify_signature_rsa_common(uint8_t key_slot,
 #if defined(WOLFBOOT_RENESAS_SCEPROTECT) || \
     defined(WOLFBOOT_RENESAS_TSIP) || \
     defined(WOLFBOOT_RENESAS_RSIP)
-    /* Renesas crypto callback — RSA PKCS#1 v1.5 only */
+    /* Renesas crypto callback supports RSA PKCS#1 v1.5 only */
+#ifdef WOLFBOOT_SIGN_RSAPSS_ANY
+    #error "RSA-PSS is not yet supported with Renesas crypto callbacks"
+#endif
     ret = wc_InitRsaKey_ex(&rsa, NULL, RENESAS_DEVID);
     if (ret == 0) {
         XMEMCPY(output, sig, RSA_IMAGE_SIGNATURE_SIZE);
@@ -535,7 +538,7 @@ static void wolfBoot_verify_signature_rsa_common(uint8_t key_slot,
     }
 #endif /* !WOLFBOOT_USE_WOLFHSM_PUBKEY_ID */
     XMEMCPY(output, sig, RSA_IMAGE_SIGNATURE_SIZE);
-#ifdef WOLFBOOT_RSA_PSS
+#ifdef WOLFBOOT_SIGN_RSAPSS_ANY
     if (is_pss) {
         RSA_VERIFY_FN(ret, wc_RsaPSS_VerifyInline, output,
                       RSA_IMAGE_SIGNATURE_SIZE, &digest_out, hash_type, mgf,
@@ -570,7 +573,7 @@ static void wolfBoot_verify_signature_rsa_common(uint8_t key_slot,
         ret = wc_RsaPublicKeyDecode((byte*)pubkey, &inOutIdx, &rsa, pubkey_sz);
         if (ret >= 0) {
             XMEMCPY(output, sig, RSA_IMAGE_SIGNATURE_SIZE);
-#ifdef WOLFBOOT_RSA_PSS
+#ifdef WOLFBOOT_SIGN_RSAPSS_ANY
             if (is_pss) {
                 RSA_VERIFY_FN(ret,
                     wc_RsaPSS_VerifyInline, output, RSA_IMAGE_SIGNATURE_SIZE,
@@ -587,7 +590,7 @@ static void wolfBoot_verify_signature_rsa_common(uint8_t key_slot,
 #endif /* SCE || TSIP */
     wc_FreeRsaKey(&rsa);
 
-#ifdef WOLFBOOT_RSA_PSS
+#ifdef WOLFBOOT_SIGN_RSAPSS_ANY
     if (is_pss) {
         if (ret >= WOLFBOOT_SHA_DIGEST_SIZE && img && digest_out) {
             RSA_PSS_VERIFY_HASH(img, digest_out, ret, hash_type);
