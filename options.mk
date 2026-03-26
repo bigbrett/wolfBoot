@@ -344,7 +344,9 @@ ifeq ($(SIGN),RSAPSS3072)
     endif
   endif
   ifneq ($(HASH),SHA256)
-    IMAGE_HEADER_SIZE=1024
+    ifeq ($(shell test $(IMAGE_HEADER_SIZE) -lt 1024; echo $$?),0)
+      IMAGE_HEADER_SIZE=1024
+    endif
   endif
   ifeq ($(shell test $(IMAGE_HEADER_SIZE) -lt 512; echo $$?),0)
     IMAGE_HEADER_SIZE=512
@@ -438,7 +440,9 @@ ifneq ($(findstring RSA3072,$(SIGN)),)
     endif
   endif
   ifneq ($(HASH),SHA256)
-    IMAGE_HEADER_SIZE=1024
+    ifeq ($(shell test $(IMAGE_HEADER_SIZE) -lt 1024; echo $$?),0)
+      IMAGE_HEADER_SIZE=1024
+    endif
   endif
   ifeq ($(shell test $(IMAGE_HEADER_SIZE) -lt 512; echo $$?),0)
     IMAGE_HEADER_SIZE=512
