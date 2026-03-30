@@ -141,7 +141,7 @@ static void wolfBoot_verify_signature_ed25519(uint8_t key_slot,
 {
     int ret, res;
     ed25519_key ed;
-    ret = wc_ed25519_init(&ed);
+    ret = wc_ed25519_init_ex(&ed, NULL, WOLFBOOT_DEVID_PUBKEY);
     if (ret < 0) {
         /* Failed to initialize key */
         return;
@@ -165,7 +165,7 @@ static void wolfBoot_verify_signature_ed448(uint8_t key_slot,
 {
     int ret, res;
     ed448_key ed;
-    ret = wc_ed448_init(&ed);
+    ret = wc_ed448_init_ex(&ed, NULL, WOLFBOOT_DEVID_PUBKEY);
     if (ret < 0) {
         /* Failed to initialize key */
         return;
@@ -227,16 +227,7 @@ static void wolfBoot_verify_signature_ecc(uint8_t key_slot,
     }
 #endif
 
-#if defined(WOLFBOOT_RENESAS_SCEPROTECT) || \
-    defined(WOLFBOOT_RENESAS_TSIP) || \
-    defined(WOLFBOOT_RENESAS_RSIP)
-    ret = wc_ecc_init_ex(&ecc, NULL, RENESAS_DEVID);
-#elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) || \
-    defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
-    ret = wc_ecc_init_ex(&ecc, NULL, hsmDevIdPubKey);
-#else
-    ret = wc_ecc_init(&ecc);
-#endif
+    ret = wc_ecc_init_ex(&ecc, NULL, WOLFBOOT_DEVID_PUBKEY);
 
     if (ret == 0) {
     #if defined(WOLFBOOT_RENESAS_SCEPROTECT) || \
@@ -450,7 +441,7 @@ static void wolfBoot_verify_signature_rsa(uint8_t key_slot,
 #if defined(WOLFBOOT_RENESAS_SCEPROTECT) || \
     defined(WOLFBOOT_RENESAS_TSIP) || \
     defined(WOLFBOOT_RENESAS_RSIP)
-    ret = wc_InitRsaKey_ex(&rsa, NULL, RENESAS_DEVID);
+    ret = wc_InitRsaKey_ex(&rsa, NULL, WOLFBOOT_DEVID_PUBKEY);
     if (ret == 0) {
         XMEMCPY(output, sig, RSA_IMAGE_SIGNATURE_SIZE);
         RSA_VERIFY_FN(ret,
@@ -463,7 +454,7 @@ static void wolfBoot_verify_signature_rsa(uint8_t key_slot,
     (void)digest_out;
 #elif defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) || \
     defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
-    ret = wc_InitRsaKey_ex(&rsa, NULL, hsmDevIdPubKey);
+    ret = wc_InitRsaKey_ex(&rsa, NULL, WOLFBOOT_DEVID_PUBKEY);
     if (ret != 0) {
         return;
     }
@@ -533,7 +524,7 @@ static void wolfBoot_verify_signature_rsa(uint8_t key_slot,
 #endif /* !WOLFBOOT_USE_WOLFHSM_PUBKEY_ID */
 #else
     /* wolfCrypt software RSA verify */
-    ret = wc_InitRsaKey(&rsa, NULL);
+    ret = wc_InitRsaKey_ex(&rsa, NULL, WOLFBOOT_DEVID_PUBKEY);
     if (ret == 0) {
         /* Import public key */
         ret = wc_RsaPublicKeyDecode((byte*)pubkey, &inOutIdx, &rsa, pubkey_sz);
@@ -585,7 +576,7 @@ static void wolfBoot_verify_signature_lms(uint8_t key_slot,
         return;
     }
 
-    ret = wc_LmsKey_Init(&lms, NULL, INVALID_DEVID);
+    ret = wc_LmsKey_Init(&lms, NULL, WOLFBOOT_DEVID_PUBKEY);
     if (ret != 0) {
         wolfBoot_printf("error: wc_LmsKey_Init returned %d\n", ret);
         return;
@@ -653,7 +644,7 @@ static void wolfBoot_verify_signature_xmss(uint8_t key_slot,
         return;
     }
 
-    ret = wc_XmssKey_Init(&xmss, NULL, INVALID_DEVID);
+    ret = wc_XmssKey_Init(&xmss, NULL, WOLFBOOT_DEVID_PUBKEY);
     if (ret != 0) {
         wolfBoot_printf("error: wc_XmssKey_Init returned %d\n", ret);
         return;
@@ -726,11 +717,7 @@ static void wolfBoot_verify_signature_ml_dsa(uint8_t key_slot,
     }
 #endif
 
-#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-    ret = wc_MlDsaKey_Init(&ml_dsa, NULL, hsmDevIdPubKey);
-#else
-    ret = wc_MlDsaKey_Init(&ml_dsa, NULL, INVALID_DEVID);
-#endif
+    ret = wc_MlDsaKey_Init(&ml_dsa, NULL, WOLFBOOT_DEVID_PUBKEY);
 
     if (ret != 0) {
         wolfBoot_printf("error: wc_MlDsaKey_Init returned %d\n", ret);
@@ -983,11 +970,7 @@ static int header_sha256(wc_Sha256 *sha256_ctx, struct wolfBoot_image *img)
     stored_sha_len = get_header(img, HDR_SHA256, &stored_sha);
     if (stored_sha_len != WOLFBOOT_SHA_DIGEST_SIZE)
         return -1;
-#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-    (void)wc_InitSha256_ex(sha256_ctx, NULL, hsmDevIdHash);
-#else
-    wc_InitSha256(sha256_ctx);
-#endif
+    (void)wc_InitSha256_ex(sha256_ctx, NULL, WOLFBOOT_DEVID_HASH);
     end_sha = stored_sha - (2 * sizeof(uint16_t)); /* Subtract 2 Type + 2 Len */
     while (p < end_sha) {
         blksz = WOLFBOOT_SHA_BLOCK_SIZE;
@@ -1049,7 +1032,7 @@ static void key_sha256(uint8_t key_slot, uint8_t *hash)
     if (!pubkey || (pubkey_sz < 0))
         return;
 
-    wc_InitSha256(&sha256_ctx);
+    wc_InitSha256_ex(&sha256_ctx, NULL, WOLFBOOT_DEVID_HASH);
     wc_Sha256Update(&sha256_ctx, pubkey, (word32)pubkey_sz);
     wc_Sha256Final(&sha256_ctx, hash);
     wc_Sha256Free(&sha256_ctx);
@@ -1074,11 +1057,7 @@ static int header_sha384(wc_Sha384 *sha384_ctx, struct wolfBoot_image *img)
     stored_sha_len = get_header(img, HDR_SHA384, &stored_sha);
     if (stored_sha_len != WOLFBOOT_SHA_DIGEST_SIZE)
         return -1;
-#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
-    (void)wc_InitSha384_ex(sha384_ctx, NULL, hsmDevIdHash);
-#else
-    wc_InitSha384(sha384_ctx);
-#endif
+    (void)wc_InitSha384_ex(sha384_ctx, NULL, WOLFBOOT_DEVID_HASH);
     end_sha = stored_sha - (2 * sizeof(uint16_t)); /* Subtract 2 Type + 2 Len */
     while (p < end_sha) {
         blksz = WOLFBOOT_SHA_BLOCK_SIZE;
@@ -1148,7 +1127,7 @@ static void key_sha384(uint8_t key_slot, uint8_t *hash)
     if (!pubkey || (pubkey_sz < 0))
         return;
 
-    wc_InitSha384(&sha384_ctx);
+    wc_InitSha384_ex(&sha384_ctx, NULL, WOLFBOOT_DEVID_HASH);
     wc_Sha384Update(&sha384_ctx, pubkey, (word32)pubkey_sz);
     wc_Sha384Final(&sha384_ctx, hash);
     wc_Sha384Free(&sha384_ctx);
@@ -1175,7 +1154,7 @@ static int header_sha3_384(wc_Sha3 *sha3_ctx, struct wolfBoot_image *img)
     stored_sha_len = get_header(img, HDR_SHA3_384, &stored_sha);
     if (stored_sha_len != WOLFBOOT_SHA_DIGEST_SIZE)
         return -1;
-    wc_InitSha3_384(sha3_ctx, NULL, INVALID_DEVID);
+    wc_InitSha3_384(sha3_ctx, NULL, WOLFBOOT_DEVID_HASH);
     end_sha = stored_sha - (2 * sizeof(uint16_t)); /* Subtract 2 Type + 2 Len */
     while (p < end_sha) {
         blksz = WOLFBOOT_SHA_BLOCK_SIZE;
@@ -1242,7 +1221,7 @@ static void key_sha3_384(uint8_t key_slot, uint8_t *hash)
     memset(hash, 0, WC_SHA3_384_DIGEST_SIZE);
     if (!pubkey || (pubkey_sz < 0))
         return;
-    wc_InitSha3_384(&sha3_ctx, NULL, INVALID_DEVID);
+    wc_InitSha3_384(&sha3_ctx, NULL, WOLFBOOT_DEVID_HASH);
     wc_Sha3_384_Update(&sha3_ctx, pubkey, (word32)pubkey_sz);
     wc_Sha3_384_Final(&sha3_ctx, hash);
     wc_Sha3_384_Free(&sha3_ctx);

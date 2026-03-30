@@ -695,6 +695,7 @@ extern int tolower(int c);
         #define WOLFSSL_RENESAS_SCEPROTECT_CRYPTONLY
         #define RENESAS_SCE_INSTALLEDKEY_ADDR 0x08001000U
         #define SCE_ID 7890
+        #define RENESAS_DEVID SCE_ID
     #endif
     #ifdef WOLFBOOT_RENESAS_RSIP
         #define WOLFSSL_RENESAS_FSPSM
