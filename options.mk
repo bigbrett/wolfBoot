@@ -1081,6 +1081,16 @@ ifneq ($(WOLFBOOT_PART_ID),)
   SIGN_OPTIONS+=--id $(WOLFBOOT_PART_ID)
 endif
 
+# Simulator crypto callback test option
+ifeq ($(WOLFBOOT_TEST_SIM_CRYPTOCB),1)
+  CFLAGS += -DWOLFBOOT_TEST_SIM_CRYPTOCB
+  CFLAGS += -DWOLF_CRYPTO_CB
+  CFLAGS += -DDEBUG_CRYPTOCB
+  CFLAGS += -DWOLFBOOT_DEVID_HASH=0xCB
+  CFLAGS += -DWOLFBOOT_DEVID_PUBKEY=0xCB
+  WOLFCRYPT_OBJS += $(WOLFBOOT_LIB_WOLFSSL)/wolfcrypt/src/cryptocb.o
+endif
+
 # wolfHSM client options
 ifeq ($(WOLFHSM_CLIENT),1)
   WOLFCRYPT_OBJS += \

@@ -48,6 +48,23 @@
 #include "elf.h"
 #endif
 
+#if defined(WOLFBOOT_TEST_SIM_CRYPTOCB) && defined(__WOLFBOOT)
+#include <wolfssl/wolfcrypt/error-crypt.h>
+#include <wolfssl/wolfcrypt/cryptocb.h>
+
+/* Crypto callback that prints dispatched algorithm info to stdout via
+ * wc_CryptoCb_InfoString (enabled by DEBUG_CRYPTOCB), then returns
+ * CRYPTOCB_UNAVAILABLE to trigger software fallback. Test scripts redirect
+ * stdout to a log file and grep for expected "Crypto CB:" entries. */
+static int sim_cryptocb(int devIdArg, wc_CryptoInfo* info, void* ctx)
+{
+    (void)devIdArg;
+    (void)ctx;
+    wc_CryptoCb_InfoString(info);
+    return CRYPTOCB_UNAVAILABLE;
+}
+#endif /* WOLFBOOT_TEST_SIM_CRYPTOCB && __WOLFBOOT */
+
 #ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
 #include "wolfhsm/wh_error.h"
 #include "wolfhsm/wh_client.h"
@@ -438,6 +455,23 @@ void hal_init(void)
         else if (strcmp(main_argv[i], "emergency") == 0)
             forceEmergency = 1;
     }
+
+#if defined(WOLFBOOT_TEST_SIM_CRYPTOCB) && defined(__WOLFBOOT)
+    {
+        int cb_ret;
+        /* wolfCrypt_Init() must be called before RegisterDevice —
+         * it initializes CryptoDev[] slots to INVALID_DEVID via
+         * wc_CryptoCb_Init(). Ref-counted, safe to call multiple times. */
+        wolfCrypt_Init();
+        cb_ret = wc_CryptoCb_RegisterDevice(0xCB, sim_cryptocb, NULL);
+        if (cb_ret != 0) {
+            wolfBoot_printf("Failed to register sim crypto callback: %d\n",
+                cb_ret);
+            exit(-1);
+        }
+        wolfBoot_printf("Registered sim_cryptocb with devId 0xCB\n");
+    }
+#endif
 }
 
 void ext_flash_lock(void)
@@ -583,6 +617,7 @@ void do_boot(const uint32_t *app_offset)
     }
     wolfBoot_printf("Stored test-app to memfd, address %p (%zu bytes)\n", app_offset, wret);
 
+    fflush(stdout);
     ret = fexecve(fd, main_argv, envp);
     wolfBoot_printf( "fexecve error\n");
 #endif

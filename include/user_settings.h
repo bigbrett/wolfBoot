@@ -736,4 +736,11 @@ extern int tolower(int c);
 #define HAVE_UINTPTR_T /* make sure stdint.h is included */
 #endif
 
+/* WOLF_CRYPTO_CB requires WC_RNG type for cryptocb.h function declarations.
+ * Forward-declare as incomplete type — sufficient for WC_RNG* pointers in
+ * function signatures. We never call functions that dereference WC_RNG. */
+#if defined(WOLF_CRYPTO_CB) && defined(WC_NO_RNG)
+typedef struct WC_RNG WC_RNG;
+#endif
+
 #endif /* !_WOLFBOOT_USER_SETTINGS_H_ */
