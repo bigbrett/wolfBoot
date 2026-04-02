@@ -45,7 +45,7 @@ if ! grep -q "Crypto CB: Hash $EXPECTED_HASH" $LOGFILE; then
 fi
 echo "Verified: Hash $EXPECTED_HASH dispatched through cryptocb"
 
-# Optional PK verification (skip for ECC/PQC which bypass cryptocb PK dispatch)
+# Optional PK verification (skip for ECC which bypasses cryptocb PK dispatch)
 if [ -n "$EXPECTED_PK" ]; then
     if ! grep -q "Crypto CB: PK $EXPECTED_PK" $LOGFILE; then
         echo "Error: expected 'Crypto CB: PK $EXPECTED_PK' not found"

@@ -143,7 +143,9 @@ jobs:
           make keysclean && make clean
           make keytools
           make test-sim-internal-flash-with-update WOLFBOOT_TEST_SIM_CRYPTOCB=1
-          tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-256"
+          # check against (null) (23) string for now since ML-DSA doesnt have
+          # pretty printing upstream
+          tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-256" "(null) (23)"
 
       - name: Build and test ML-DSA level 3 (cryptocb)
         run: |
@@ -151,7 +153,9 @@ jobs:
           make keysclean && make clean
           make keytools
           make test-sim-internal-flash-with-update WOLFBOOT_TEST_SIM_CRYPTOCB=1
-          tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-256"
+          # check against (null) (23) string for now since ML-DSA doesnt have
+          # pretty printing upstream
+          tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-256" "(null) (23)"
 
       - name: Build and test ML-DSA level 5 (cryptocb)
         run: |
@@ -159,7 +163,9 @@ jobs:
           make keysclean && make clean
           make keytools
           make test-sim-internal-flash-with-update WOLFBOOT_TEST_SIM_CRYPTOCB=1
-          tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-256"
+          # check against (null) (23) string for now since ML-DSA doesnt have
+          # pretty printing upstream
+          tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-256" "(null) (23)"
 
       # Hybrid auth: ML_DSA + ECDSA
       #
