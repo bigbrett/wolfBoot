@@ -359,18 +359,7 @@ static void wolfBoot_verify_signature_ecc(uint8_t key_slot,
         * WOLFBOOT_SIGN_SECONDARY_ECC521 */
 
 
-#if defined(WOLFBOOT_SIGN_RSA2048) || \
-    defined(WOLFBOOT_SIGN_RSA3072) || \
-    defined(WOLFBOOT_SIGN_RSA4096) || \
-    defined(WOLFBOOT_SIGN_SECONDARY_RSA2048) || \
-    defined(WOLFBOOT_SIGN_SECONDARY_RSA3072) || \
-    defined(WOLFBOOT_SIGN_SECONDARY_RSA4096) || \
-    defined(WOLFBOOT_SIGN_RSAPSS2048) || \
-    defined(WOLFBOOT_SIGN_RSAPSS3072) || \
-    defined(WOLFBOOT_SIGN_RSAPSS4096) || \
-    defined(WOLFBOOT_SIGN_SECONDARY_RSAPSS2048) || \
-    defined(WOLFBOOT_SIGN_SECONDARY_RSAPSS3072) || \
-    defined(WOLFBOOT_SIGN_SECONDARY_RSAPSS4096)
+#ifdef WOLFBOOT_SIGN_RSA_ANY
 
 #include <wolfssl/wolfcrypt/asn.h>
 #include <wolfssl/wolfcrypt/rsa.h>
@@ -610,12 +599,7 @@ static void wolfBoot_verify_signature_rsa_common(uint8_t key_slot,
     }
 }
 
-#endif /* WOLFBOOT_SIGN_RSA2048 || WOLFBOOT_SIGN_RSA3072 || \
-        * WOLFBOOT_SIGN_RSA4096 || WOLFBOOT_SIGN_SECONDARY_RSA2048 ||
-        * WOLFBOOT_SIGN_SECONDARY_RSA3072 || WOLFBOOT_SIGN_SECONDARY_RSA4096 ||
-        * WOLFBOOT_SIGN_RSAPSS2048 || WOLFBOOT_SIGN_RSAPSS3072 ||
-        * WOLFBOOT_SIGN_RSAPSS4096 || WOLFBOOT_SIGN_SECONDARY_RSAPSS2048 ||
-        * WOLFBOOT_SIGN_SECONDARY_RSAPSS3072 || WOLFBOOT_SIGN_SECONDARY_RSAPSS4096 */
+#endif /* WOLFBOOT_SIGN_RSA_ANY */
 
 #ifdef WOLFBOOT_SIGN_LMS
 #include <wolfssl/wolfcrypt/lms.h>
