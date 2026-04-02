@@ -119,6 +119,32 @@ jobs:
         run: |
           tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-256" "RSA"
 
+      # SHA-384 hash coverage (paired with algorithms that naturally use 384-bit)
+      #
+      - name: Cleanup to change key type
+        run: |
+          make keysclean
+
+      - name: Build wolfboot.elf (ECC384 + SHA384, cryptocb)
+        run: |
+          make clean && make test-sim-internal-flash-with-update SIGN=ECC384 HASH=SHA384 SPMATH=1 WOLFBOOT_TEST_SIM_CRYPTOCB=1
+
+      - name: Run cryptocb sunnyday test (ECC384 + SHA384)
+        run: |
+          tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-384"
+
+      - name: Cleanup to change key type
+        run: |
+          make keysclean
+
+      - name: Build wolfboot.elf (RSA4096 + SHA384, cryptocb)
+        run: |
+          make clean && make test-sim-internal-flash-with-update SIGN=RSA4096 HASH=SHA384 SPMATH=1 WOLFBOOT_TEST_SIM_CRYPTOCB=1
+
+      - name: Run cryptocb sunnyday test (RSA4096 + SHA384)
+        run: |
+          tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-384" "RSA"
+
       # PQ algorithms (each uses its own config, build + test inline)
       #
       - name: Build and test LMS (cryptocb)
