@@ -52,15 +52,57 @@
 #include <wolfssl/wolfcrypt/error-crypt.h>
 #include <wolfssl/wolfcrypt/cryptocb.h>
 
-/* Crypto callback that prints dispatched algorithm info to stdout via
- * wc_CryptoCb_InfoString (enabled by DEBUG_CRYPTOCB), then returns
- * CRYPTOCB_UNAVAILABLE to trigger software fallback. Test scripts redirect
- * stdout to a log file and grep for expected "Crypto CB:" entries. */
+/* Crypto callback that prints dispatched algorithm names to stdout, then
+ * returns CRYPTOCB_UNAVAILABLE to trigger software fallback.  Test scripts
+ * redirect stdout to a log and grep for "sim-cryptocb: <type> <name>" lines.
+ *
+ * We print our own strings rather than relying on wolfCrypt's
+ * wc_CryptoCb_InfoString because the upstream DEBUG_CRYPTOCB pretty-printer
+ * has gaps (e.g. PQC sig types print as "(null)"). */
 static int sim_cryptocb(int devIdArg, wc_CryptoInfo* info, void* ctx)
 {
     (void)devIdArg;
     (void)ctx;
-    wc_CryptoCb_InfoString(info);
+
+    if (info == NULL)
+        return CRYPTOCB_UNAVAILABLE;
+
+    if (info->algo_type == WC_ALGO_TYPE_HASH) {
+        const char* name = "unknown";
+        switch (info->hash.type) {
+            case WC_HASH_TYPE_SHA256:  name = "SHA-256";  break;
+            case WC_HASH_TYPE_SHA384:  name = "SHA-384";  break;
+            case WC_HASH_TYPE_SHA3_384: name = "SHA3-384"; break;
+            default: break;
+        }
+        printf("sim-cryptocb: hash %s\n", name);
+    }
+    else if (info->algo_type == WC_ALGO_TYPE_PK) {
+        const char* name = "unknown";
+        switch (info->pk.type) {
+            case WC_PK_TYPE_RSA:            name = "RSA";            break;
+            case WC_PK_TYPE_ECDSA_VERIFY:   name = "ECDSA-verify";   break;
+            case WC_PK_TYPE_ED25519_VERIFY: name = "ED25519-verify"; break;
+        #ifdef HAVE_DILITHIUM
+            case WC_PK_TYPE_PQC_SIG_VERIFY:
+                name = "ML-DSA-verify";
+                break;
+        #endif
+            default: break;
+        }
+        printf("sim-cryptocb: pk %s\n", name);
+    }
+    #if !defined(NO_AES) || !defined(NO_DES3)
+    else if (info->algo_type == WC_ALGO_TYPE_CIPHER) {
+        const char* name = "unknown";
+        switch (info->cipher.type) {
+            case WC_CIPHER_AES_CTR: name = "AES-CTR"; break;
+            default: break;
+        }
+        printf("sim-cryptocb: cipher %s\n", name);
+    }
+    #endif
+
     return CRYPTOCB_UNAVAILABLE;
 }
 #endif /* WOLFBOOT_TEST_SIM_CRYPTOCB && __WOLFBOOT */
