@@ -145,6 +145,21 @@ jobs:
         run: |
           tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-384" "RSA"
 
+      # AES encrypted partition coverage (external flash + AES128-CTR)
+      #
+      - name: Cleanup to change key type
+        run: |
+          make keysclean
+
+      - name: Build wolfboot.elf (ED25519 + AES128 encrypt, cryptocb)
+        run: |
+          cp config/examples/sim-encrypt-update.config .config
+          make clean && make test-sim-external-flash-with-enc-update WOLFBOOT_TEST_SIM_CRYPTOCB=1
+
+      - name: Run cryptocb sunnyday test (ED25519 + AES128 encrypt)
+        run: |
+          tools/scripts/sim-cryptocb-sunnyday-update.sh "SHA-256" "ED25519-Verify" "AES CTR"
+
       # PQ algorithms (each uses its own config, build + test inline)
       #
       - name: Build and test LMS (cryptocb)

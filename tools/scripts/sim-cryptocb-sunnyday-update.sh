@@ -5,8 +5,9 @@
 # wc_CryptoCb_InfoString output ("Crypto CB: ...") and the test-app
 # version number. Version is extracted by filtering out crypto lines.
 #
-# Usage: sim-cryptocb-sunnyday-update.sh <expected_hash> [expected_pk]
+# Usage: sim-cryptocb-sunnyday-update.sh <expected_hash> [expected_pk] [expected_cipher]
 # Example: sim-cryptocb-sunnyday-update.sh "SHA-256" "RSA"
+# Example: sim-cryptocb-sunnyday-update.sh "SHA-256" "ED25519-Verify" "AES CTR"
 #
 
 LOGFILE="sim_cryptocb.log"
@@ -18,6 +19,7 @@ fi
 
 EXPECTED_HASH=$1
 EXPECTED_PK=${2:-}
+EXPECTED_CIPHER=${3:-}
 
 # First boot: update_trigger + get_version (stdout -> log)
 ./wolfboot.elf update_trigger get_version > $LOGFILE 2>/dev/null
@@ -53,6 +55,16 @@ if [ -n "$EXPECTED_PK" ]; then
         exit 1
     fi
     echo "Verified: PK $EXPECTED_PK dispatched through cryptocb"
+fi
+
+# Optional Cipher verification (for encrypted partition tests)
+if [ -n "$EXPECTED_CIPHER" ]; then
+    if ! grep -q "Crypto CB: Cipher $EXPECTED_CIPHER" $LOGFILE; then
+        echo "Error: expected 'Crypto CB: Cipher $EXPECTED_CIPHER' not found"
+        cat $LOGFILE
+        exit 1
+    fi
+    echo "Verified: Cipher $EXPECTED_CIPHER dispatched through cryptocb"
 fi
 
 echo Test successful.
