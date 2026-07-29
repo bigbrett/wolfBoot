@@ -1486,11 +1486,11 @@ ifeq ($(WOLFHSM_CLIENT),1)
   CFLAGS += -I"$(WOLFBOOT_LIB_WOLFHSM)"
   # defines
   CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT -DWOLFHSM_CFG_ENABLE_CLIENT
-  # Crypto devIds all resolve to the devId registered at client init
-  CFLAGS += -DWOLFBOOT_DEVID_HASH="WH_CLIENT_DEVID(&hsmClientCtx)"
-  CFLAGS += -DWOLFBOOT_DEVID_PUBKEY="WH_CLIENT_DEVID(&hsmClientCtx)"
+  # Crypto devIds all resolve to the single wolfHSM devId
+  CFLAGS += -DWOLFBOOT_DEVID_HASH=WOLFBOOT_WOLFHSM_DEVID
+  CFLAGS += -DWOLFBOOT_DEVID_PUBKEY=WOLFBOOT_WOLFHSM_DEVID
   ifeq ($(ENCRYPT),1)
-    CFLAGS += -DWOLFBOOT_DEVID_CRYPT="WH_CLIENT_DEVID(&hsmClientCtx)"
+    CFLAGS += -DWOLFBOOT_DEVID_CRYPT=WOLFBOOT_WOLFHSM_DEVID
   endif
   # Make sure we export generated public keys so they can be used to load into
   # HSM out-of-band
@@ -1572,15 +1572,15 @@ ifeq ($(WOLFHSM_SERVER),1)
   CFLAGS += -I"$(WOLFBOOT_LIB_WOLFHSM)"
   # defines
   CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_SERVER -DWOLFHSM_CFG_ENABLE_SERVER
-  # Crypto devIds all resolve to the devId registered at server init
-  CFLAGS += -DWOLFBOOT_DEVID_HASH="hsmServerCtx.devId"
-  CFLAGS += -DWOLFBOOT_DEVID_PUBKEY="hsmServerCtx.devId"
+  # Crypto devIds all resolve to the single wolfHSM devId
+  CFLAGS += -DWOLFBOOT_DEVID_HASH=WOLFBOOT_WOLFHSM_DEVID
+  CFLAGS += -DWOLFBOOT_DEVID_PUBKEY=WOLFBOOT_WOLFHSM_DEVID
   ifeq ($(ENCRYPT),1)
-    CFLAGS += -DWOLFBOOT_DEVID_CRYPT="hsmServerCtx.devId"
+    CFLAGS += -DWOLFBOOT_DEVID_CRYPT=WOLFBOOT_WOLFHSM_DEVID
   endif
 
   # user overrideable devId for wolfHSM, registered in server init. Defaults
-  # to INVALID_DEVID (see include/hal.h).
+  # to INVALID_DEVID, or the tchsm port devId on TC3xx (see include/hal.h).
   ifneq ($(WOLFBOOT_WOLFHSM_DEVID),)
     CFLAGS += -DWOLFBOOT_WOLFHSM_DEVID=$(WOLFBOOT_WOLFHSM_DEVID)
   endif

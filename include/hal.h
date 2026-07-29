@@ -236,7 +236,9 @@ extern whClientContext hsmClientCtx; /* global wolfHSM client context */
 int hal_hsm_init_connect(void);
 int hal_hsm_disconnect(void);
 
-/* user overrideable devId for wolfHSM, registered in client init */
+/* user overrideable devId for wolfHSM, registered in client init and passed
+ * to all crypto operations. Must be nonzero (wolfHSM treats a zero config
+ * devId as unset) */
 #ifndef WOLFBOOT_WOLFHSM_DEVID
 #define WOLFBOOT_WOLFHSM_DEVID WH_DEV_ID
 #endif
@@ -293,10 +295,15 @@ extern whServerContext hsmServerCtx; /* global wolfHSM server context */
 int hal_hsm_server_init(void);
 int hal_hsm_server_cleanup(void);
 
-/* user overrideable devId for wolfHSM, registered in server init and used
- * for local crypto */
+/* user overrideable devId for wolfHSM, registered in server init and passed
+ * to all crypto operations */
 #ifndef WOLFBOOT_WOLFHSM_DEVID
+#ifdef HAVE_TC3XX
+#include "tchsm_config.h" /* for HSM_DEVID */
+#define WOLFBOOT_WOLFHSM_DEVID HSM_DEVID
+#else
 #define WOLFBOOT_WOLFHSM_DEVID INVALID_DEVID
+#endif
 #endif
 
 #endif /* WOLFBOOT_ENABLE_WOLFHSM_SERVER */

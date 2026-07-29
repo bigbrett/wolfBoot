@@ -98,7 +98,7 @@ This option enables wolfHSM server support in wolfBoot. When defined, wolfBoot i
 
 ### `WOLFBOOT_WOLFHSM_DEVID`
 
-The wolfCrypt devId that wolfBoot registers at wolfHSM initialization and passes to every wolfCrypt operation. In client mode it is registered in `whClientConfig.devId` and read back through the `WH_CLIENT_DEVID()` accessor; defaults to `WH_DEV_ID`. In server mode it is registered in `whServerConfig.devId` and used for local crypto; defaults to `INVALID_DEVID` (software crypto), except on AURIX TC3xx where it defaults to the tchsm port's `HSM_DEVID` (hardware crypto). Override in `.config` or on the make command line (e.g. `WOLFBOOT_WOLFHSM_DEVID=0x1234`).
+The single wolfCrypt devId wolfBoot uses for all wolfHSM crypto operations (hash, public key, and encryption). It is registered at wolfHSM initialization (`whClientConfig.devId` in client mode, `whServerConfig.devId` in server mode) and passed directly to every wolfCrypt operation. Client mode defaults to `WH_DEV_ID` and requires a nonzero value (wolfHSM treats a zero config devId as unset). Server mode defaults to `INVALID_DEVID` (software crypto), except on AURIX TC3xx where it defaults to the tchsm port's `HSM_DEVID` (hardware crypto). Override in `.config` or on the make command line (e.g. `WOLFBOOT_WOLFHSM_DEVID=0x1234`).
 
 ### `WOLFBOOT_WOLFHSM_USE_DMA_PK`, `WOLFBOOT_WOLFHSM_USE_DMA_HASH`, `WOLFBOOT_WOLFHSM_USE_DMA_CRYPT`
 

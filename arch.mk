@@ -1863,11 +1863,6 @@ ifeq ($(ARCH), AURIX_TC3)
           WOLFBOOT_WOLFHSM_USE_DMA_PK ?= 1
         endif
       endif
-      # Server local crypto defaults to the tchsm port devId (override in
-      # .config)
-      ifeq ($(WOLFHSM_SERVER),1)
-        WOLFBOOT_WOLFHSM_DEVID ?= HSM_DEVID
-      endif
       OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_common.o \
               $(WOLFHSM_INFINEON_TC3XX)/port/tchsm_hsmhost.o
       # General wolfHSM files
