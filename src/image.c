@@ -1043,6 +1043,7 @@ static int header_sha256(wc_Sha256 *sha256_ctx, struct wolfBoot_image *img)
         return -1;
     }
 #endif
+    WOLFBOOT_WOLFHSM_SET_DMA_HASH();
     (void)wc_InitSha256_ex(sha256_ctx, NULL, WOLFBOOT_DEVID_HASH);
 #ifdef WOLFBOOT_IMG_HASH_ONESHOT
     wc_Sha256Update(sha256_ctx, p, (word32)(end_sha - p));
@@ -1092,12 +1093,15 @@ static int image_sha256(struct wolfBoot_image *img, uint8_t *hash)
             blksz = WOLFBOOT_SHA_BLOCK_SIZE;
             if (position + blksz > img->fw_size)
                 blksz = img->fw_size - position;
+            /* get_sha_block() may have decrypted with the crypt DMA mode */
+            WOLFBOOT_WOLFHSM_SET_DMA_HASH();
             wc_Sha256Update(&sha256_ctx, p, blksz);
             position += blksz;
         } while (position < img->fw_size);
     }
 #endif
 
+    WOLFBOOT_WOLFHSM_SET_DMA_HASH();
     wc_Sha256Final(&sha256_ctx, hash);
     wc_Sha256Free(&sha256_ctx);
     return 0;
@@ -1121,6 +1125,7 @@ static void key_sha256(uint8_t key_slot, uint8_t *hash)
     if (!pubkey || (pubkey_sz < 0))
         return;
 
+    WOLFBOOT_WOLFHSM_SET_DMA_HASH();
     (void)wc_InitSha256_ex(&sha256_ctx, NULL, WOLFBOOT_DEVID_HASH);
     wc_Sha256Update(&sha256_ctx, pubkey, (word32)pubkey_sz);
     wc_Sha256Final(&sha256_ctx, hash);
@@ -1151,6 +1156,7 @@ static int header_sha384(wc_Sha384 *sha384_ctx, struct wolfBoot_image *img)
         return -1;
     }
 #endif
+    WOLFBOOT_WOLFHSM_SET_DMA_HASH();
     (void)wc_InitSha384_ex(sha384_ctx, NULL, WOLFBOOT_DEVID_HASH);
 #ifdef WOLFBOOT_IMG_HASH_ONESHOT
     wc_Sha384Update(sha384_ctx, p, (word32)(end_sha - p));
@@ -1203,12 +1209,15 @@ static int image_sha384(struct wolfBoot_image *img, uint8_t *hash)
             blksz = WOLFBOOT_SHA_BLOCK_SIZE;
             if (position + blksz > img->fw_size)
                 blksz = img->fw_size - position;
+            /* get_sha_block() may have decrypted with the crypt DMA mode */
+            WOLFBOOT_WOLFHSM_SET_DMA_HASH();
             wc_Sha384Update(&sha384_ctx, p, blksz);
             position += blksz;
         } while (position < img->fw_size);
     }
 #endif
 
+    WOLFBOOT_WOLFHSM_SET_DMA_HASH();
     wc_Sha384Final(&sha384_ctx, hash);
     wc_Sha384Free(&sha384_ctx);
     return 0;
@@ -1237,6 +1246,7 @@ static void key_sha384(uint8_t key_slot, uint8_t *hash)
     if (!pubkey || (pubkey_sz < 0))
         return;
 
+    WOLFBOOT_WOLFHSM_SET_DMA_HASH();
     (void)wc_InitSha384_ex(&sha384_ctx, NULL, WOLFBOOT_DEVID_HASH);
     wc_Sha384Update(&sha384_ctx, pubkey, (word32)pubkey_sz);
     wc_Sha384Final(&sha384_ctx, hash);
@@ -1269,6 +1279,7 @@ static int header_sha3_384(wc_Sha3 *sha3_ctx, struct wolfBoot_image *img)
         return -1;
     }
 #endif
+    WOLFBOOT_WOLFHSM_SET_DMA_HASH();
     (void)wc_InitSha3_384(sha3_ctx, NULL, WOLFBOOT_DEVID_HASH);
 #ifdef WOLFBOOT_IMG_HASH_ONESHOT
     wc_Sha3_384_Update(sha3_ctx, p, (word32)(end_sha - p));
@@ -1320,12 +1331,15 @@ static int image_sha3_384(struct wolfBoot_image *img, uint8_t *hash)
             blksz = WOLFBOOT_SHA_BLOCK_SIZE;
             if (position + blksz > img->fw_size)
                 blksz = img->fw_size - position;
+            /* get_sha_block() may have decrypted with the crypt DMA mode */
+            WOLFBOOT_WOLFHSM_SET_DMA_HASH();
             wc_Sha3_384_Update(&sha3_ctx, p, blksz);
             position += blksz;
         } while (position < img->fw_size);
     }
 #endif
 
+    WOLFBOOT_WOLFHSM_SET_DMA_HASH();
     wc_Sha3_384_Final(&sha3_ctx, hash);
     wc_Sha3_384_Free(&sha3_ctx);
     return 0;
@@ -1352,6 +1366,7 @@ static void key_sha3_384(uint8_t key_slot, uint8_t *hash)
     memset(hash, 0, WC_SHA3_384_DIGEST_SIZE);
     if (!pubkey || (pubkey_sz < 0))
         return;
+    WOLFBOOT_WOLFHSM_SET_DMA_HASH();
     (void)wc_InitSha3_384(&sha3_ctx, NULL, WOLFBOOT_DEVID_HASH);
     wc_Sha3_384_Update(&sha3_ctx, pubkey, (word32)pubkey_sz);
     wc_Sha3_384_Final(&sha3_ctx, hash);
@@ -2465,6 +2480,7 @@ int wolfBoot_verify_authenticity(struct wolfBoot_image *img)
      * img->signature_ok to 1.
      *
      */
+    WOLFBOOT_WOLFHSM_SET_DMA_PK();
     wolfBoot_verify_signature_primary(key_slot, img, stored_signature);
 
 #ifdef WOLFBOOT_ARMORED
@@ -2530,6 +2546,7 @@ int wolfBoot_verify_authenticity(struct wolfBoot_image *img)
                 return -1;
             }
             wolfBoot_printf("Verification of hybrid signature\n");
+            WOLFBOOT_WOLFHSM_SET_DMA_PK();
             wolfBoot_verify_signature_secondary(key_slot, img,
                     stored_secondary_signature);
             wolfBoot_printf("Done.\n");

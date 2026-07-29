@@ -96,6 +96,14 @@ In client mode, wolfBoot always uses HSM-resident public keys for firmware authe
 
 This option enables wolfHSM server support in wolfBoot. When defined, wolfBoot includes an embedded wolfHSM server that provides HSM functionality locally within the bootloader. This is mutually exclusive with `WOLFBOOT_ENABLE_WOLFHSM_CLIENT`.
 
+### `WOLFBOOT_WOLFHSM_DEVID`
+
+The wolfCrypt devId that wolfBoot registers at wolfHSM initialization and passes to every wolfCrypt operation. In client mode it is registered in `whClientConfig.devId` and read back through the `WH_CLIENT_DEVID()` accessor; defaults to `WH_DEV_ID`. In server mode it is registered in `whServerConfig.devId` and used for local crypto; defaults to `INVALID_DEVID` (software crypto), except on AURIX TC3xx where it defaults to the tchsm port's `HSM_DEVID` (hardware crypto). Override in `.config` or on the make command line (e.g. `WOLFBOOT_WOLFHSM_DEVID=0x1234`).
+
+### `WOLFBOOT_WOLFHSM_USE_DMA_PK`, `WOLFBOOT_WOLFHSM_USE_DMA_HASH`, `WOLFBOOT_WOLFHSM_USE_DMA_CRYPT`
+
+Client mode only; require wolfHSM DMA support (`WOLFHSM_CFG_DMA`). The wolfHSM client DMA mode is stateful (`wh_Client_SetDmaMode()`), so when any of these options is set wolfBoot forces the mode on or off before each class of operation: public key (signature verification), hash (image digest), and crypt (firmware encryption/decryption). A class with its option set uses DMA; a class without it uses the standard transport. Set `WOLFBOOT_WOLFHSM_USE_DMA_<CLASS>=1` in `.config` or on the make command line. On AURIX TC3xx, hash defaults to DMA, and PK also defaults to DMA when `SIGN=ML_DSA` (both can be overridden in `.config`).
+
 ## HAL Implementations
 
 In addition to the standard wolfBoot HAL functions, wolfHSM-enabled platforms must also implement or instantiate the following wolfHSM-specific items in the platform HAL:
@@ -105,8 +113,6 @@ In addition to the standard wolfBoot HAL functions, wolfHSM-enabled platforms mu
 - `hsmClientCtx`: A global context for the wolfHSM client. This is initialized by the HAL and passed to wolfBoot, but should not be modified by wolfBoot. Only used when building with `WOLFHSM_ENABLE_WOLFHSM_CLIENT`.
 - `hsmServerCtx`: A global context for the wolfHSM server. This is initialized by the HAL and used by wolfBoot for all HSM operations. Only used when building with `WOLFHSM_ENABLE_WOLFHSM_SERVER`
 
-- `hsmDevIdHash`: The HSM device ID for hash operations. This is used to identify the HSM device to wolfBoot.
-- `hsmDevIdPubKey`: The HSM device ID for public key operations. This is used to identify the HSM device to wolfBoot.
 - `hsmKeyIdPubKey`: The HSM key ID for public key operations. This is used to identify the key to use for public key operations.
 - `hsmNvmIdCertRootCAList` / `hsmNvmIdCertRootCACount`: Array of NVM IDs identifying the trusted root CA certificate(s) and its element count. Only used when building with `WOLFBOOT_CERT_CHAIN_VERIFY`. The chain in the firmware header may anchor to any of the listed roots; the count is bounded by `WOLFHSM_CFG_CERT_MAX_VERIFY_ROOTS` (default 8). Each in-tree HAL provides a default of `{ 1 }`; override the list via the `WOLFHSM_NVM_ROOT_CA_LIST` build option, which takes a comma-separated initializer (no quotes, no spaces) and is propagated to the HAL as `-DWOLFBOOT_WOLFHSM_NVM_ROOT_CA_LIST=...`. Set it in `.config` (e.g. `WOLFHSM_NVM_ROOT_CA_LIST=1,2,3`) or on the make command line (`make WOLFHSM_NVM_ROOT_CA_LIST=1,2,3 ...`).
 

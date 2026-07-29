@@ -1486,11 +1486,11 @@ ifeq ($(WOLFHSM_CLIENT),1)
   CFLAGS += -I"$(WOLFBOOT_LIB_WOLFHSM)"
   # defines
   CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_CLIENT -DWOLFHSM_CFG_ENABLE_CLIENT
-  # HAL crypto devId abstraction for wolfHSM client
-  CFLAGS += -DWOLFBOOT_DEVID_HASH=hsmDevIdHash
-  CFLAGS += -DWOLFBOOT_DEVID_PUBKEY=hsmDevIdPubKey
+  # Crypto devIds all resolve to the devId registered at client init
+  CFLAGS += -DWOLFBOOT_DEVID_HASH="WH_CLIENT_DEVID(&hsmClientCtx)"
+  CFLAGS += -DWOLFBOOT_DEVID_PUBKEY="WH_CLIENT_DEVID(&hsmClientCtx)"
   ifeq ($(ENCRYPT),1)
-    CFLAGS += -DWOLFBOOT_DEVID_CRYPT=hsmDevIdCrypt
+    CFLAGS += -DWOLFBOOT_DEVID_CRYPT="WH_CLIENT_DEVID(&hsmClientCtx)"
   endif
   # Make sure we export generated public keys so they can be used to load into
   # HSM out-of-band
@@ -1511,6 +1511,24 @@ ifeq ($(WOLFHSM_CLIENT),1)
   # POSIX server's '--client <id>' argument.
   WOLFHSM_CLIENT_ID ?= 1
   CFLAGS += -DWOLFBOOT_WOLFHSM_CLIENT_ID=$(WOLFHSM_CLIENT_ID)
+
+  # user overrideable devId for wolfHSM, registered in client init. Defaults
+  # to WH_DEV_ID (see include/hal.h).
+  ifneq ($(WOLFBOOT_WOLFHSM_DEVID),)
+    CFLAGS += -DWOLFBOOT_WOLFHSM_DEVID=$(WOLFBOOT_WOLFHSM_DEVID)
+  endif
+
+  # Per algorithm class DMA options: when set, the client DMA mode is forced
+  # on/off before each operation of that class
+  ifeq ($(WOLFBOOT_WOLFHSM_USE_DMA_PK),1)
+    CFLAGS += -DWOLFBOOT_WOLFHSM_USE_DMA_PK
+  endif
+  ifeq ($(WOLFBOOT_WOLFHSM_USE_DMA_HASH),1)
+    CFLAGS += -DWOLFBOOT_WOLFHSM_USE_DMA_HASH
+  endif
+  ifeq ($(WOLFBOOT_WOLFHSM_USE_DMA_CRYPT),1)
+    CFLAGS += -DWOLFBOOT_WOLFHSM_USE_DMA_CRYPT
+  endif
 
   # Ensure wolfHSM is configured to use certificate manager if we are
   # doing cert chain verification
@@ -1554,11 +1572,17 @@ ifeq ($(WOLFHSM_SERVER),1)
   CFLAGS += -I"$(WOLFBOOT_LIB_WOLFHSM)"
   # defines
   CFLAGS += -DWOLFBOOT_ENABLE_WOLFHSM_SERVER -DWOLFHSM_CFG_ENABLE_SERVER
-  # HAL crypto devId abstraction for wolfHSM server
-  CFLAGS += -DWOLFBOOT_DEVID_HASH=hsmDevIdHash
-  CFLAGS += -DWOLFBOOT_DEVID_PUBKEY=hsmDevIdPubKey
+  # Crypto devIds all resolve to the devId registered at server init
+  CFLAGS += -DWOLFBOOT_DEVID_HASH="hsmServerCtx.devId"
+  CFLAGS += -DWOLFBOOT_DEVID_PUBKEY="hsmServerCtx.devId"
   ifeq ($(ENCRYPT),1)
-    CFLAGS += -DWOLFBOOT_DEVID_CRYPT=hsmDevIdCrypt
+    CFLAGS += -DWOLFBOOT_DEVID_CRYPT="hsmServerCtx.devId"
+  endif
+
+  # user overrideable devId for wolfHSM, registered in server init. Defaults
+  # to INVALID_DEVID (see include/hal.h).
+  ifneq ($(WOLFBOOT_WOLFHSM_DEVID),)
+    CFLAGS += -DWOLFBOOT_WOLFHSM_DEVID=$(WOLFBOOT_WOLFHSM_DEVID)
   endif
 
   # Ensure wolfHSM is configured to use certificate manager if we are

@@ -32,6 +32,7 @@
 
 #include "target.h"
 #include "wolfboot/wolfboot.h"
+#include "hal.h" /* for WOLFBOOT_WOLFHSM_SET_DMA_CRYPT */
 
 #ifdef ENCRYPT_WITH_CHACHA
     #include "wolfssl/wolfcrypt/chacha.h"
@@ -57,8 +58,10 @@ int chacha_init(void);
 extern Aes aes_dec, aes_enc;
 
 #define crypto_init() aes_init()
-#define crypto_encrypt(eb,b,sz) wc_AesCtrEncrypt(&aes_enc, eb, b, sz)
-#define crypto_decrypt(db,b,sz) wc_AesCtrEncrypt(&aes_dec, db, b, sz)
+#define crypto_encrypt(eb,b,sz) \
+    (WOLFBOOT_WOLFHSM_SET_DMA_CRYPT(), wc_AesCtrEncrypt(&aes_enc, eb, b, sz))
+#define crypto_decrypt(db,b,sz) \
+    (WOLFBOOT_WOLFHSM_SET_DMA_CRYPT(), wc_AesCtrEncrypt(&aes_dec, db, b, sz))
 #define crypto_set_iv(n,a) aes_set_iv(n, a)
 
 int aes_init(void);

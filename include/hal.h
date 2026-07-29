@@ -236,6 +236,48 @@ extern whClientContext hsmClientCtx; /* global wolfHSM client context */
 int hal_hsm_init_connect(void);
 int hal_hsm_disconnect(void);
 
+/* user overrideable devId for wolfHSM, registered in client init */
+#ifndef WOLFBOOT_WOLFHSM_DEVID
+#define WOLFBOOT_WOLFHSM_DEVID WH_DEV_ID
+#endif
+
+#if defined(WOLFBOOT_WOLFHSM_USE_DMA_PK) ||   \
+    defined(WOLFBOOT_WOLFHSM_USE_DMA_HASH) || \
+    defined(WOLFBOOT_WOLFHSM_USE_DMA_CRYPT)
+
+#ifndef WOLFHSM_CFG_DMA
+#error "WOLFBOOT_WOLFHSM_USE_DMA_* options require WOLFHSM_CFG_DMA"
+#endif
+
+/* The client DMA mode is sticky state, so when any per-class DMA option is
+ * set, the mode must be forced on or off before each class of operation to
+ * match the WOLFBOOT_WOLFHSM_USE_DMA_* options */
+#ifdef WOLFBOOT_WOLFHSM_USE_DMA_PK
+#define WOLFBOOT_WOLFHSM_SET_DMA_PK() \
+    ((void)wh_Client_SetDmaMode(&hsmClientCtx, 1))
+#else
+#define WOLFBOOT_WOLFHSM_SET_DMA_PK() \
+    ((void)wh_Client_SetDmaMode(&hsmClientCtx, 0))
+#endif
+
+#ifdef WOLFBOOT_WOLFHSM_USE_DMA_HASH
+#define WOLFBOOT_WOLFHSM_SET_DMA_HASH() \
+    ((void)wh_Client_SetDmaMode(&hsmClientCtx, 1))
+#else
+#define WOLFBOOT_WOLFHSM_SET_DMA_HASH() \
+    ((void)wh_Client_SetDmaMode(&hsmClientCtx, 0))
+#endif
+
+#ifdef WOLFBOOT_WOLFHSM_USE_DMA_CRYPT
+#define WOLFBOOT_WOLFHSM_SET_DMA_CRYPT() \
+    ((void)wh_Client_SetDmaMode(&hsmClientCtx, 1))
+#else
+#define WOLFBOOT_WOLFHSM_SET_DMA_CRYPT() \
+    ((void)wh_Client_SetDmaMode(&hsmClientCtx, 0))
+#endif
+
+#endif /* WOLFBOOT_WOLFHSM_USE_DMA_* */
+
 #elif defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER) /*WOLFBOOT_ENABLE_WOLFHSM_CLIENT*/
 
 #include "wolfhsm/wh_error.h"
@@ -251,20 +293,32 @@ extern whServerContext hsmServerCtx; /* global wolfHSM server context */
 int hal_hsm_server_init(void);
 int hal_hsm_server_cleanup(void);
 
+/* user overrideable devId for wolfHSM, registered in server init and used
+ * for local crypto */
+#ifndef WOLFBOOT_WOLFHSM_DEVID
+#define WOLFBOOT_WOLFHSM_DEVID INVALID_DEVID
+#endif
+
 #endif /* WOLFBOOT_ENABLE_WOLFHSM_SERVER */
+
+/* No-ops when not a wolfHSM client or when no per-class DMA option is set
+ * (the DMA mode then never changes from its default off state) */
+#ifndef WOLFBOOT_WOLFHSM_SET_DMA_PK
+#define WOLFBOOT_WOLFHSM_SET_DMA_PK()    ((void)0)
+#define WOLFBOOT_WOLFHSM_SET_DMA_HASH()  ((void)0)
+#define WOLFBOOT_WOLFHSM_SET_DMA_CRYPT() ((void)0)
+#endif
 
 #if defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT) || \
     defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER)
 
-/* devId and KeyIds for wolfHSM operations */
+/* KeyIds for wolfHSM operations */
 
-extern const int hsmDevIdHash;   /* devId for image digest */
-extern const int hsmDevIdPubKey; /* devId for signature verification */
 extern const int hsmKeyIdPubKey; /* KeyId for public key operations */
 #ifdef EXT_ENCRYPTED
-extern const int hsmDevIdCrypt; /* devId for image (enc)decryption */
 extern const int hsmKeyIdCrypt; /* KeyId for image (enc/dec)ryption */
 #endif
+
 #ifdef WOLFBOOT_CERT_CHAIN_VERIFY
 /* List of NvmIds for trusted root CA certificates. Verification succeeds if
  * the cert chain anchors to any root in the list. The list length must not

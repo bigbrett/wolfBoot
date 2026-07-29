@@ -105,17 +105,9 @@ static whTransportClientCb         tmcCb[1]  = {WH_TRANSPORT_MEM_CLIENT_CB};
 
 /* Globally exported HAL symbols */
 whClientContext hsmClientCtx = {0};
-const int       hsmDevIdHash = WH_DEV_ID_DMA;
-#ifdef WOLFBOOT_SIGN_ML_DSA
-/* Use DMA for massive ML DSA keys/signatures, too big for shm transport */
-const int hsmDevIdPubKey = WH_DEV_ID_DMA;
-#else
-const int hsmDevIdPubKey = WH_DEV_ID;
-#endif
 const int hsmKeyIdPubKey = 0xFF;
 #ifdef EXT_ENCRYPT
 #error "AURIX TC3xx does not support firmware encryption with wolfHSM (yet)"
-const int hsmDevIdCrypt = WH_DEV_ID;
 const int hsmKeyIdCrypt = 0xFF;
 #endif
 #ifdef WOLFBOOT_CERT_CHAIN_VERIFY
@@ -131,9 +123,6 @@ const uint16_t hsmNvmIdCertRootCACount  =
 
 #elif defined(WOLFBOOT_ENABLE_WOLFHSM_SERVER) /*WOLFBOOT_ENABLE_WOLFHSM_CLIENT*/
 
-/* map wolfBoot HAL layer wofHSM exports to their tchsm config vals */
-const int      hsmDevIdHash             = HSM_DEVID;
-const int      hsmDevIdPubKey           = HSM_DEVID;
 /* Set WOLFHSM_NVM_ROOT_CA_LIST=1,2,3 in .config (or pass on the make command
  * line) to override the default single-root list. */
 #ifndef WOLFBOOT_WOLFHSM_NVM_ROOT_CA_LIST
@@ -144,7 +133,6 @@ const uint16_t hsmNvmIdCertRootCACount  =
     sizeof(hsmNvmIdCertRootCAList) / sizeof(hsmNvmIdCertRootCAList[0]);
 #ifdef EXT_ENCRYPT
 #error "AURIX does not support firmware encryption with wolfHSM(yet)"
-const int     hsmDevIdCrypt      = INVALID_DEVID; /*HSM_DEVID once CCB enabled*/
 const int     hsmKeyIdCrypt      = 0xFF;
 #endif
 
@@ -781,7 +769,8 @@ int hal_hsm_init_connect(void)
     }};
 
     whClientConfig c_conf[1] = {{
-        .comm     = cc_conf,
+        .comm  = cc_conf,
+        .devId = WOLFBOOT_WOLFHSM_DEVID,
     }};
 
     rc = hsm_ipc_init();
@@ -882,7 +871,7 @@ int hal_hsm_server_init(void)
             .comm_config = commServerConfig,
             .nvm         = nvmCtx,
             .crypto      = cryptoCtx,
-            .devId       = HSM_DEVID,
+            .devId       = WOLFBOOT_WOLFHSM_DEVID,
     }};
 
     rc = wh_Nvm_Init(nvmCtx, nvmCfg);
@@ -891,10 +880,10 @@ int hal_hsm_server_init(void)
     }
 
     (void)wolfCrypt_Init();
-    rc = wc_CryptoCb_RegisterDevice(HSM_DEVID, hsmCryptoCb, NULL);
+    rc = wc_CryptoCb_RegisterDevice(WOLFBOOT_WOLFHSM_DEVID, hsmCryptoCb, NULL);
     if (rc != 0) {
         wolfBoot_printf(
-            "[ERROR] cryptocb registration for HASH failed, rc=%d\n", rc);
+            "[ERROR] cryptocb registration failed, rc=%d\n", rc);
         wolfBoot_panic();
     }
 

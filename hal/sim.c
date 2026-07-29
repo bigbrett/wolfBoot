@@ -42,6 +42,7 @@
 
 #include "wolfboot/wolfboot.h"
 #include "target.h"
+#include "hal.h"
 #include "printf.h"
 
 #ifdef WOLFBOOT_ELF_FLASH_SCATTER
@@ -185,17 +186,15 @@ static whCommClientConfig cc_conf[1] = {{
     .client_id         = WOLFBOOT_WOLFHSM_CLIENT_ID,
 }};
 static whClientConfig     c_conf[1]  = {{
-         .comm = cc_conf,
+         .comm  = cc_conf,
+         .devId = WOLFBOOT_WOLFHSM_DEVID,
 }};
 
 /* Globally exported HAL symbols */
 whClientContext hsmClientCtx   = {0};
-const int       hsmDevIdHash   = WH_DEV_ID;
-const int       hsmDevIdPubKey = WH_DEV_ID;
 const int       hsmKeyIdPubKey = 0xFF;
 #ifdef EXT_ENCRYPT
 #error "Simulator does not support firmware encryption with wolfHSM(yet)"
-const int hsmDevIdCrypt = WH_DEV_ID;
 const int hsmKeyIdCrypt = 0xFF;
 #endif
 #ifdef WOLFBOOT_CERT_CHAIN_VERIFY
@@ -268,12 +267,11 @@ whServerConfig s_conf[1] = {{
     .comm_config = cs_conf,
     .nvm         = nvm,
     .crypto      = crypto,
+    .devId       = WOLFBOOT_WOLFHSM_DEVID,
 }};
 
 whServerContext hsmServerCtx = {0};
 
-const int      hsmDevIdHash             = INVALID_DEVID;
-const int      hsmDevIdPubKey           = INVALID_DEVID;
 /* Set WOLFHSM_NVM_ROOT_CA_LIST=1,2,3 in .config (or pass on the make command
  * line) to override the default single-root list. */
 #ifndef WOLFBOOT_WOLFHSM_NVM_ROOT_CA_LIST
@@ -284,7 +282,6 @@ const uint16_t hsmNvmIdCertRootCACount  =
     sizeof(hsmNvmIdCertRootCAList) / sizeof(hsmNvmIdCertRootCAList[0]);
 #ifdef EXT_ENCRYPT
 #error "Simulator does not support firmware encryption with wolfHSM(yet)"
-const int     hsmDevIdCrypt      = WH_DEV_ID;
 const int     hsmKeyIdCrypt      = 0xFF;
 #endif
 
