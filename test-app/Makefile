@@ -1262,8 +1262,29 @@ ifeq ($(TARGET),aurix_tc3xx)
   ifeq ($(AURIX_TC3_HSM),1)
     APP_OBJS += $(TC3_DIR)/src/tc3arm_crt.o \
                 $(TC3_DIR)/src/tc3arm.o
-	# Use TC3 Arm app linker script
-    LSCRIPT_TEMPLATE = tc3arm_app.ld
+    # heap backend for whichever libc the toolchain brings (newlib _sbrk,
+    # picolibc/Dinkumware sbrk wrappers)
+    APP_OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/server/sysmem.o
+    ifeq ($(HT_LLVM),1)
+      # picolibc stdio needs the POSIX fd stubs
+      APP_OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/server/syscalls.o
+    endif
+    ifeq ($(HT_GCC),1)
+      # HighTec's old ARM ld can't parse the INCLUDEd memory flags or the
+      # ORIGIN()/LENGTH() math in the BSP .ld fragments; flatten the template
+      # at parse time (@placeholders@ pass through for the sed substitution)
+      LSCRIPT_TEMPLATE = ../config/tc3arm_app_flat.ld
+      ifeq ($(filter clean,$(MAKECMDGOALS)),)
+        LD_FLATTEN_OUT:=$(shell $(WOLFHSM_INFINEON_TC3XX)/tchsm-server/ld-flatten.sh \
+                          tc3arm_app.ld $(LSCRIPT_TEMPLATE) $(TC3_DIR)/tc3 && echo OK)
+        ifneq ($(LD_FLATTEN_OUT),OK)
+          $(error ld-flatten.sh failed for tc3arm_app.ld)
+        endif
+      endif
+    else
+      # Use TC3 Arm app linker script
+      LSCRIPT_TEMPLATE = tc3arm_app.ld
+    endif
   else
     APP_OBJS += $(TC3_DIR)/src/tc3tc_isr.o \
                 $(TC3_DIR)/src/tc3tc_traps.o \
@@ -1387,17 +1408,22 @@ standalone:LDFLAGS:=-T standalone.ld -Wl,-gc-sections -Wl,-Map=image.map
 delta-extra-data:CFLAGS+=-D"TEST_DELTA_DATA=$(DELTA_DATA_SIZE)" -ffunction-sections -fdata-sections
 delta-extra-data:LDFLAGS=-Wl,-Map=image.map
 
+# Flat binary source: squashed scatter ELFs (--nosht) have no section
+# table, which newer GNU objcopy rejects, so use the pre-squash ELF
+# (identical loadable content) when ELF_FLASH_SCATTER=1
+OBJCOPY_SRC_ELF=image.elf
+
 image.bin: image.elf
 	@echo "\t[BIN] $@"
-	$(Q)$(OBJCOPY) $(OBJCOPY_FLAGS) -O binary $^ $@
+	$(Q)$(OBJCOPY) $(OBJCOPY_FLAGS) -O binary $(OBJCOPY_SRC_ELF) $@
 
 image.hex: image.elf
 	@echo "\t[HEX] $@"
-	$(Q)$(OBJCOPY) $(OBJCOPY_FLAGS) -O ihex $^ $@
+	$(Q)$(OBJCOPY) $(OBJCOPY_FLAGS) -O ihex $(OBJCOPY_SRC_ELF) $@
 
 image.srec: image.elf
 	@echo "\t[SREC] $@"
-	$(Q)$(OBJCOPY) $(OBJCOPY_FLAGS) -O srec $^ $@
+	$(Q)$(OBJCOPY) $(OBJCOPY_FLAGS) -O srec $(OBJCOPY_SRC_ELF) $@
 
 APP_OBJS := $(patsubst $(WOLFBOOT_LIB_WOLFSSL)/%, \
     $(WOLFSSL_LOCAL_OBJDIR)/%, $(APP_OBJS))
@@ -1408,6 +1434,7 @@ APP_OBJS := $(patsubst $(WOLFBOOT_LIB_WOLFIP)/%, \
 ifeq ($(ELF_FLASH_SCATTER),1)
 # When ELF_FLASH_SCATTER=1, preprocess the ELF file with the squashelf tool
 SQUASHELF_TOOL = ../tools/squashelf/squashelf
+OBJCOPY_SRC_ELF=image-orig.elf
 image-orig.elf: $(APP_OBJS) $(LSCRIPT)
 	@echo "\t[LD] $@"
 	$(Q)$(LD) $(LDFLAGS) $(APP_OBJS) $(LIBS) $(OUTPUT_FLAG) $@

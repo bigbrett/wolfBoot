@@ -2175,7 +2175,25 @@ endif
 ifeq ($(ARCH), AURIX_TC3)
   # TC3xx specific
   ifeq ($(TARGET), aurix_tc3xx)
-    USE_GCC?=1
+    # Toolchain selection (mutually exclusive, HT_GCC is the default),
+    # matching the wolfHSM tc3xx tchsm-server/tchsm-client Makefiles:
+    #   HT_GCC=1  HighTec GCC (Tricore host; ARM arm-elf-gcc for the HSM)
+    #   HT_LLVM=1 HighTec LLVM/clang (Tricore or ARM)
+    #   GCC=1     Open-source GCC (tricore-elf; arm-none-eabi for the HSM)
+    ifneq ($(filter-out 0 1,$(words $(filter 1,$(GCC) $(HT_GCC) $(HT_LLVM)))),)
+      $(error GCC, HT_GCC, and HT_LLVM are mutually exclusive; set only one)
+    endif
+    ifneq ($(filter 1,$(USE_CLANG) $(USE_ARMCLANG)),)
+      $(error Use HT_LLVM=1 for AURIX clang builds, not USE_CLANG/USE_ARMCLANG)
+    endif
+    ifeq ($(GCC),1)
+      USE_GCC:=1
+    else ifeq ($(HT_LLVM),1)
+      USE_GCC:=0
+    else
+      HT_GCC:=1
+      USE_GCC:=1
+    endif
 
     CFLAGS += -I$(TC3_DIR) -Ihal
 
@@ -2187,6 +2205,11 @@ ifeq ($(ARCH), AURIX_TC3)
               -ffunction-sections -fdata-sections -fmessage-length=0 \
               -std=gnu99 -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
               -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
+
+    ifeq ($(HT_GCC),1)
+      # GCC 4.6 flags designated/partial initializers (relaxed in GCC 4.7)
+      CFLAGS += -Wno-missing-field-initializers
+    endif
 
     # Set TC3_CFG_DFLASH_SINGLE_ENDED=1 for devices with DFLASH provisioned in single
     # ended mode (default expects complement sensing)
@@ -2232,11 +2255,37 @@ ifeq ($(ARCH), AURIX_TC3)
 
     ifeq ($(AURIX_TC3_HSM),1)
       ARCH_FLASH_OFFSET?=0x80028000
-      # HSM compiler flags, build options, source code, etc
-      ifeq ($(USE_GCC),1)
-        # Just arm-none-eabi-gcc for now
+
+      # All ECC configs use hardware-only ECC via the PKC crypto callback
+      ifneq (,$(filter ECC%,$(SIGN)))
+        CFLAGS+=-DWOLF_CRYPTO_CB_ONLY_ECC
+      endif
+
+      ifeq ($(GCC),1)
+	    # Open-source ARM GCC
         CROSS_COMPILE?=arm-none-eabi-
+      else ifeq ($(HT_LLVM),1)
+        # HighTec ARM LLVM (clang + lld + picolibc)
+        HT_ARM_PATH?=$(HOME)/HighTec/toolchains/arm/v10.0.0
+        CC=$(HT_ARM_PATH)/bin/clang
+        LD=$(CC)
+        AS=$(CC)
+        AR=$(HT_ARM_PATH)/bin/llvm-ar
+        SIZE=$(HT_ARM_PATH)/bin/llvm-size
+        # llvm-objcopy lacks --change-address (used by the NVM hex rule);
+        # borrow the HighTec GNU objcopy
+        HT_ARM_GCC_PATH?=/opt/hightec/gnuarm_v4.6.5.1-3b75921-lin64
+        OBJCOPY=$(HT_ARM_GCC_PATH)/bin/arm-elf-objcopy
+        # clang applies warning flags positionally, so skip the main
+        # Makefile's late USE_GCC_HEADLESS -Wall/-Wextra block (it would
+        # re-enable warnings suppressed above); the AURIX_TC3 carve-out
+        # supplies -T for this case. Also avoids --gap-fill, which balloons
+        # the .bin across lld's zero-filesize RAM LOAD headers
+        USE_GCC_HEADLESS:=0
       else
+        # HighTec ARM GCC (the default)
+        HT_ARM_GCC_PATH?=/opt/hightec/gnuarm_v4.6.5.1-3b75921-lin64
+        CROSS_COMPILE?=$(HT_ARM_GCC_PATH)/bin/arm-elf-
       endif
 
       # Compiler flags
@@ -2258,14 +2307,56 @@ ifeq ($(ARCH), AURIX_TC3)
       # Temporary fix masking wolfCrypt unused function warning with RSA_LOW_MEM
       CFLAGS += -Wno-unused-function
 
+      ifeq ($(HT_LLVM),1)
+        # gnu11 overrides the earlier gnu99: clang rejects wolfSSL's typedef
+        # redefinitions under C99. clang also lacks GCC's per-function
+        # optimize attribute used by WC_OMIT_FRAME_POINTER, so define it
+        # empty and omit frame pointers globally (keeps r7 free for the
+        # SP math inline asm)
+        CFLAGS += -std=gnu11 -fomit-frame-pointer -DWC_OMIT_FRAME_POINTER=
+        # picolibc stdio calls the POSIX fd functions (write etc.); the
+        # port's syscalls.c provides them on top of __io_putchar
+        OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/server/syscalls.o
+      endif
+
       LDFLAGS += -march=armv7-m -mcpu=cortex-m3 -mthumb -mlittle-endian -g \
-                --specs=nano.specs -Wl,--gc-sections -static -Wl,--cref -Wl,-n \
+                -Wl,--gc-sections -static -Wl,--cref -Wl,-n \
                 -ffunction-sections -fdata-sections \
                 -nostartfiles \
                 -Wl,-Map="wolfboot.map" \
                 -Wl,-L$(TC3_DIR)/tc3
 
-      LSCRIPT_IN=hal/$(TARGET)_hsm.ld
+      ifeq ($(HT_GCC),1)
+        # HighTec libgcc (divdi3 etc.) references the ARM EH index table and
+        # personality routines; the shared linker script discards .ARM.exidx,
+        # so define empty bounds and stub the personalities to keep the
+        # ~3.4KB unwinder out (nothing raises exceptions in this image)
+        LDFLAGS += -Wl,--defsym,__exidx_start=0 -Wl,--defsym,__exidx_end=0 \
+                   -Wl,--defsym,__aeabi_unwind_cpp_pr0=0 \
+                   -Wl,--defsym,__aeabi_unwind_cpp_pr1=0 \
+                   -Wl,--defsym,__aeabi_unwind_cpp_pr2=0
+        # HighTec's old ARM ld can't parse the INCLUDEd memory flags or the
+        # ORIGIN()/LENGTH() math in the BSP .ld fragments; link a flattened
+        # copy generated at parse time by the wolfHSM port's ld-flatten.sh.
+        # Paths are relative to this arch.mk (it is included from both the
+        # wolfBoot root and test-app directories)
+        ARCHMK_DIR:=$(dir $(lastword $(MAKEFILE_LIST)))
+        LSCRIPT_IN=$(ARCHMK_DIR)config/$(TARGET)_hsm_flat.ld
+        ifeq ($(filter clean keysclean,$(MAKECMDGOALS)),)
+          LD_FLATTEN_OUT:=$(shell $(WOLFHSM_INFINEON_TC3XX)/tchsm-server/ld-flatten.sh \
+                            $(ARCHMK_DIR)hal/$(TARGET)_hsm.ld $(LSCRIPT_IN) $(TC3_DIR)/tc3 && echo OK)
+          ifneq ($(LD_FLATTEN_OUT),OK)
+            $(error ld-flatten.sh failed for hal/$(TARGET)_hsm.ld)
+          endif
+        endif
+      else ifeq ($(HT_LLVM),1)
+        # picolibc: no specs files; lld parses the BSP scripts directly
+        LSCRIPT_IN=hal/$(TARGET)_hsm.ld
+      else
+        # newlib-nano (arm-none-eabi)
+        LDFLAGS += --specs=nano.specs
+        LSCRIPT_IN=hal/$(TARGET)_hsm.ld
+      endif
 
       # wolfHSM port server-specific files
       ifeq ($(WOLFHSM_SERVER),1)
@@ -2299,18 +2390,23 @@ ifeq ($(ARCH), AURIX_TC3)
     else
       # Tricore compiler settings
       ARCH_FLASH_OFFSET?=0x800A0000
-      ifeq ($(USE_GCC),1)
+      ifeq ($(GCC),1)
+        TRICORE_GCC_PATH?=$(HOME)/workspace/toolchains/tricore-gcc-13.4.1-linux
+        CROSS_COMPILE?=$(TRICORE_GCC_PATH)/bin/tricore-elf-
+      else ifeq ($(HT_LLVM),1)
+        HT_TRICORE_LLVM_PATH?=$(HOME)/HighTec/toolchains/tricore/v11.0.0
+        CC=$(HT_TRICORE_LLVM_PATH)/bin/clang
+        LD=$(CC)
+        AS=$(CC)
+        AR=$(HT_TRICORE_LLVM_PATH)/bin/llvm-ar
+        # llvm-objcopy has no --change-address (used for the scatter-ELF
+        # image); borrow the HighTec GCC binutils objcopy
+        HT_ROOT?=/opt/hightec/gnutri_v4.9.4.1-11fcedf-lin64
+        OBJCOPY=$(HT_ROOT)/bin/tricore-objcopy
+        SIZE=$(HT_TRICORE_LLVM_PATH)/bin/llvm-size
+      else
         HT_ROOT?=/opt/hightec/gnutri_v4.9.4.1-11fcedf-lin64
         CROSS_COMPILE?=$(HT_ROOT)/bin/tricore-
-      else
-        HT_ROOT?=~/HighTec/toolchains/tricore/v9.1.2
-        CROSS_COMPILE?=$(HT_ROOT)/bin
-        CC=$(CROSS_COMPILE)/clang
-        LD=$(CROSS_COMPILE)/clang
-        AS=$(CROSS_COMPILE)/clang
-        AR=$(CROSS_COMPILE)/llvm-ar
-        OBJCOPY=tricore-objcopy
-        SIZE=$(CROSS_COMPILE)/llvm-size
       endif
 
       # No asm for you!
@@ -2321,7 +2417,20 @@ ifeq ($(ARCH), AURIX_TC3)
         CFLAGS+= -fshort-double -mtc162 -fstrict-volatile-bitfields -fno-builtin \
                  -fno-strict-aliasing
       else
-        CFLAGS+= --target=tricore -march=tc162
+        # hh32 = hardware FP with 32-bit doubles (matches GCC -fshort-double);
+        # cap clang inlining by callee stack size (see tchsm-client Makefile).
+        # gnu11 overrides the earlier gnu99: clang rejects wolfSSL's typedef
+        # redefinitions under C99
+        CFLAGS+= -march=tc162 -mfloat-abi=hh32 -finline-max-stacksize=4096 \
+                 -std=gnu11 -ffreestanding -Wno-unused-function
+
+        # clang applies warning flags positionally, so the main Makefile's
+        # late USE_GCC_HEADLESS -Wall/-Wextra block would re-enable the
+        # warnings suppressed above. Skip it and supply its needed pieces
+        # (the AURIX_TC3 carve-out there adds -T for USE_GCC_HEADLESS=0).
+        # No --gap-fill here: lld emits zero-filesize LOAD headers for the
+        # RAM regions and gap-fill would pad the .bin across all of them
+        USE_GCC_HEADLESS:=0
       endif
 
       DEBUG_AFLAGS= -Wa,--gdwarf-2
@@ -2330,7 +2439,7 @@ ifeq ($(ARCH), AURIX_TC3)
       ifeq ($(USE_GCC),1)
         LDFLAGS+= -fshort-double -mtc162 -nostartfiles -Wl,--extmap="a"
       else
-        LDFLAGS+= --target=tricore -march=tc162 -Wl,--entry=tc3tc_start
+        LDFLAGS+= -march=tc162 -mfloat-abi=hh32 -Wl,--entry=tc3tc_start
       endif
 
       LDFLAGS+= -Wl,--gc-sections -Wl,--cref -Wl,-n \
@@ -2351,7 +2460,8 @@ ifeq ($(ARCH), AURIX_TC3)
               $(TC3_DIR)/../tc3tc_bootloader/tc3tc_bootloader.o
 
       ifeq ($(WOLFHSM_CLIENT),1)
-        CFLAGS += -I$(WOLFHSM_INFINEON_TC3XX)/port/client
+        # GNU enables io.c's write() stub, which picolibc (HT_LLVM) needs
+        CFLAGS += -I$(WOLFHSM_INFINEON_TC3XX)/port/client -DGNU
         OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/client/hsm_ipc.o \
                 $(WOLFHSM_INFINEON_TC3XX)/port/client/io.o \
                 $(WOLFHSM_INFINEON_TC3XX)/port/client/tchsm_hh_host.o
