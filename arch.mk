@@ -2365,7 +2365,6 @@ ifeq ($(ARCH), AURIX_TC3)
         CFLAGS += -I$(WOLFHSM_INFINEON_TC3XX)/port/server
 
         OBJS += $(WOLFHSM_INFINEON_TC3XX)/port/server/port_halflash_df1.o \
-          $(WOLFHSM_INFINEON_TC3XX)/port/server/io.o \
           $(WOLFHSM_INFINEON_TC3XX)/port/server/sysmem.o \
           $(WOLFHSM_INFINEON_TC3XX)/port/server/tchsm_hh_hsm.o \
           $(WOLFHSM_INFINEON_TC3XX)/port/server/tchsm_utils.o\
