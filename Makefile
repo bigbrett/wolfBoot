@@ -261,7 +261,14 @@ CFLAGS+=$(WOLFPSA_CFLAGS)
 # Setup default optimizations (for GCC)
 ifeq ($(USE_GCC_HEADLESS),1)
   CFLAGS+=-Wall -Wextra -Wno-main -ffreestanding
-  CFLAGS+=-ffunction-sections -fdata-sections -fomit-frame-pointer
+  ifeq ($(TARGET),aurix_tc4xx)
+    # No -fdata-sections: tricore-elf-gcc 13 emits bare-named data sections
+    # (.varname, not .bss.varname) that escape the iLLD linker script's
+    # clear/copy tables, leaving statics uninitialized at boot.
+    CFLAGS+=-ffunction-sections -fomit-frame-pointer
+  else
+    CFLAGS+=-ffunction-sections -fdata-sections -fomit-frame-pointer
+  endif
   # Allow unused parameters and functions
   CFLAGS+=-Wno-unused-parameter -Wno-unused-function
   # Error on unused variables
