@@ -1293,21 +1293,34 @@ ifeq ($(TARGET),aurix_tc3xx)
 endif
 
 ifeq ($(TARGET),aurix_tc4xx)
-  # iLLD startup software + drivers from the wolfHSM TC4xx port.
-  # TC4_LLD_SRCS / TC4_WB_DIR come from arch.mk (included above); the
-  # objects are the same in-place ones the bootloader build compiles,
-  # except CPU0's startup TU, which needs an app-specific flag (below).
-  APP_OBJS += $(filter-out %/Ifx_Ssw_Tc0.o,$(TC4_LLD_SRCS:.c=.o))
-  # Startup-software hooks. No BMHD object: wolfBoot owns the UCBs and
-  # the app image must not carry boot-mode-header sections.
-  APP_OBJS += $(TC4_WB_DIR)/Cfg_Ssw/Ifx_Cfg_Ssw.o
-  # CPU0 startup compiled app-locally: this image is only ever
-  # chain-loaded by wolfBoot, outside hypervisor state, so its SSW must
-  # skip the HV-exit sequence (MTCR VCON0/PSW + RFH traps otherwise).
-  # The bootloader's shared in-place Ifx_Ssw_Tc0.o keeps the real one.
-  APP_OBJS += aurix_tc4xx_ssw_tc0.o
-  # Use TC4 app linker script
-  LSCRIPT_TEMPLATE = tc4tc_app.ld
+  ifeq ($(AURIX_TC4_CSRM),1)
+    # CSRM flavor: the shared in-place objects (including Ifx_Ssw_Tc6.o)
+    # serve the app unchanged - the CSRM startup software is warm-start
+    # safe (no hypervisor exit, no PLL step). No BMHD object: wolfBoot
+    # owns the UCBs and the app image must not carry boot-mode-header
+    # sections.
+    APP_OBJS += $(TC4_LLD_SRCS:.c=.o)
+    APP_OBJS += $(TC4_WB_DIR)/csrm/Cfg_Ssw/Ifx_Cfg_Ssw.o
+    # Use TC4 CSRM app linker script
+    LSCRIPT_TEMPLATE = tc4cs_app.ld
+  else
+    # Host flavor: iLLD startup software + drivers from the wolfHSM TC4xx
+    # port. TC4_LLD_SRCS / TC4_WB_DIR come from arch.mk (included above);
+    # the objects are the same in-place ones the bootloader build
+    # compiles, except CPU0's startup TU, which needs an app-specific
+    # flag (below).
+    APP_OBJS += $(filter-out %/Ifx_Ssw_Tc0.o,$(TC4_LLD_SRCS:.c=.o))
+    # Startup-software hooks. No BMHD object: wolfBoot owns the UCBs and
+    # the app image must not carry boot-mode-header sections.
+    APP_OBJS += $(TC4_WB_DIR)/Cfg_Ssw/Ifx_Cfg_Ssw.o
+    # CPU0 startup compiled app-locally: this image is only ever
+    # chain-loaded by wolfBoot, outside hypervisor state, so its SSW must
+    # skip the HV-exit sequence (MTCR VCON0/PSW + RFH traps otherwise).
+    # The bootloader's shared in-place Ifx_Ssw_Tc0.o keeps the real one.
+    APP_OBJS += aurix_tc4xx_ssw_tc0.o
+    # Use TC4 app linker script
+    LSCRIPT_TEMPLATE = tc4tc_app.ld
+  endif
 
 aurix_tc4xx_ssw_tc0.o: $(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Tricore/Ifx_Ssw_Tc0.c
 	@echo "\t[CC-APP] $@"

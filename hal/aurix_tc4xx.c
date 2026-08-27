@@ -18,25 +18,38 @@
  * along with wolfBoot.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* wolfBoot HAL for the Infineon AURIX TC4xx host domain (TriCore CPU0).
+/* wolfBoot HAL for the Infineon AURIX TC4xx. Two flavors share this
+ * file, selected by WOLFBOOT_AURIX_TC4XX_CSRM:
  *
- * Flash programming drives the host NVM command interface (HCI) at
- * 0xF8080000 directly, following the same command/polling discipline as
- * the CSRM data-flash driver in the wolfHSM TC4xx port
- * (port/server/tchsm_csrm_flash.c), adapted for host PFLASH geometry:
- * 32-byte pages, 512-byte bursts, 16KB logical sectors. Commands take
- * the non-cached (0xAxxxxxxx) address alias. Erased PFLASH cannot be
- * read (uncorrectable ECC), so every read is preceded by a hardware
- * erase-verify and erased regions are synthesized as FILL_BYTE.
+ * Host domain (default, TriCore CPU0): flash programming drives the host
+ * NVM command interface (HCI) at 0xF8080000 directly, following the same
+ * command/polling discipline as the CSRM data-flash driver in the
+ * wolfHSM TC4xx port (port/server/tchsm_csrm_flash.c), adapted for host
+ * PFLASH geometry: 32-byte pages, 512-byte bursts, 16KB logical sectors.
+ * The boot firmware evaluates RTC_BMHD0 (STAD 0xA0000000) and starts
+ * CPU0 in wolfBoot's iLLD startup software (PLL, watchdogs left running,
+ * CPU1..5 held in reset). After image verification, hal_prepare_boot()
+ * switches the clock tree back to the backup clock (IfxClock_init cannot
+ * re-run while the system runs from the PLL) and do_boot() jumps to the
+ * application's startup code, which re-runs the full iLLD SSW from a
+ * near-reset clock state and releases CPU1.
  *
- * Boot flow: the boot firmware evaluates RTC_BMHD0 (STAD 0xA0000000) and
- * starts CPU0 in wolfBoot's iLLD startup software (PLL, watchdogs left
- * running, CPU1..5 held in reset). After image verification,
- * hal_prepare_boot() switches the clock tree back to the backup clock
- * (IfxClock_init cannot re-run while the system runs from the PLL) and
- * do_boot() jumps to the application's startup code, which re-runs the
- * full iLLD SSW from a near-reset clock state and releases CPU1.
- */
+ * CSRM (WOLFBOOT_AURIX_TC4XX_CSRM, TriCore CPU6): same command/polling
+ * discipline against the CSRM command interface (CSCI) at 0xF80C0000 for
+ * the CSRM's own 1MB PFLASH bank (32-byte pages, 16KB logical sectors,
+ * no documented burst command - pages only). The boot firmware evaluates
+ * CS_BMHD0 (STAD 0xA4000000) and starts CPU6 in the CSRM startup
+ * software (Ifx_Ssw_Tc6.c), which has no hypervisor-exit or PLL step and
+ * is warm-start safe, so no clock restore is needed before do_boot() and
+ * the chain-loaded application re-runs it unmodified. wolfBoot and the
+ * partitions share the single CSRM flash bank: everything that executes
+ * while a program/erase sequence is in flight runs from CSRM PSPR
+ * (.ramcode), and no interrupts are enabled.
+ *
+ * Commands take the non-cached (0xAxxxxxxx) address alias in both
+ * flavors. Erased PFLASH cannot be read (uncorrectable ECC), so every
+ * read is preceded by a hardware erase-verify and erased regions are
+ * synthesized as FILL_BYTE. */
 
 #include <stdint.h>
 #include <string.h>
@@ -51,15 +64,25 @@
 #include "Ifx_Types.h"
 #include "IfxAsclin.h"
 #include "IfxAsclin_PinMap.h"
-#include "IfxClock.h"
 #include "IfxCpu.h"
 #include "IfxWtu.h"
+#ifndef WOLFBOOT_AURIX_TC4XX_CSRM
+#include "IfxClock.h"
+#endif
 
 /* ---------------------------------------------------------------------------
- * Host PFLASH geometry (TC4Dx; see IfxFlash_cfg_TC4Dx.h)
+ * PFLASH geometry (TC4Dx; see IfxFlash_cfg_TC4Dx.h and
+ * IfxFlashCsrm_cfg_TC4Dx.h). Host and CSRM PFLASH share the 32-byte page
+ * and 16KB logical sector; only the host interface documents the
+ * 512-byte burst program, so the CSRM programs page by page.
  */
 #define TC4_PFLASH_PAGE_SIZE  (32u)
 #define TC4_PFLASH_BURST_SIZE (512u)
+#ifdef WOLFBOOT_AURIX_TC4XX_CSRM
+#define TC4_PROG_CHUNK_SIZE   TC4_PFLASH_PAGE_SIZE
+#else
+#define TC4_PROG_CHUNK_SIZE   TC4_PFLASH_BURST_SIZE
+#endif
 
 /* FLASH_BYTE_ERASED (the value synthesized when reading erased flash)
  * comes from wolfboot.h: 0x00 with FLAGS_INVERT, matching FILL_BYTE. */
@@ -70,11 +93,17 @@
 #define TC4_FLASH_NC(addr) (((uint32_t)(addr)) | 0x20000000u)
 
 /* ---------------------------------------------------------------------------
- * Host command interface (HCI) registers. One interface serves all host
- * PFLASH banks; the target bank is implied by the address written to the
- * command address register.
+ * Flash command interface registers. The host command interface (HCI)
+ * serves all host PFLASH banks; the CSRM command interface (CSCI, same
+ * register layout at +0x40000 / +0x80) serves the CSRM's banks. The
+ * target bank is implied by the address written to the command address
+ * register.
  */
+#ifdef WOLFBOOT_AURIX_TC4XX_CSRM
+#define TC4_CMD_BASE (0xF80C0000u)
+#else
 #define TC4_CMD_BASE (0xF8080000u)
+#endif
 
 #define TC4_CMD_REG(off) ((volatile uint32_t *)(TC4_CMD_BASE | (off)))
 #define TC4_CMD_MODE     TC4_CMD_REG(0x5554u) /* mode/status cycles */
@@ -87,12 +116,20 @@
 #define TC4_MODE_PF_PAGEMODE  (0x50u)
 #define TC4_MODE_RESET_READ   (0xF0u)
 
-/* DMU host command interface status/error registers */
+/* DMU command interface status/error registers (CSCI mirrors HCI at
+ * +0x80) */
 #define TC4_DMU_REG(addr) ((volatile uint32_t *)(addr))
+#ifdef WOLFBOOT_AURIX_TC4XX_CSRM
+#define TC4_HCI_STATUS TC4_DMU_REG(0xF8040084u)
+#define TC4_HCI_ERR    TC4_DMU_REG(0xF8040090u)
+#define TC4_HCI_CLRERR TC4_DMU_REG(0xF8040094u)
+#else
 #define TC4_HCI_STATUS TC4_DMU_REG(0xF8040004u)
 #define TC4_HCI_ERR    TC4_DMU_REG(0xF8040010u)
 #define TC4_HCI_CLRERR TC4_DMU_REG(0xF8040014u)
+#endif
 #define TC4_GP_BKALLOC TC4_DMU_REG(0xF8040A00u)
+#define TC4_BKALLOC_CSRMPF (1u << 18)
 
 /* HCI.STATUS fields */
 #define TC4_STATUS_BANKS_BUSY (0x000F0FFFu) /* per-bank busy + host DF + FSI */
@@ -293,14 +330,15 @@ static void RAMFUNCTION cacheSector(uint32_t sectorAddress)
     }
 }
 
-/* Program sectorBuffer back into an erased sector, burst by burst */
+/* Program sectorBuffer back into an erased sector, chunk by chunk
+ * (bursts on the host interface, single pages on the CSRM) */
 static void RAMFUNCTION programCachedSector(uint32_t sectorAddress)
 {
     uint32_t off;
-    for (off = 0; off < WOLFBOOT_SECTOR_SIZE; off += TC4_PFLASH_BURST_SIZE) {
+    for (off = 0; off < WOLFBOOT_SECTOR_SIZE; off += TC4_PROG_CHUNK_SIZE) {
         if (flashProgramAligned(sectorAddress + off,
                                 sectorBuffer + (off / sizeof(uint32_t)),
-                                TC4_PFLASH_BURST_SIZE) != 0) {
+                                TC4_PROG_CHUNK_SIZE) != 0) {
             wolfBoot_panic();
         }
     }
@@ -443,6 +481,17 @@ static void uart_flush(void)
 
 void hal_init(void)
 {
+#ifdef WOLFBOOT_AURIX_TC4XX_CSRM
+    /* Disable the CSRM security watchdog for the duration of the image
+     * verification, exactly as the tchsm-server does. */
+    IfxWtu_disableSecurityWatchdog(IfxWtu_getSecurityWatchdogPassword());
+
+    /* The CSRM PFLASH bank must be allocated to the CSRM or the CSCI
+     * command writes silently no-op. */
+    if ((*TC4_GP_BKALLOC & TC4_BKALLOC_CSRMPF) == 0u) {
+        wolfBoot_panic();
+    }
+#else
     /* The iLLD startup software has already run: PLLs locked, flash
      * waitstates programmed, CPU1..5 held in reset. Watchdogs are live -
      * disable them for the duration of the (potentially long) image
@@ -457,11 +506,29 @@ void hal_init(void)
     if ((*TC4_GP_BKALLOC & 0xFu) != 0u) {
         wolfBoot_panic();
     }
+#endif
 
 #ifdef DEBUG_UART
+#ifdef WOLFBOOT_AURIX_TC4XX_CSRM
+    /* The ASCLIN0/P14 write grants for the CSRM come from the host
+     * parker running on CPU0 (port/wolfboot/csrm/host_park.S), which is
+     * released from reset in parallel with this core. Its dozen store
+     * instructions finish long before this point, but give it explicit
+     * margin: an ungranted UART register write is a bus-error trap. */
+    {
+        volatile uint32_t i;
+        for (i = 0; i < 100000u; i++) {
+        }
+    }
+#endif
     uart_init();
+#ifdef WOLFBOOT_AURIX_TC4XX_CSRM
+    wolfBoot_printf("Hello from TC4xx wolfBoot on CSRM: V%d\n",
+                    WOLFBOOT_VERSION);
+#else
     wolfBoot_printf("Hello from TC4xx wolfBoot on TriCore CPU0: V%d\n",
                     WOLFBOOT_VERSION);
+#endif
 #endif
 }
 
@@ -476,12 +543,15 @@ void hal_prepare_boot(void)
     IfxAsclin_disableModule(TC4_UART);
 #endif
 
+#ifndef WOLFBOOT_AURIX_TC4XX_CSRM
     /* Return the clock tree to the backup clock and power the PLLs down.
      * The application image re-runs the full iLLD SSW (including
      * IfxClock_init), which refuses to reconfigure a PLL the system is
      * currently running from - so hand it the same near-reset clock state
-     * a cold boot would. */
+     * a cold boot would. The CSRM startup software never touches the
+     * clock tree, so its flavor has nothing to restore. */
     (void)IfxClock_switchToBackupClock(&IfxClock_defaultClockConfig);
+#endif
 }
 
 void do_boot(const uint32_t *app_offset)
@@ -495,9 +565,17 @@ void do_boot(const uint32_t *app_offset)
 void RAMFUNCTION arch_reboot(void)
 {
     (void)WOLFBOOT_AURIX_RESET_REASON;
+#ifdef WOLFBOOT_AURIX_TC4XX_CSRM
+    /* The system reset request register (SMM) is host-domain; whether the
+     * CSRM may write it is untested, and no path in this configuration
+     * reaches here. Hang for the debugger instead of risking a fault. */
+    while (1) {
+    }
+#else
     IfxCpu_triggerSwReset();
     while (1) {
     }
+#endif
 }
 
 /* ---------------------------------------------------------------------------

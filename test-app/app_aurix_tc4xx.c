@@ -18,14 +18,21 @@
  * along with wolfBoot.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* wolfBoot test application for the AURIX TC4xx host domain. Chain-loaded
- * by wolfBoot on TriCore CPU0 (never entered in hypervisor state, never
- * booted from a BMHD; the startup software is built accordingly - see the
- * TC4 block in test-app/Makefile). Runs bare-metal with interrupts
- * disabled and CPU1..5 in reset, so the libwolfboot flash accesses need
- * no fetch-stall protection: everything that could fetch from the flash
- * banks being touched executes from PSPR (.ramcode) or stays blocked in
- * the call. */
+/* wolfBoot test application for the AURIX TC4xx. Two flavors share this
+ * file, selected by WOLFBOOT_AURIX_TC4XX_CSRM:
+ *
+ * Host domain (default): chain-loaded by wolfBoot on TriCore CPU0 (never
+ * entered in hypervisor state, never booted from a BMHD; the startup
+ * software is built accordingly - see the TC4 block in
+ * test-app/Makefile). CPU1..5 stay in reset.
+ *
+ * CSRM: chain-loaded by wolfBoot on CPU6; the CSRM startup software is
+ * warm-start safe and needs no accommodation.
+ *
+ * Both run bare-metal with interrupts disabled, so the libwolfboot flash
+ * accesses need no fetch-stall protection: everything that could fetch
+ * from the flash banks being touched executes from PSPR (.ramcode) or
+ * stays blocked in the call. */
 
 #ifdef TARGET_aurix_tc4xx
 
@@ -52,15 +59,23 @@ void wolfBoot_panic(void)
     }
 }
 
-/* Entered by the iLLD startup software after C runtime init. Watchdogs
- * are already disabled (wolfBoot's hal_init did that and nothing
- * re-enables them across do_boot). */
+/* Entered by the startup software after C runtime init. Watchdogs are
+ * already disabled (wolfBoot's hal_init did that and nothing re-enables
+ * them across do_boot). */
+#ifdef WOLFBOOT_AURIX_TC4XX_CSRM
+void core6_main(void)
+#else
 void core0_main(void)
+#endif
 {
 #ifdef DEBUG_UART
     uart_init();
 #endif
+#ifdef WOLFBOOT_AURIX_TC4XX_CSRM
+    wolfBoot_printf("TC4xx CSRM Test Application\n");
+#else
     wolfBoot_printf("TC4xx Test Application\n");
+#endif
     wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
 
     if (wolfBoot_current_firmware_version() <= BASE_FW_VERSION) {

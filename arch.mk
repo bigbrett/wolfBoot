@@ -2399,10 +2399,17 @@ ifeq ($(ARCH), AURIX_TC3)
     # iLLD include forest (the tchsm-client Makefile's list verbatim,
     # plus Flash/Std for the PFLASH command interface and the wolfBoot
     # SSW config directory)
+    # SSW configuration (Ifx_Cfg.h + Cfg_Ssw) differs per flavor
+    ifeq ($(AURIX_TC4_CSRM),1)
+      CFLAGS += -I$(TC4_WB_DIR)/csrm -I$(TC4_WB_DIR)/csrm/Cfg_Ssw
+    else
+      CFLAGS += -I$(TC4_WB_DIR) -I$(TC4_WB_DIR)/Cfg_Ssw
+    endif
     CFLAGS += \
-      -I$(TC4_WB_DIR) \
-      -I$(TC4_WB_DIR)/Cfg_Ssw \
       -I$(TC4_LLD_DIR) \
+      -I$(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Csrm \
+      -I$(TC4_LLD_DIR)/iLLD/TC4xx/Csrm \
+      -I$(TC4_LLD_DIR)/iLLD/TC4xx/Csrm/Cpu/Trap \
       -I$(TC4_LLD_DIR)/Infra \
       -I$(TC4_LLD_DIR)/Infra/Platform \
       -I$(TC4_LLD_DIR)/Infra/Platform/Compilers \
@@ -2469,6 +2476,14 @@ ifeq ($(ARCH), AURIX_TC3)
     # No TriCore asm in wolfCrypt
     MATH_OBJS+=$(WOLFBOOT_LIB_WOLFSSL)/wolfcrypt/src/sp_c32.o
 
+    # CSRM flavor (AURIX_TC4_CSRM=1): wolfBoot on CPU6 booting from the
+    # CSRM's own PFLASH bank via the CSCI. The CSRM has no FPU.
+    ifeq ($(AURIX_TC4_CSRM),1)
+      CFLAGS += -DWOLFBOOT_AURIX_TC4XX_CSRM -msoft-sp-float -msoft-dp-float
+      LDFLAGS += -msoft-sp-float -msoft-dp-float
+      LSCRIPT_IN=hal/aurix_tc4xx_csrm.ld
+    endif
+
     LDFLAGS += -mcpu=$(DEV_MCPU) -Wl,--cref -Wl,-Map="wolfboot.map"
 
     # Keep wolfboot.bin contiguous: the UCB/BMHD sections live at
@@ -2477,15 +2492,14 @@ ifeq ($(ARCH), AURIX_TC3)
     # .zdata/.sdata/.sdata4 are empty with the default code model but carry
     # the CONTENTS flag at their RAM addresses, which would stretch the
     # raw binary span.
-    OBJCOPY_FLAGS+=-R '.bmhd*' -R '.usercfg*' -R '.sdata4' -R '.sdata' -R '.zdata'
+    OBJCOPY_FLAGS+=-R '.bmhd*' -R '.usercfg*' -R '.csusercfg*' -R '.sdata4' -R '.sdata' -R '.zdata'
 
     # iLLD startup software + drivers the HAL uses, compiled in place.
-    # Only CPU0 startup is included: wolfBoot keeps CPU1..5 in reset (see
-    # port/wolfboot/Ifx_Cfg.h); the verified application starts them.
+    # Common set for both flavors; the startup software itself is
+    # flavor-specific below.
     TC4_LLD_SRCS := \
       $(wildcard $(TC4_LLD_DIR)/Infra/Platform/Compilers/*.c) \
       $(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Tricore/Ifx_Ssw_Infra.c \
-      $(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Tricore/Ifx_Ssw_Tc0.c \
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/CpuGeneric/Ap/Std/*.c) \
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/CpuGeneric/Asclin/Std/*.c) \
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/CpuGeneric/Clock/Std/*.c) \
@@ -2495,19 +2509,35 @@ ifeq ($(ARCH), AURIX_TC3)
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/CpuGeneric/_Impl/$(DEV_DERIV)/*.c) \
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/CpuGeneric/_PinMap/IfxAsclin_PinMap*.c) \
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/CpuGeneric/_PinMap/$(DEV_DERIV)/IfxAsclin_PinMap*.c) \
-      $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Cpu/Irq/*.c) \
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Cpu/Std/*.c) \
-      $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Cpu/Trap/*.c) \
-      $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Smu/Std/*.c) \
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Stm/Std/*.c) \
-      $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Vmt/Std/*.c) \
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Wtu/Std/*.c) \
       $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/_Impl/*.c)
 
-    OBJS += $(TC4_LLD_SRCS:.c=.o)
-    OBJS += $(TC4_WB_DIR)/Cfg_Ssw/Ifx_Cfg_Ssw.o \
-            $(TC4_WB_DIR)/Cfg_Ssw/Ifx_Cfg_SswBmhd.o \
-            $(TC4_WB_DIR)/tc4_wolfboot_main.o
+    ifeq ($(AURIX_TC4_CSRM),1)
+      # CSRM (CPU6) startup software + trap table
+      TC4_LLD_SRCS += \
+        $(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Csrm/Ifx_Ssw_Tc6.c \
+        $(TC4_LLD_DIR)/iLLD/TC4xx/Csrm/Cpu/Trap/IfxCpu_Trap_Cs.c
+      OBJS += $(TC4_LLD_SRCS:.c=.o)
+      OBJS += $(TC4_WB_DIR)/csrm/Cfg_Ssw/Ifx_Cfg_Ssw.o \
+              $(TC4_WB_DIR)/csrm/Cfg_Ssw/Ifx_Cfg_SswBmhdCs.o \
+              $(TC4_WB_DIR)/csrm/tc4_wolfboot_csrm_main.o
+    else
+      # Host CPU0 startup software + trap table. Only CPU0 startup is
+      # included: wolfBoot keeps CPU1..5 in reset (see
+      # port/wolfboot/Ifx_Cfg.h); the verified application starts them.
+      TC4_LLD_SRCS += \
+        $(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Tricore/Ifx_Ssw_Tc0.c \
+        $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Cpu/Irq/*.c) \
+        $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Cpu/Trap/*.c) \
+        $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Smu/Std/*.c) \
+        $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Vmt/Std/*.c)
+      OBJS += $(TC4_LLD_SRCS:.c=.o)
+      OBJS += $(TC4_WB_DIR)/Cfg_Ssw/Ifx_Cfg_Ssw.o \
+              $(TC4_WB_DIR)/Cfg_Ssw/Ifx_Cfg_SswBmhd.o \
+              $(TC4_WB_DIR)/tc4_wolfboot_main.o
+    endif
   endif
 endif
 
