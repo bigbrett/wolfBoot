@@ -2369,8 +2369,9 @@ ifeq ($(ARCH), AURIX_TC3)
     ARCH_FLASH_OFFSET?=0x80000000
 
     # Path to the wolfHSM TC4xx port root (contains drivers/, port/,
-    # device.mk). Normally exported by the port's top-level Makefile.
-    WOLFHSM_INFINEON_TC4XX?=$(abspath ../../tc4xx)
+    # device.mk). This tree lives inside the port as its wolfBoot/
+    # submodule; the port's top-level Makefile also exports this.
+    WOLFHSM_INFINEON_TC4XX?=$(abspath ..)
     TC4_LLD_DIR?=$(WOLFHSM_INFINEON_TC4XX)/drivers
     TC4_WB_DIR?=$(WOLFHSM_INFINEON_TC4XX)/port/wolfboot
 
@@ -2473,7 +2474,10 @@ ifeq ($(ARCH), AURIX_TC3)
     # Keep wolfboot.bin contiguous: the UCB/BMHD sections live at
     # 0xAE4xxxxx and would otherwise stretch the raw binary across the
     # whole address gap.
-    OBJCOPY_FLAGS+=-R '.bmhd*' -R '.usercfg*'
+    # .zdata/.sdata/.sdata4 are empty with the default code model but carry
+    # the CONTENTS flag at their RAM addresses, which would stretch the
+    # raw binary span.
+    OBJCOPY_FLAGS+=-R '.bmhd*' -R '.usercfg*' -R '.sdata4' -R '.sdata' -R '.zdata'
 
     # iLLD startup software + drivers the HAL uses, compiled in place.
     # Only CPU0 startup is included: wolfBoot keeps CPU1..5 in reset (see

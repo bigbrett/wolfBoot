@@ -30,7 +30,8 @@
  * Derived from the wolfHSM tc4xx client LSL (Lcf_Gcc_Tricore_Tc.lsl).
  * Differences from the application script:
  *  - pfls0 is restricted to the 1MB bootloader region ending well below
- *    the wolfBoot BOOT partition
+ *    the wolfBoot BOOT partition; the unused pfls1..5 regions are parked
+ *    inside it so empty sections cannot stretch the raw binary image
  *  - every per-CPU start/trap/interrupt vector address is relocated into
  *    the bootloader region (only CPU0 runs; CPU1..5 stay in reset)
  *  - a .ramcode output section (psram0, copied by the SSW via the
@@ -220,20 +221,20 @@ MEMORY
     pfls0 (rx!p): org = 0x80000000, len = 1M
     pfls0_nc (rx!p): org = 0xA0000000, len = 1M
 
-    pfls1 (rx!p): org = 0x80400000, len = 4M
-    pfls1_nc (rx!p): org = 0xA0400000, len = 4M
+    pfls1 (rx!p): org = 0x800FC000, len = 0x400
+    pfls1_nc (rx!p): org = 0xA00FC000, len = 0x400
 
-    pfls2 (rx!p): org = 0x80800000, len = 2M
-    pfls2_nc (rx!p): org = 0xA0800000, len = 2M
+    pfls2 (rx!p): org = 0x800FC400, len = 0x400
+    pfls2_nc (rx!p): org = 0xA00FC400, len = 0x400
 
-    pfls3 (rx!p): org = 0x80A00000, len = 4M
-    pfls3_nc (rx!p): org = 0xA0A00000, len = 4M
+    pfls3 (rx!p): org = 0x800FC800, len = 0x400
+    pfls3_nc (rx!p): org = 0xA00FC800, len = 0x400
 
-    pfls4 (rx!p): org = 0x80E00000, len = 4M
-    pfls4_nc (rx!p): org = 0xA0E00000, len = 4M
+    pfls4 (rx!p): org = 0x800FCC00, len = 0x400
+    pfls4_nc (rx!p): org = 0xA00FCC00, len = 0x400
 
-    pfls5 (rx!p): org = 0x81200000, len = 2M
-    pfls5_nc (rx!p): org = 0xA1200000, len = 2M
+    pfls5 (rx!p): org = 0x800FD000, len = 0x400
+    pfls5_nc (rx!p): org = 0xA00FD000, len = 0x400
 
 	
     ucb (rx!p): org = 0xae400000, len = 80K

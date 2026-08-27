@@ -422,10 +422,16 @@ void uart_write(const char *buf, unsigned int sz)
 static void uart_flush(void)
 {
     Ifx_ASCLIN *u = TC4_UART;
+    volatile uint32_t i;
+
     while (IfxAsclin_getTxFifoFillLevel(u) != 0u) {
     }
-    /* wait for transmission complete of the last frame */
-    while (u->FLAGS.B.TC == 0u) {
+    /* The TC flag is sticky and may still be set from an earlier idle
+     * period while the last frame sits in the shifter, so it cannot be
+     * trusted here. Wait a fixed interval instead: one frame at 115200
+     * baud is ~87 us; this loop is comfortably longer at any core
+     * clock. */
+    for (i = 0; i < 200000u; i++) {
     }
 }
 

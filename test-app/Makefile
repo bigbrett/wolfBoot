@@ -1292,6 +1292,31 @@ ifeq ($(TARGET),aurix_tc3xx)
   endif
 endif
 
+ifeq ($(TARGET),aurix_tc4xx)
+  # iLLD startup software + drivers from the wolfHSM TC4xx port.
+  # TC4_LLD_SRCS / TC4_WB_DIR come from arch.mk (included above); the
+  # objects are the same in-place ones the bootloader build compiles,
+  # except CPU0's startup TU, which needs an app-specific flag (below).
+  APP_OBJS += $(filter-out %/Ifx_Ssw_Tc0.o,$(TC4_LLD_SRCS:.c=.o))
+  # Startup-software hooks. No BMHD object: wolfBoot owns the UCBs and
+  # the app image must not carry boot-mode-header sections.
+  APP_OBJS += $(TC4_WB_DIR)/Cfg_Ssw/Ifx_Cfg_Ssw.o
+  # CPU0 startup compiled app-locally: this image is only ever
+  # chain-loaded by wolfBoot, outside hypervisor state, so its SSW must
+  # skip the HV-exit sequence (MTCR VCON0/PSW + RFH traps otherwise).
+  # The bootloader's shared in-place Ifx_Ssw_Tc0.o keeps the real one.
+  APP_OBJS += aurix_tc4xx_ssw_tc0.o
+  # Use TC4 app linker script
+  LSCRIPT_TEMPLATE = tc4tc_app.ld
+
+aurix_tc4xx_ssw_tc0.o: $(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Tricore/Ifx_Ssw_Tc0.c
+	@echo "\t[CC-APP] $@"
+	$(Q)$(CC) $(CFLAGS) -DIFX_CFG_SSW_SKIP_DISABLE_VIRTUALIZATION -c -o $@ $<
+# The rule above is the first one parsed in this Makefile; keep the
+# goal an argument-less sub-make expects.
+.DEFAULT_GOAL := image.bin
+endif
+
 # On PPC64 (e5500/e6500) arch.mk turns on PPC32 SHA asm for the bootloader's
 # image-verify link; strip it from the test-app's wolfCrypt so PPC_ASM alone
 # controls the app's AES/SHA asm.
