@@ -1293,40 +1293,48 @@ ifeq ($(TARGET),aurix_tc3xx)
 endif
 
 ifeq ($(TARGET),aurix_tc4xx)
+  # TC4 startup tables miss some sections emitted by -fdata-sections.
+  # Align with the bootloader build and port device.mk.
+  CFLAGS:=$(filter-out -fdata-sections,$(CFLAGS))
+  # Flash helpers run from PSPR.
+  # Limit __WOLFBOOT to objects that define RAMFUNCTION helpers.
+  ../hal/$(TARGET).o: CFLAGS+=-DRAM_CODE -D__WOLFBOOT
+  ../test-app/libwolfboot.o: CFLAGS+=-DRAM_CODE -D__WOLFBOOT
   ifeq ($(AURIX_TC4_CSRM),1)
-    # CSRM flavor: the shared in-place objects (including Ifx_Ssw_Tc6.o)
-    # serve the app unchanged - the CSRM startup software is warm-start
-    # safe (no hypervisor exit, no PLL step). No BMHD object: wolfBoot
-    # owns the UCBs and the app image must not carry boot-mode-header
-    # sections.
+    # CSRM app uses the shared startup and driver objects.
+    # wolfBoot owns BMHD and UCB content.
     APP_OBJS += $(TC4_LLD_SRCS:.c=.o)
     APP_OBJS += $(TC4_WB_DIR)/csrm/Cfg_Ssw/Ifx_Cfg_Ssw.o
     # Use TC4 CSRM app linker script
     LSCRIPT_TEMPLATE = tc4cs_app.ld
   else
-    # Host flavor: iLLD startup software + drivers from the wolfHSM TC4xx
-    # port. TC4_LLD_SRCS / TC4_WB_DIR come from arch.mk (included above);
-    # the objects are the same in-place ones the bootloader build
-    # compiles, except CPU0's startup TU, which needs an app-specific
-    # flag (below).
+    # Host app uses iLLD startup and drivers from the TC4 port.
     APP_OBJS += $(filter-out %/Ifx_Ssw_Tc0.o,$(TC4_LLD_SRCS:.c=.o))
-    # Startup-software hooks. No BMHD object: wolfBoot owns the UCBs and
-    # the app image must not carry boot-mode-header sections.
+    # wolfBoot owns BMHD and UCB content.
     APP_OBJS += $(TC4_WB_DIR)/Cfg_Ssw/Ifx_Cfg_Ssw.o
-    # CPU0 startup compiled app-locally: this image is only ever
-    # chain-loaded by wolfBoot, outside hypervisor state, so its SSW must
-    # skip the HV-exit sequence (MTCR VCON0/PSW + RFH traps otherwise).
-    # The bootloader's shared in-place Ifx_Ssw_Tc0.o keeps the real one.
+    # App-local CPU0 startup skips the second HV-exit sequence.
     APP_OBJS += aurix_tc4xx_ssw_tc0.o
     # Use TC4 app linker script
     LSCRIPT_TEMPLATE = tc4tc_app.ld
   endif
 
+  # TC4 wolfHSM port objects used by the HAL.
+  # The generic WOLFHSM_CLIENT block adds wolfHSM client code.
+  ifeq ($(WOLFHSM_CLIENT),1)
+    APP_OBJS += $(WOLFHSM_INFINEON_TC4XX)/port/tchsm_hsmhost.o \
+                $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_client.o \
+                $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_hh_host.o \
+                $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_spr_apu.o \
+                $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_dma_client.o \
+                $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_time.o \
+                $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
+  endif
+
 aurix_tc4xx_ssw_tc0.o: $(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Tricore/Ifx_Ssw_Tc0.c
 	@echo "\t[CC-APP] $@"
 	$(Q)$(CC) $(CFLAGS) -DIFX_CFG_SSW_SKIP_DISABLE_VIRTUALIZATION -c -o $@ $<
-# The rule above is the first one parsed in this Makefile; keep the
-# goal an argument-less sub-make expects.
+
+# Default goal for argument-less sub-makes.
 .DEFAULT_GOAL := image.bin
 endif
 

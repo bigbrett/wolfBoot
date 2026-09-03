@@ -1,5 +1,5 @@
 /**********************************************************************************************************************
- * Lcf_Gcc_Tricore_Tc.lsl
+ * tchsm-client.ld
  * Linker command file for Gcc compiler.
  * Copyright (C) Infineon Technologies AG 2019
  *
@@ -26,53 +26,24 @@
  * IN THE SOFTWARE.
  *********************************************************************************************************************/
 
-/* wolfBoot bootloader linker script for AURIX TC4xx host CPU0.
- * Derived from the wolfHSM tc4xx client LSL (Lcf_Gcc_Tricore_Tc.lsl).
- * Differences from the application script:
- *  - pfls0 is restricted to the 1MB bootloader region ending well below
- *    the wolfBoot BOOT partition; the unused pfls1..5 regions are parked
- *    inside it so empty sections cannot stretch the raw binary image
- *  - every per-CPU start/trap/interrupt vector address is relocated into
- *    the bootloader region (only CPU0 runs; CPU1..5 stay in reset)
- *  - a .ramcode output section (psram0, copied by the SSW via the
- *    auto-generated __copy_table) holds the RAMFUNCTION flash drivers
- * Processed by the wolfBoot Makefile into config/target.ld (no @token@
- * substitutions are used; partition addresses live in include/target.h). */
+/* wolfBoot host bootloader linker script for AURIX TC4xx.
+ * CPU0 runs from the reserved pfls0 bootloader region.
+ * Other host cores stay in reset.
+ * Flash helpers run from PSPR0 through .ramcode.
+ * The wolfBoot Makefile converts this to config/target.ld. */
 OUTPUT_FORMAT("elf32-tricore")
 OUTPUT_ARCH(tricore)
 ENTRY(_START)
 
 __TRICORE_DERIVATE_MEMORY_MAP__ = 0x4D0;
 
-/* CPU0 runs the wolfHSM client + wolfCrypt; needs larger stack/CSA/heap
- * to host cryptoCb dispatch, Dilithium verify (~10K stack), and a bench
- * harness. CPU1..5 stay idle and keep the iLLD defaults.
- *
- * APP0's IPC buffer lives at 0x70018000 in CPU0's DSPR0; APP1's at
- * 0x60018000 in CPU1's DSPR1 (each via the SRI global alias - see
- * port/tchsm_common.h for the authoritative defines). The runtime port
- * code asserts that CPU0's heap top stays below the CommBuf start; if
- * you bump LCF_HEAP_SIZE here, verify the assertion in
- * port/tchsm_common.c. */
+/* CPU0 runs wolfBoot and optional wolfHSM client code.
+ * APP0 IPC starts at 0x70018000.
+ * APP1 IPC starts at 0x60018000.
+ * CPU0 heap stays below the CommBuf start. */
 LCF_CSA0_SIZE    = 16k;
-/* 48 KiB CPU0 stack. Sized for the upstream wolfHSM ML-DSA-87 tests:
- * whTestCrypto_MlDsaDmaClient declares two `wc_MlDsaKey` structs
- * (~7.5 KiB each at the static-key sizing) plus two
- * `byte key_der[MLDSA_MAX_PRV_KEY_SIZE]` (~7.5 KiB each), and then
- * calls wh_Client_MlDsaImportKeyDma whose own `buffer[
- * MLDSA_MAX_BOTH_KEY_DER_SIZE]` adds another ~7.6 KiB. ~30 KiB of
- * test-driven stack pressure alone, plus the comm-layer call chain
- * (memcpys, SHA, transport CSR pump). 24 KiB used to fit when the
- * largest ML-DSA was -44; with -87 enabled it overflows into the
- * CommBuf below, which presents as corrupted CPU1 app_result or
- * spurious WH_ERROR_NOTREADY from the transport.
- *
- * 48 KiB plus CSA0 (16) + ISTACK0 (4) + padding (~0.5) consumes the
- * top 68.5 KiB of DSPR0. APP0's CommBuf sits at 0x70018000 (see
- * .hsmShmCore0Buf below); the C side picks the address up through the
- * _hsmShmCore*CommBuf{Start,End} linker symbols, so no port code
- * changes. Keep CSA generous - the deep wolfCrypt/ASN.1 call chains
- * during ML-DSA-87 KeyToDer chew through context save area. */
+/* 48 KiB CPU0 stack.
+ * CSA is sized for wolfCrypt and ASN.1 call depth. */
 LCF_USTACK0_SIZE = 48k;
 LCF_ISTACK0_SIZE = 4k;
 
@@ -96,13 +67,8 @@ LCF_CSA5_SIZE    = 8k;
 LCF_USTACK5_SIZE = 2k;
 LCF_ISTACK5_SIZE = 1k;
 
-/* Per-core heap. Same value across cores in this linker script - only
- * CPU0 actually mallocs (for wolfCrypt PQC/ECC working buffers). The
- * client sits at the DSPR0 limit: the heap top must stay below the
- * 0x70018000 CommBuf, asserted in port/tchsm_common.c. This heap serves
- * only non-DMA wolfCrypt (ML-DSA-87 non-DMA is ~15-20 KiB with
- * DYNAMIC_KEYS + SMALL_MEM); the `*Dma` paths are direct-map and use no
- * heap (port/client/tchsm_dma_client.c). */
+/* Per-core heap value.
+ * CPU0 uses it for non-DMA wolfCrypt work buffers. */
 LCF_HEAP_SIZE = 52k;
 
 LCF_DSPR5_START = 0x20000000;
@@ -395,9 +361,8 @@ REGION_ALIAS( default_rom , pfls5)
 	CORE_ID = GLOBAL ;
     SECTIONS
     {
-		/* Linked at the cached alias so the binary image is contiguous; the
-		 * BMHD STAD (0xA0000000) executes the same flash through the
-		 * non-cached alias, and the stub only performs absolute jumps. */
+		/* Link at the cached alias for a contiguous binary image.
+		 * BMHD STAD executes the same flash through the non-cached alias. */
 		.start_tc0 (LCF_STARTPTR_CPU0) : FLAGS(rxl) { KEEP (*(.start)); } > pfls0
         .interface_const (0x80000020) : { __IF_CONST = .; KEEP (*(.interface_const)); } > pfls0
 		PROVIDE(__START0 = LCF_STARTPTR_NC_CPU0);
@@ -2239,7 +2204,7 @@ CORE_ID = GLOBAL;
 SECTIONS
 {
     /*Relative A0 Addressable Data, selectable with patterns and user defined sections*/
-        /*Note: A0 addressable area is common, to make the functions callable in any CPU*/
+        /* A0 addressable area is common to all CPUs. */
     /*Relative A0 Addressable Data, selectable by toolchain*/
     CORE_SEC(.sdata) : FLAGS(awsl)
     {
@@ -2260,7 +2225,7 @@ CORE_ID = GLOBAL;
 SECTIONS
 {
     /*Relative A1 Addressable Const, selectable with patterns and user defined sections*/
-        /*Note: A1 addressable area is common, to make the functions callable in any CPU*/
+        /* A1 addressable area is common to all CPUs. */
     /*Relative A1 Addressable Const, selectable by toolchain*/
     CORE_SEC(.sdata2) : FLAGS(arsl)
     {
@@ -2538,18 +2503,9 @@ SECTIONS
         *(.bss.farDsprNoInit.cpu0.8bit)
     } > default_ram
 
-    /* --- Per-core wolfCrypt/wolfHSM state (multi-core crypto) ---------------
-     * The wolfCrypt/wolfHSM libraries are compiled ONCE, so their process
-     * globals (wolfcrypt_init_state, gCryptoDev[], ...) would be a single
-     * shared copy at the absolute DSPR alias and race across cores. Placed
-     * here at the LOCAL DSPR alias (0xD0020000, above the 0x..20000 CommBuf)
-     * each core resolves the SAME linked address to its OWN DSPR - one
-     * placement, per-core physical copies. Must precede the shared .data/.bss
-     * below so the wolfcrypt/wolfHSM objects land here (first-match). CPU0's
-     * copy is primed by the global C-init (entries added at __clear_table /
-     * __copy_table); CPU1 primes its own copy in core1_main before its
-     * wolfCrypt_Init - the local alias means CPU0's clear only reaches CPU0's
-     * DSPR. See memory tc4dx-per-core-wolfcrypt-impl-spec. */
+    /* Per-core wolfCrypt and wolfHSM state.
+     * The local DSPR alias gives each core its own physical copy.
+     * Place this before shared .data and .bss so these objects bind here. */
     .wolfcryptPerCore.data 0xD0020000 : FLAGS(awl)
     {
         __wc_pc_data_start = .;
@@ -2560,116 +2516,38 @@ SECTIONS
     } > dsram0_local AT> pfls0
     __wc_pc_data_load = LOADADDR(.wolfcryptPerCore.data);
 
-    /* Anchor at __wc_pc_data_end, NOT the implicit region counter: the .data
-     * section above carries an explicit VMA (0xD0020000), and an explicit-VMA
-     * section does not advance dsram0_local's location counter. So when .data
-     * is empty (e.g. RSA + cert manager off, a valid config) an unanchored .bss
-     * would fall back to the region ORIGIN 0xD0000000 and collide with .heap.
-     * Anchoring to .data's end places .bss correctly for empty and non-empty
-     * .data alike. */
+    /* Anchor to the explicit .data end.
+     * Otherwise an empty .data section can collide with .heap. */
     .wolfcryptPerCore.bss __wc_pc_data_end (NOLOAD) : FLAGS(aw)
     {
         __wc_pc_bss_start = .;
         *wolfssl/wolfcrypt/src/*.o (.bss .bss.*)
         *wolfHSM/src/*.o (.bss .bss.*)
-        /* Per-core malloc cursor (port/client/tchsm_sbrk.c). Lives here so
-         * each core has its own; see the .heap reservation below. */
+        /* Per-core malloc cursor. */
         *port/client/tchsm_sbrk.o (.bss .bss.*)
-        /* Per-client transport/client + HsmHost ISR state
-         * (port/client/tchsm_client.c, tchsm_hh_host.c). Each host core runs
-         * its OWN client (CPU0 = APP0, CPU1 = APP1) and touches ONLY its own
-         * index of these arrays: g_tmcc/g_tmcfg/g_ccc/g_ccfg/g_initialised,
-         * g_state[client], g_last_h2s_notify[channel]; the APP1 S2H ISR is
-         * bound to CPU1 (IfxSrc_Tos_cpu1). Kept per-core so each core's copy
-         * lives in its OWN DSPR. Shared .bss in CPU0's DSPR left CPU1's stores
-         * with no APU write grant and no coherence, surviving only in CPU1's
-         * D-cache - fragile across an eviction (get_config -> NULL, dropped
-         * S2H wakes). The const transport vtable g_tmccb stays in shared .data
-         * (read-only, identical on both cores), so only .bss moves here. */
+        /* Per-client transport and ISR state. */
         *port/client/tchsm_client.o (.bss .bss.*)
         *port/client/tchsm_hh_host.o (.bss .bss.*)
-        /* Benchmark work buffers (wh_bench_data_{dma,in,out}_buffer). Made
-         * per-core so each core's DMA buffer lives in its OWN DSPR: CPU1's
-         * *Dma benchmark ops pass this buffer to CSRM, and the DMA region gate
-         * (tchsm_dma_client.c) accepts only the running core's DSPR. Also
-         * ECC-primed per-core (CPU0 C-init clear, CPU1 memset) before CSRM
-         * byte-writes it.
-         *
-         * Bracketed by ALIGN(32) so the buffers start on a D-cache line and
-         * the next object starts on the following one. Upstream declares them
-         * with no alignment attribute, so otherwise their offset within the
-         * section follows whatever precedes them, and the server's
-         * whole-cache-line maintenance ends up doing extra work on a partial
-         * leading/trailing line. That is a roughly fixed per-call cost, which
-         * is noise against AES-DMA (~130 us) but ~20% of AES-CMAC-DMA (~54
-         * us) - enabling LMS/XMSS was enough to shift these buffers and move
-         * CMAC-DMA between 36 and 29 MB/s. Same reasoning as the aligned(32)
-         * on the port's own DMA buffers in port/client/wolfhsm_tests.c. */
+        /* Per-core benchmark buffers.
+         * Align them to D-cache lines for server cache maintenance. */
         . = ALIGN(32);
         *wolfHSM/benchmark/wh_bench_data.o (.bss .bss.*)
         . = ALIGN(32);
-        /* Console-relay state (TCHSM_CFG_BENCH_CONSOLE_RELAY): CPU1's private
-         * newlib reent + the benchmark text buffer must live in CPU1's OWN DSPR
-         * (CPU1 formats into them; the shared _impure_ptr is in CPU0's DSPR).
-         * Per-core placement puts each core's copy in its own DSPR; CPU0 reads
-         * CPU1's copy via the absolute alias in tchsm_uart_drain_relay(). Only
-         * the dedicated .bss.relay section (those four statics) is taken here -
-         * NOT tchsm_uart.o's ordinary .bss: g_asc/g_tx_fifo must stay in the
-         * shared cached .bss, since the ASCLIN driver faults dereferencing the
-         * handle at the non-cacheable local alias on the UART write path. */
+        /* Console relay state.
+         * Leave ordinary UART state in shared .bss. */
         *port/client/tchsm_uart.o (.bss.relay)
         . = ALIGN(4);
         __wc_pc_bss_end = .;
     } > dsram0_local
 
-    /* Guard: the per-core block grows UP from 0x..020000 while the stacks are
-     * top-anchored in the same 240 KiB DSPR, and nothing between them would
-     * otherwise catch a collision - the linker only tracks dsram0_local, not
-     * the CORE_SEC(.ustack) placements at the absolute alias. CPU0 is the
-     * binding case: its 48 KiB user stack puts __USTACK0_END far lower than
-     * CPU1's (2 KiB stack, so LCF_USTACK1_OFFSET is much higher), and every
-     * core resolves this same linked range into its own DSPR. Region-relative
-     * so the check is alias-agnostic. If this fires, the per-core .data/.bss
-     * set outgrew the window - shrink LCF_USTACK0_SIZE or move an object back
-     * to the shared .bss. Without it an overrun is silent at link time and
-     * shows up as stack corruption on CPU0. */
+    /* Guard per-core state against the CPU0 stack. */
     ASSERT((__wc_pc_bss_end - ORIGIN(dsram0_local)) <= LCF_USTACK0_OFFSET,
            "per-core wolfCrypt/wolfHSM state overruns CPU0's user stack")
 
-    /* Bulk .bss of the upstream test and benchmark TUs, relocated out of DSPR0
-     * into the LMU DMA window at 0xB0420000 (the upper half of the window;
-     * .tchsmDmaFast bump-allocates the lower half from 0xB0410000).
-     *
-     * Why: these TUs declare large static work buffers - the SHA-2/SHA-3 big
-     * input buffers plus the LMS/XMSS signature buffers, ~65 KiB together -
-     * that would otherwise sit in CPU0's shared .bss below the heap. They push
-     * __HEAP0 up far enough that the CPU0 heap falls to ~11 KiB, under the
-     * ~15-20 KiB ML-DSA-87 non-DMA needs, so the ML-DSA tests would start
-     * failing with MEMORY_E. Moving them here restores the heap and puts DMA
-     * buffers where DMA buffers belong.
-     *
-     * MUST be declared before the shared CORE_SEC(.data)/CORE_SEC(.bss) below:
-     * input sections bind to the FIRST matching output section, and the
-     * catch-all *(.bss) there would otherwise claim these objects. Same
-     * first-match rule as .wolfcryptPerCore.bss above.
-     *
-     * Whole-TU granularity is forced, not chosen: device.mk deliberately does
-     * NOT pass -fdata-sections (the SSW init tables only cover the standard
-     * .data/.bss), so every static in a TU shares one .bss input section and
-     * individual symbols cannot be selected here.
-     *
-     * Safe because (a) the window is CSRM-reachable and tchsm_dma_client.c
-     * accepts it, so the *Dma tests still pass their region gate; (b) the
-     * section is registered in __clear_table below, so these statics keep C
-     * zero-init semantics AND get every byte written at boot, which primes ECC
-     * before any read - a NOLOAD region never written would trap on first
-     * read; and (c) the non-cached alias means no coherency work for buffers
-     * the CSRM also touches. The cost is slower CPU-side access, which only
-     * makes the tests run a little slower.
-     *
-     * 32 B aligned end, matching the alignment the port already gives
-     * .tchsmDmaFast buffers, so the server's whole-cache-line maintenance
-     * cannot reach a neighbouring allocation. */
+    /* Large test and benchmark .bss buffers.
+     * Place them in the LMU DMA window instead of CPU0 DSPR.
+     * Place this before shared .data and .bss so these objects bind here.
+     * The clear table zero-inits and primes ECC. */
     .tchsmDmaBss 0xb0420000 (NOLOAD) : FLAGS(aw)
     {
         _clientDmaBssStart = .;
@@ -2701,76 +2579,33 @@ SECTIONS
         *(.gnu.linkonce.b.*)
     } > default_ram
 
-    /* Top of the shared dsram0 allocation (end of the shared .data/.bss). The
-     * per-core heap sits right above it, but at the LOCAL DSPR alias so each
-     * core allocates from its own scratchpad instead of sharing CPU0's. */
+    /* End of shared CPU0 data.
+     * The per-core heap starts above this at the local DSPR alias. */
     __shared_dsram0_top = . ;
 
-    /* Per-core heap with PER-CORE BOUNDS. The heap is linked at the LOCAL DSPR
-     * alias (0xD0.. = ORIGIN(dsram0_local)) so each core allocates from its own
-     * scratchpad, and sbrk (tchsm_sbrk.c) picks the base by core index:
-     *   - CPU0 must start ABOVE its shared .data/.bss, which occupy the low
-     *     DSPR (__HEAP0 = local alias of __shared_dsram0_top).
-     *   - CPU1's low DSPR is entirely FREE (its per-core .data/.bss are empty),
-     *     so CPU1 starts near the bottom (__HEAP1) and gets a much bigger heap
-     *     - it does not inherit CPU0's .bss footprint.
-     * Both cap at __HEAP_END, just below the CommBuf/status region at 0x18000.
-     * The reservation below keeps the linker from placing anything in the
-     * window. LCF_HEAP_SIZE is no longer used for sizing (bounds are explicit). */
+    /* Per-core heap bounds.
+     * CPU0 starts above its shared data.
+     * CPU1 starts near the bottom of its own DSPR.
+     * Both stop below CommBuf and status memory. */
     __HEAP0 = ORIGIN(dsram0_local) + (__shared_dsram0_top - ORIGIN(dsram0)) ;
 
     .heap  (ORIGIN(dsram0_local) + 0x1000) (NOLOAD) : FLAGS(aw)
     {
-        __HEAP1 = . ;             /* CPU1 base: free low DSPR (0xD0001000)   */
-        . += (0x18000 - 0x1000) ; /* reserve up to the CommBuf at 0x18000    */
-        __HEAP_END = . ;          /* common cap for both cores (0xD0018000)  */
+        __HEAP1 = . ;             /* CPU1 base in free low DSPR. */
+        . += (0x18000 - 0x1000) ; /* Reserve up to the CommBuf. */
+        __HEAP_END = . ;          /* Common cap for host cores. */
     } > dsram0_local
 
-    /* Guards: the heap window must stay below the CommBuf/status at 0x18000,
-     * and CPU0's shared .data/.bss (which sets __HEAP0) must not have grown up
-     * into it. Region-relative so the check is alias-agnostic. */
+    /* Heap window stays below CommBuf and status memory. */
     ASSERT((__HEAP_END - ORIGIN(dsram0_local)) <= 0x18000,
            "per-core heap overflows into the CommBuf/status region at 0x..018000")
     ASSERT(__HEAP0 < __HEAP_END,
            "CPU0 shared .data/.bss overflowed the heap window (reached the CommBuf)")
 
-    /* Shared wolfHSM IPC buffers (port/tchsm_common.h).
-     *
-     * APP0's at 0x70018000 in CPU0's DSPR0 (below); APP1's at 0x60018000
-     * in CPU1's DSPR1 (.hsmShmCore1Buf, further down). The server image
-     * declares the same symbols at the same addresses, so both sides
-     * agree by linker convention rather than by hard-coded macros.
-     * (NOLOAD) means no ELF payload; these sections only reserve
-     * address space. `> default_ram` / `> dsram1` ties each reservation
-     * into the owning DSPR's bookkeeping so the linker refuses to place
-     * anything else in the range - superseding the ASSERT we previously
-     * used to catch heap-vs-IPC overlap. */
-    /* 32 KiB per client: tchsm_common_init splits each CommBuf into a
-     * 16 KiB request half and a 16 KiB response half. The wh_transport_mem
-     * layer needs ≥ sizeof(whTransportMemCsr)+WH_COMM_MTU per direction;
-     * with WOLFHSM_CFG_COMM_DATA_LEN=8192 (inline ML-DSA-87 keypair DER)
-     * that's 8+8+8192 = 8208 B, so 8 KiB halves would underflow by 16 B.
-     * 16 KiB halves give comfortable margin and round to a 32 KiB
-     * per-client reservation.
-     *
-     * APP0's CommBuf is in CPU0's DSPR0 at 0x70018000; APP1's is in
-     * CPU1's DSPR1 at 0x60018000 (see .hsmShmCore1Buf below). Each client
-     * now owns its mailbox in its own CPU's scratchpad - CPU1 reaches its
-     * CommBuf locally, and the other two masters (CPU0's boot-barrier
-     * write, the CSRM server) reach it over the SRI through DSPR1's global
-     * alias (0x6xxxxxxx), exactly as the CSRM already reaches DSPR0.
-     *
-     * 0x70018000 = 96 KiB into DSPR0. Heap (LCF_HEAP_SIZE = 52k)
-     * bump-allocates before this reservation; .data/.bss/.zdata + heap
-     * together must stay ≤ 96 KiB to fit in 0x70000000–0x70018000. */
-    /* Per-host-core boot/handshake status regions (port/tchsm_hsmhost.h
-     * tchsm_CoreStatus). 256 B each at the FRONT of the core's cross-core
-     * window (0x..018000) - the range that is cross-core-writable;
-     * addresses below 0x..018000 are not (a status word at 0x..017F00
-     * reads back 0 on the polling core). Kept
-     * a separate region from the CommBuf (own symbols) so a core that
-     * later owns several CommBufs still has one status block. The server
-     * image declares the same symbols at the same addresses. */
+    /* Shared wolfHSM IPC buffers.
+     * APP0 uses CPU0 DSPR0.
+     * APP1 uses CPU1 DSPR1.
+     * Each client gets 256 B status plus a 32 KiB CommBuf. */
     .hsmStatusCore0 0x70018000 (NOLOAD) :
     {
         _hsmStatusCore0Start = .;
@@ -2792,11 +2627,7 @@ SECTIONS
         _hsmShmCore0CommBufEnd   = .;
     } > default_ram
 
-    /* APP1's CommBuf in CPU1's DSPR1 (global alias 0x60000000), at the
-     * same 96 KiB offset as APP0's in DSPR0. CPU1's echo-client footprint
-     * (.data/.bss/.zdata + 52k heap) is smaller than CPU0's and stays well
-     * under 96 KiB, so 0x60018000 is free. `> dsram1` ties the reservation
-     * into dsram1's bookkeeping so nothing else lands here. */
+    /* APP1 CommBuf in CPU1 DSPR1. */
     .hsmShmCore1Buf 0x60018100 (NOLOAD) :
     {
         _hsmShmCore1CommBufStart = .;
@@ -2804,24 +2635,9 @@ SECTIONS
         _hsmShmCore1CommBufEnd   = .;
     } > dsram1
 
-    /* wolfHSM DMA - shared LMU window for `*Dma` buffers the app explicitly
-     * wants in shared memory (the common case, host CPU stack buffers, now
-     * goes DSPR-direct - see port/client/tchsm_spr_apu.c - and needs no LMU
-     * staging). Buffers placed in .tchsmDmaFast are passed straight to CSRM
-     * with no copy and no size cap; both callbacks exchange ABSOLUTE LMU
-     * addresses. There is NO bounce pool anymore.
-     *
-     * The window lives in the LMU non-cached alias (segment 11), so neither
-     * host CPUs nor CSRM-via-host cache it; only CSRM's own L1-D needs
-     * maintenance, done server-side in tchsm_dma_cb.c. Sized to fill LMU
-     * instance 0's 512 KiB window above .lmudata (which bumps from
-     * 0xB0400000 and stays under 64 KiB) and never cross into instance 1:
-     * [0xB0410000, 0xB0480000) = 448 KiB.
-     *
-     * Reaching CSRM through LMU requires opening LMU's APU at boot: see
-     * port/client/tchsm_lmu_apu.c - at reset CSRM's TAG-IDs are not in any
-     * LMU RGN's ACCEN_WRA mask and CSRM writes get silently dropped at the
-     * slave-side APU. */
+    /* Shared LMU DMA window for app buffers.
+     * .tchsmDmaFast buffers are passed to CSRM by absolute address.
+     * The client opens LMU APU for CSRM at boot. */
     .tchsmDmaFast 0xb0410000 (NOLOAD) :
     {
         _clientDmaFastStart = .;
@@ -2831,14 +2647,12 @@ SECTIONS
         _clientDmaFastEnd = .;
     } > lmuram_nc
 
-    /* Window extents granted to CSRM in the LMU APU. Fixed so the APU
-     * region is independent of how much of the window is populated. */
+    /* Fixed window granted to CSRM in the LMU APU. */
     _clientDmaWindowStart = 0xb0410000;
     _clientDmaWindowEnd   = 0xb0480000;
     ASSERT(_clientDmaBssEnd <= _clientDmaWindowEnd,
            "tchsmDmaFast + tchsmDmaBss overflowed LMU instance 0 DMA window")
-    /* .tchsmDmaFast must not grow into the .tchsmDmaBss sub-window above it.
-     * Both live in the same LMU DMA window; the split is at 0xB0420000. */
+    /* Fast DMA buffers stay below the .tchsmDmaBss sub-window. */
     ASSERT(_clientDmaFastEnd <= _clientDmaBssStart,
            "tchsmDmaFast grew into the tchsmDmaBss sub-window at 0xB0420000")
 
@@ -2970,12 +2784,9 @@ SECTIONS
     LONG(0 + ADDR(.bss));             LONG(SIZEOF(.bss));
     LONG(0 + ADDR(.lmubss));          LONG(SIZEOF(.lmubss));
     LONG(0 + ADDR(.sbss4));           LONG(SIZEOF(.sbss4));
-    /* Per-core wolfCrypt/wolfHSM bss: CPU0's own copy (local alias -> CPU0
-     * DSPR); CPU1 primes its copy in core1_main. */
+    /* Clear CPU0's per-core wolfCrypt and wolfHSM bss. */
     LONG(0 + ADDR(.wolfcryptPerCore.bss)); LONG(SIZEOF(.wolfcryptPerCore.bss));
-    /* Test/benchmark bulk bss relocated to the LMU DMA window. Clearing it
-     * here keeps C zero-init semantics and primes ECC across the region
-     * before any read - see the .tchsmDmaBss placement above. */
+    /* Clear LMU DMA test buffers and prime ECC. */
     LONG(0 + ADDR(.tchsmDmaBss));      LONG(SIZEOF(.tchsmDmaBss));
     LONG(-1);                         LONG(-1);
     PROVIDE(__clear_table_powerOn = .);
@@ -3011,8 +2822,7 @@ SECTIONS
     LONG(LOADADDR(.CPU3.psram_text)); LONG(0 + ADDR(.CPU3.psram_text)); LONG(SIZEOF(.CPU3.psram_text));
     LONG(LOADADDR(.CPU4.psram_text)); LONG(0 + ADDR(.CPU4.psram_text)); LONG(SIZEOF(.CPU4.psram_text));
     LONG(LOADADDR(.CPU5.psram_text)); LONG(0 + ADDR(.CPU5.psram_text)); LONG(SIZEOF(.CPU5.psram_text));
-    /* Per-core wolfCrypt/wolfHSM data: CPU0's own copy (local alias -> CPU0
-     * DSPR); CPU1 copies its own in core1_main from __wc_pc_data_load. */
+    /* Copy CPU0's per-core wolfCrypt and wolfHSM data. */
     LONG(LOADADDR(.wolfcryptPerCore.data)); LONG(0 + ADDR(.wolfcryptPerCore.data)); LONG(SIZEOF(.wolfcryptPerCore.data));
     LONG(-1);                         LONG(-1);                         LONG(-1);
     PROVIDE(__copy_table_powerOn = .) ;
@@ -3080,9 +2890,7 @@ SECTIONS
         *(.psram_text_cpu0.*)
         *(.cpu0_psram)
         *(.cpu0_psram.*)
-        /* wolfBoot RAMFUNCTION flash drivers: run from PSPR so no fetch
-         * hits a PFLASH bank with a program/erase sequence in flight.
-         * Copied at startup via the linker's auto-generated __copy_table. */
+        /* wolfBoot flash drivers copied to PSPR at startup. */
         *(.ramcode)
         *(.ramcode.*)
         . = ALIGN(4);
@@ -3238,12 +3046,8 @@ SECTIONS
     } > default_rom
 
     /*
-     * C++ exception handling tables.  NOTE: gcc emits .eh_frame
-     * sections when compiling C sources with debugging enabled (-g).
-     * If you can be sure that your final application consists
-     * exclusively of C objects (i.e., no C++ objects), you may use
-     * the -R option of the "strip" and "objcopy" utilities to remove
-     * the .eh_frame section from the executable.
+     * gcc can emit .eh_frame when C files are compiled with -g.
+     * Strip it only when the image has no C++ objects.
      */
       .eh_frame : ALIGN(8)
 	  {

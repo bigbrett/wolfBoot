@@ -18,21 +18,10 @@
  * along with wolfBoot.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* wolfBoot test application for the AURIX TC4xx. Two flavors share this
- * file, selected by WOLFBOOT_AURIX_TC4XX_CSRM:
- *
- * Host domain (default): chain-loaded by wolfBoot on TriCore CPU0 (never
- * entered in hypervisor state, never booted from a BMHD; the startup
- * software is built accordingly - see the TC4 block in
- * test-app/Makefile). CPU1..5 stay in reset.
- *
- * CSRM: chain-loaded by wolfBoot on CPU6; the CSRM startup software is
- * warm-start safe and needs no accommodation.
- *
- * Both run bare-metal with interrupts disabled, so the libwolfboot flash
- * accesses need no fetch-stall protection: everything that could fetch
- * from the flash banks being touched executes from PSPR (.ramcode) or
- * stays blocked in the call. */
+/* wolfBoot test app for AURIX TC4xx.
+ * Host mode runs on CPU0.
+ * CSRM mode runs on CPU6.
+ * Flash helpers run from PSPR. */
 
 #ifdef TARGET_aurix_tc4xx
 
@@ -41,17 +30,20 @@
 #include "printf.h"
 #include "hal.h"
 #include "wolfboot/wolfboot.h"
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+#include "wolfhsm/wh_client.h"
+/* Defined by the port client glue. */
+extern whClientContext hsmClientCtx;
+#endif
 
 #define BASE_FW_VERSION 1
 
-/* The SSW's C++-init hook calls _init, normally supplied by crti.o;
- * the test app links with -nostartfiles, so provide the empty stub. */
+/* Empty _init for the SSW C init hook. */
 void _init(void)
 {
 }
 
-/* Referenced by the wolfBoot flash HAL linked into this image. A flash
- * driver fault has no recovery path here; hang for the debugger. */
+/* Hang on flash HAL faults. */
 void wolfBoot_panic(void)
 {
     while (1) {
@@ -59,9 +51,7 @@ void wolfBoot_panic(void)
     }
 }
 
-/* Entered by the startup software after C runtime init. Watchdogs are
- * already disabled (wolfBoot's hal_init did that and nothing re-enables
- * them across do_boot). */
+/* Entry after C runtime init. */
 #ifdef WOLFBOOT_AURIX_TC4XX_CSRM
 void core6_main(void)
 #else
@@ -79,18 +69,46 @@ void core0_main(void)
     wolfBoot_printf("Version: %d\n", wolfBoot_current_firmware_version());
 
     if (wolfBoot_current_firmware_version() <= BASE_FW_VERSION) {
-        /* We are booting into the base firmware, so stage the update */
+        /* Stage the update from base firmware. */
         wolfBoot_update_trigger();
     }
     else {
-        /* we are booting into the updated firmware so acknowledge the
-         * update (to prevent rollback) */
+        /* Confirm updated firmware. */
         wolfBoot_success();
     }
 
-    /* Main application loop */
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+    /* Full-system echo through the wolfHSM server. */
+    {
+        int        rc;
+        const char echoMsg[] = "wolfHSM echo test";
+        char       echoResp[sizeof(echoMsg)];
+        uint16_t   echoRespLen = 0;
+
+        rc = hal_hsm_init_connect();
+        if (rc == 0) {
+            wolfBoot_printf("wolfHSM Echo: sending %d bytes\n",
+                            sizeof(echoMsg));
+            rc = wh_Client_Echo(&hsmClientCtx, sizeof(echoMsg), echoMsg,
+                                &echoRespLen, echoResp);
+            if (rc == 0) {
+                wolfBoot_printf("wolfHSM Echo success: received %d bytes\n",
+                                echoRespLen);
+            }
+            else {
+                wolfBoot_printf("wolfHSM Echo test failed: %d\n", rc);
+            }
+            hal_hsm_disconnect();
+        }
+        else {
+            wolfBoot_printf("HSM connect failed: %d\n", rc);
+        }
+    }
+#endif
+
+    /* Main application loop. */
     while (1) {
-        /* spin forever */
+        /* Spin forever. */
     }
 }
 

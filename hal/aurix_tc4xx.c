@@ -70,6 +70,42 @@
 #include "IfxClock.h"
 #endif
 
+#if defined(WOLFBOOT_ENABLE_WOLFHSM_CLIENT)
+
+#include "IfxApApu.h"
+#include "IfxApProt.h"
+#include "IfxSrc.h"
+
+/* wolfHSM headers */
+#include "wolfhsm/wh_client.h"
+#include "wolfhsm/wh_error.h"
+/* wolfHSM AURIX TC4xx port headers */
+#include "tchsm_hsmhost.h"
+#include "tchsm_client.h"
+#include "tchsm_spr_apu.h"
+
+/* wolfHSM client ID for the HSM server.
+ * Align with whnvmtool provisioning. */
+#ifndef WOLFBOOT_WOLFHSM_CLIENT_ID
+#error "WOLFBOOT_WOLFHSM_CLIENT_ID is not defined. Set WOLFHSM_CLIENT_ID in your .config or on the make command line."
+#endif
+
+/* HAL symbols exported for wolfBoot wolfHSM client mode. */
+whClientContext hsmClientCtx = {0};
+/* The server hashes host flash by address. */
+const int hsmDevIdHash   = WH_DEV_ID_DMA;
+const int hsmDevIdPubKey = WH_DEV_ID;
+/* Verify public key stored in wolfHSM NVM. */
+const int hsmKeyIdPubKey = 0xFF;
+#ifdef EXT_ENCRYPT
+#error "AURIX TC4xx does not support firmware encryption with wolfHSM (yet)"
+#endif
+
+_Static_assert(WOLFBOOT_WOLFHSM_CLIENT_ID == TCHSM_HSMHOST_CLIENT_APP0,
+               "WOLFHSM_CLIENT_ID must match the port's APP0 client ID");
+
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */
+
 /* ---------------------------------------------------------------------------
  * PFLASH geometry (TC4Dx; see IfxFlash_cfg_TC4Dx.h and
  * IfxFlashCsrm_cfg_TC4Dx.h). Host and CSRM PFLASH share the 32-byte page
@@ -159,10 +195,8 @@
 /* RAM buffer holding one flash sector for read-modify-write operations */
 static uint32_t sectorBuffer[WOLFBOOT_SECTOR_SIZE / sizeof(uint32_t)];
 
-/* ---------------------------------------------------------------------------
- * Low-level command sequences. Everything that runs while a flash
- * operation is in flight is RAMFUNCTION so no fetch hits a busy bank.
- */
+/* Low-level flash command sequences.
+ * RAMFUNCTION places code outside busy banks. */
 
 static void RAMFUNCTION flashClearStatus(void)
 {
@@ -170,9 +204,9 @@ static void RAMFUNCTION flashClearStatus(void)
     TC4_DSYNC();
 }
 
-/* Wait for all host banks idle, then for sequence completion (REQDONE).
- * REQDONE - not busy-deassertion - is the real end-of-sequence signal;
- * a timeout is a hard failure because the error latches may be stale.
+/* Wait for all host banks idle, then for REQDONE.
+ * REQDONE marks the end of sequence.
+ * A timeout fails the operation.
  * Returns 0 on completion, -1 on timeout. */
 static int RAMFUNCTION flashWaitDone(void)
 {
@@ -482,8 +516,7 @@ static void uart_flush(void)
 void hal_init(void)
 {
 #ifdef WOLFBOOT_AURIX_TC4XX_CSRM
-    /* Disable the CSRM security watchdog for the duration of the image
-     * verification, exactly as the tchsm-server does. */
+    /* Disable the CSRM security watchdog during image verification. */
     IfxWtu_disableSecurityWatchdog(IfxWtu_getSecurityWatchdogPassword());
 
     /* The CSRM PFLASH bank must be allocated to the CSRM or the CSCI
@@ -492,17 +525,15 @@ void hal_init(void)
         wolfBoot_panic();
     }
 #else
-    /* The iLLD startup software has already run: PLLs locked, flash
-     * waitstates programmed, CPU1..5 held in reset. Watchdogs are live -
-     * disable them for the duration of the (potentially long) image
-     * verification, exactly as the demo applications do. */
+    /* iLLD startup already locked PLLs, programmed flash waitstates,
+     * and held CPU1..5 in reset. Disable watchdogs during image
+     * verification. */
     IfxWtu_disableCpuWatchdog(IfxWtu_getCpuWatchdogPassword());
     IfxWtu_disableSystemWatchdog(IfxWtu_getSystemWatchdogPassword());
 
-    /* Refuse to run if a host PFLASH bank this HAL programs has been
-     * reallocated to the CSRM: command writes would silently no-op. Banks
-     * P00/P01 (wolfBoot, pfls0) and P10/P11 (partitions, pfls1) must be
-     * host-owned (BKALLOC bit clear). */
+    /* Refuse to run if a host PFLASH bank has been reallocated to CSRM.
+     * Command writes would silently no-op. Banks P00/P01 and P10/P11
+     * must be host-owned. */
     if ((*TC4_GP_BKALLOC & 0xFu) != 0u) {
         wolfBoot_panic();
     }
@@ -778,3 +809,82 @@ void RAMFUNCTION ext_flash_unlock(void)
 {
     hal_flash_unlock();
 }
+
+#ifdef WOLFBOOT_ENABLE_WOLFHSM_CLIENT
+
+/* wolfHSM client connection over the port shared-memory transport. */
+
+/* Nonzero hardware setup return code for debugger inspection. */
+volatile int g_tc4_hsmc_hw_rc;
+
+/* CPU0 hardware setup for HsmHost transport. */
+static int tc4_hsmc_hw_init(void)
+{
+    {
+        IfxApApu_ApuConfig apConfig;
+        IfxApApu_initConfig(&apConfig);
+        const unsigned long srcTagMask =
+              (1UL << IfxApProt_TagId_cpu0d)
+            | (1UL << IfxApProt_TagId_cpu0ds)
+            | (1UL << IfxApProt_TagId_cpu1d)
+            | (1UL << IfxApProt_TagId_cpu1ds)
+            | (1UL << IfxApProt_TagId_cpucsd)
+            | (1UL << IfxApProt_TagId_cpucsds);
+        apConfig.wraTagId = srcTagMask;
+        apConfig.rdaTagId = srcTagMask;
+        apConfig.wrbTagId = 0U;
+        apConfig.rdbTagId = 0U;
+        IfxSrc_configureAccessToSrcs(&apConfig);
+    }
+
+    /* Probe SR0 to confirm SRC ACCEN writes are enabled. */
+    SRC_GPSR4_SR0.U = 0x00006014u;
+    if (((SRC_GPSR4_SR0.U >> 12) & 0xFu) != 6u) {
+        return -1;
+    }
+
+    if (tchsm_SprApu_OpenDspr() != 0u) {
+        return -2;
+    }
+    return 0;
+}
+
+int hal_hsm_init_connect(void)
+{
+    int rc;
+
+    /* The S2H wake ISR needs interrupts. */
+    IfxCpu_enableInterrupts();
+
+    /* Demo images do not use the tchsm_common_init layout. */
+
+    rc = tc4_hsmc_hw_init();
+    if (rc != 0) {
+        g_tc4_hsmc_hw_rc = rc;
+        return rc;
+    }
+
+    tchsm_client_init(TCHSM_HSMHOST_CLIENT_APP0);
+
+    /* Bound the ready probe so transport failures do not hang here. */
+    rc = tchsm_client_wait_ready(TCHSM_HSMHOST_CLIENT_APP0, 10000u);
+    if (rc != WH_ERROR_OK) {
+        return rc;
+    }
+
+    rc = wh_Client_Init(&hsmClientCtx,
+                        tchsm_client_get_config(TCHSM_HSMHOST_CLIENT_APP0));
+    if (rc != WH_ERROR_OK) {
+        return rc;
+    }
+    return wh_Client_CommInit(&hsmClientCtx, NULL, NULL);
+}
+
+int hal_hsm_disconnect(void)
+{
+    int rc  = wh_Client_CommClose(&hsmClientCtx);
+    int rc2 = wh_Client_Cleanup(&hsmClientCtx);
+    return (rc != WH_ERROR_OK) ? rc : rc2;
+}
+
+#endif /* WOLFBOOT_ENABLE_WOLFHSM_CLIENT */

@@ -1,12 +1,8 @@
-/* wolfBoot CSRM test-app linker script for AURIX TC4xx CPU6.
- * The app runs from the CSRM BOOT partition.
- * Flash-resident sections are packed into one signable image.
- * .ramcode holds flash helpers for PFLASH6 trailer writes.
- * UCB and BMHD sections remain empty. */
-
-LCF_WB_APP_BASE = @WOLFBOOT_TEST_APP_ADDRESS@;
-LCF_WB_APP_SIZE = @WOLFBOOT_TEST_APP_SIZE@;
-LCF_WB_APP_END  = LCF_WB_APP_BASE + LCF_WB_APP_SIZE;
+/* wolfBoot full-system CSRM linker script for AURIX TC4xx.
+ * CPU6 runs from the 64 KiB bootloader region.
+ * Vectors stay inside that region.
+ * Flash helpers run from PSPR6 through .ramcode.
+ * The wolfBoot Makefile converts this to config/target.ld. */
 
 /* Default linker script, for normal executables */
 OUTPUT_FORMAT("elf32-tricore")
@@ -16,12 +12,14 @@ ENTRY(_START6)
 __TRICORE_DERIVATE_MEMORY_MAP__ = 0x390;
 
 LCF_CSA6_SIZE = 8k;
-/* 16 KiB CSRM stack for cert-manager verify. */
+/* 16 KiB CSRM stack.
+ * Cert-manager verify needs about 8 KiB on stack.
+ * 128 KiB heap supports ML-DSA-87 keygen. */
 LCF_USTACK6_SIZE = 16k;
 LCF_ISTACK6_SIZE = 1k;
 
-/* 128 KiB heap for ML-DSA-87 keygen.
- * Dynamic-key and small-memory ML-DSA options are required.
+/* 128 KiB heap on DSPR6.
+ * ML-DSA-87 keygen needs this with dynamic keys and small-memory options.
  * KEYCACHE_BIG_COUNT needs at least 2 for SignDma re-import. */
 LCF_HEAP_SIZE = 128k;
 
@@ -34,13 +32,13 @@ LCF_USTACK6_OFFSET = (LCF_ISTACK6_OFFSET - 256 - LCF_USTACK6_SIZE);
 
 /* No LCF_HEAP6_OFFSET.
  * .heap grows bottom-up after .bss.
- * The guard below checks it against __USTACK6_END. */
+ * The guard below checks __HEAP_END against __USTACK6_END. */
 
-LCF_INTVEC6_START = 0x8401A000;
+LCF_INTVEC6_START = 0x8400E000;
 
 __INTTAB_CPU6 = LCF_INTVEC6_START;
 
-LCF_TRAPVEC6_START = 0x84018200;
+LCF_TRAPVEC6_START = 0x84000100;
 
 LCF_STARTPTR_CPU0 = 0x80000000;
 LCF_STARTPTR_CPU1 = 0x80400100;
@@ -48,7 +46,7 @@ LCF_STARTPTR_CPU2 = 0x80800100;
 LCF_STARTPTR_CPU3 = 0x80A00100;
 LCF_STARTPTR_CPU4 = 0x80E00100;
 LCF_STARTPTR_CPU5 = 0x81200100;
-LCF_STARTPTR_CPU6 = 0x84018100;
+LCF_STARTPTR_CPU6 = 0x84000000;
 
 LCF_STARTPTR_NC_CPU0 = 0xA0000000;
 LCF_STARTPTR_NC_CPU1 = 0xA0400100;
@@ -56,7 +54,7 @@ LCF_STARTPTR_NC_CPU2 = 0xA0800100;
 LCF_STARTPTR_NC_CPU3 = 0xA0A00100;
 LCF_STARTPTR_NC_CPU4 = 0xA0E00100;
 LCF_STARTPTR_NC_CPU5 = 0xA1200100;
-LCF_STARTPTR_NC_CPU6 = 0xA4018100;
+LCF_STARTPTR_NC_CPU6 = 0xA4000000;
 
 RESET = LCF_STARTPTR_NC_CPU6;
 
@@ -65,16 +63,14 @@ MEMORY
     dsram6_local (w!xp): org = 0xd0000000, len = 112k
     dsram6 (w!xp): org = 0x10000000, len = 240k
     psram6 (w!xp): org = 0x10100000, len = 64K
-    
-    psram_local (w!xp): org = 0xc0000000, len = 64K
-    
-    app_hdr (rx!p): org = 0x84018100, len = 0x1F00
 
-    pfls6 (rx!p): org = 0x8401C000, len = 0x6C000
-    pfls6_nc (rx!p): org = 0xa401C000, len = 0x6C000
-    
+    psram_local (w!xp): org = 0xc0000000, len = 64K
+
+    pfls6 (rx!p): org = 0x84000000, len = 0x10000
+    pfls6_nc (rx!p): org = 0xa4000000, len = 0x10000
+
     ucb_cs (rx!p): org = 0xaec01800, len = 52K - 4K
-    
+
 }
 
 /* map local memory address to a global address */
@@ -93,19 +89,23 @@ REGION_ALIAS( default_rom , pfls6)
     {
         CORE_SEC(.ustack) (LCF_DSPR6_START + LCF_USTACK6_OFFSET):
         { PROVIDE(__USTACK6_END = .);    . = . + LCF_USTACK6_SIZE;    PROVIDE(__USTACK6 = .); }
-        
+
         CORE_SEC(.istack) (LCF_DSPR6_START + LCF_ISTACK6_OFFSET):
         { PROVIDE(__ISTACK6_END = .);    . = . + LCF_ISTACK6_SIZE;    PROVIDE(__ISTACK6 = .); }
-        
+
         CORE_SEC(.csa) (LCF_DSPR6_START + LCF_CSA6_OFFSET):
         { PROVIDE(__CSA6 = .);    . = . + LCF_CSA6_SIZE;    PROVIDE(__CSA6_END = .); }
     }
-    
+
     /*Fixed memory Allocations for _START*/
     CORE_ID = GLOBAL ;
     SECTIONS
     {
-        .start_tc6 (LCF_STARTPTR_CPU6) : FLAGS(rxl) { KEEP (*(.start_cpu6)); } > app_hdr
+        /* Link at the cached alias for a contiguous binary image.
+         * BMHD STAD executes the same flash through the non-cached alias. */
+        .start_tc6 (LCF_STARTPTR_CPU6) : FLAGS(rxl) { KEEP (*(.start_cpu6)); } > pfls6
+        /* wolfBoot's own image base (used by the self-update path) */
+        PROVIDE(_start_text = LCF_STARTPTR_CPU6);
         PROVIDE(__IF_CONST = 0x80000020);
         PROVIDE(__START0 = LCF_STARTPTR_NC_CPU0);
         PROVIDE(__START1 = LCF_STARTPTR_NC_CPU1);
@@ -116,14 +116,14 @@ REGION_ALIAS( default_rom , pfls6)
         PROVIDE(__START6 = LCF_STARTPTR_NC_CPU6);
         PROVIDE(__ENABLE_INDIVIDUAL_C_INIT_CPU6 = 1);
     }
-    
+
     /*Fixed memory Allocations for Trap Vector Table*/
     CORE_ID = GLOBAL ;
     SECTIONS
     {
-        .traptab_tc6 (LCF_TRAPVEC6_START) : { PROVIDE(__TRAPTAB_CPU6 = .); KEEP (*(.traptab_cpu6)); } > app_hdr
+        .traptab_tc6 (LCF_TRAPVEC6_START) : { PROVIDE(__TRAPTAB_CPU6 = .); KEEP (*(.traptab_cpu6)); } > pfls6
     }
-    
+
     /*Fixed memory Allocations for Interrupt Vector Table*/
     SECTIONS
     {
@@ -385,7 +385,7 @@ REGION_ALIAS( default_rom , pfls6)
         .inttab_tc6_0FE (__INTTAB_CPU6 + 0x1FC0) : { . = ALIGN(8) ;  KEEP (*(.intvec_tc6_254)); }
         .inttab_tc6_0FF (__INTTAB_CPU6 + 0x1FE0) : { . = ALIGN(8) ;  KEEP (*(.intvec_tc6_255)); }
     }
-	
+
 	/*Fixed memory Allocations for BMHD CS*/
     CORE_ID = GLOBAL;
     SECTIONS
@@ -396,8 +396,8 @@ REGION_ALIAS( default_rom , pfls6)
         .bmhdcs_3_org (0xaec03000) : FLAGS(arl) { KEEP (*(.bmhdcs_3_orig)); } > ucb_cs
         .csusercfg_0_org (0xaec07800) : FLAGS(arl) { KEEP (*(.csusercfg_0_orig)); } > ucb_cs
         .csusercfg_0_cpy (0xaec08000) : FLAGS(arl) { KEEP (*(.csusercfg_0_copy)); } > ucb_cs
-    }	
-    
+    }
+
     /*Near Abbsolute Addressable Data Sections*/
     CORE_ID = CPU6;
     SECTIONS
@@ -409,7 +409,7 @@ REGION_ALIAS( default_rom , pfls6)
             *(.zdata_cpu6)
             *(.zdata_cpu6.*)
         } > dsram6 AT> pfls6
-        
+
         CORE_SEC(.zbss) (NOLOAD): FLAGS(awz)
         {
             *Ifx_Ssw_Tc6.* (.zbss)
@@ -418,18 +418,18 @@ REGION_ALIAS( default_rom , pfls6)
             *(.zbss_cpu6.*)
         } > dsram6
     }
-    
+
     /*Near Absolute Data, selectable by toolchain*/
     CORE_ID = GLOBAL;
     SECTIONS
-    {    
+    {
         CORE_SEC(.zdata_powerOn) : FLAGS(awzl)
         {
             *(.zdata.dsprPowerOnInit.cpu6.32bit)
             *(.zdata.dsprPowerOnInit.cpu6.16bit)
             *(.zdata.dsprPowerOnInit.cpu6.8bit)
         } > default_ram AT> pfls6
-        
+
         CORE_SEC(.zdata) : FLAGS(awzl)
         {
             *(.zdata.dsprInit.cpu6.32bit)
@@ -439,21 +439,21 @@ REGION_ALIAS( default_rom , pfls6)
             *(.zdata.*)
             *(.gnu.linkonce.z.*)
         } > default_ram AT> pfls6
-        
+
         CORE_SEC(.zbss_powerOn) (NOLOAD) : FLAGS(awz)
         {
             *(.zbss.dsprPowerOnClear.cpu6.32bit)
             *(.zbss.dsprPowerOnClear.cpu6.16bit)
             *(.zbss.dsprPowerOnClear.cpu6.8bit)
         } > default_ram
-        
+
         CORE_SEC(.zbss_noClear) (NOLOAD) : FLAGS(awz)
         {
             *(.zbss.dsprNoInit.cpu6.32bit)
             *(.zbss.dsprNoInit.cpu6.16bit)
             *(.zbss.dsprNoInit.cpu6.8bit)
         } > default_ram
-        
+
         CORE_SEC(.zbss) (NOLOAD) : FLAGS(awz)
         {
             *(.zbss.dsprClearOnInit.cpu6.32bit)
@@ -478,7 +478,7 @@ REGION_ALIAS( default_rom , pfls6)
             *(.zrodata_cpu?)
         } > pfls6
     }
-    
+
     /*Near Absolute Const, selectable by toolchain*/
     CORE_ID = GLOBAL;
     SECTIONS
@@ -539,15 +539,15 @@ SECTIONS
     CORE_SEC(.sdata4) :
     {
         *(.a9sdata)
-        *(.a9sdata.*)    
+        *(.a9sdata.*)
     } > dsram6 AT> pfls6
-    
+
     CORE_SEC(.sbss4) :
     {
         *(.a9sbss)
-        *(.a9sbss.*)    
+        *(.a9sbss.*)
     } > dsram6
-    
+
     _SMALL_DATA4_ = SIZEOF(CORE_SEC(.sdata4)) ? ADDR(CORE_SEC(.sdata4)) : (ADDR(CORE_SEC(.sdata4)) & 0xF0000000) + 32k ;
     __A9_MEM = _SMALL_DATA4_;
 
@@ -557,7 +557,7 @@ SECTIONS
         *(.rodata_a8)
         *(.rodata_a8.*)
     } > default_rom
-    
+
     _SMALL_DATA3_ = SIZEOF(CORE_SEC(.sdata3)) ? ADDR(CORE_SEC(.sdata3)) : (ADDR(CORE_SEC(.sdata3)) & 0xF0000000) + 32k ;
     __A8_MEM = _SMALL_DATA3_;
 }
@@ -575,7 +575,7 @@ SECTIONS
         *(.data_cpu6)
         *(.data_cpu6.*)
     } > dsram6 AT> pfls6
-    
+
     CORE_SEC(.bss) (NOLOAD): FLAGS(aw)
     {
         *Ifx_Ssw_Tc6.* (.bss)
@@ -583,14 +583,14 @@ SECTIONS
         *(.bss_cpu6)
         *(.bss_cpu6.*)
     } > dsram6
-    
+
     /*DLMU5 Sections*/
     CORE_SEC(.lmudata) : FLAGS(awl)
     {
         *(.lmudata_cpu6)
         *(.lmudata_cpu6.*)
     } > dsram6 AT> pfls6
-    
+
     CORE_SEC(.lmubss) : FLAGS(aw)
     {
         *(.lmubss_cpu6)
@@ -608,7 +608,7 @@ SECTIONS
         *(.bss.farDsprNoInit.cpu6.16bit)
         *(.bss.farDsprNoInit.cpu6.8bit)
     } > default_ram
-    
+
     CORE_SEC(.data) : FLAGS(awl)
     {
         *(.data.farDsprInit.cpu6.32bit)
@@ -618,7 +618,7 @@ SECTIONS
         *(.data.*)
     *(.gnu.linkonce.d.*)
     } > default_ram AT> pfls6
-    
+
     CORE_SEC(.bss) (NOLOAD) : FLAGS(aw)
     {
         *(.bss.farDsprClearOnInit.cpu6.32bit)
@@ -628,7 +628,7 @@ SECTIONS
         *(.bss.*)
         *(.gnu.linkonce.b.*)
     } > default_ram
-    
+
     .heap  : FLAGS(aw)
     {
     . = ALIGN(4);
@@ -637,7 +637,7 @@ SECTIONS
     __HEAP_END = .;
     } > default_ram
 
-    /* Guard .heap against the user stack. */
+    /* Heap stays below the user stack. */
     ASSERT(__HEAP_END <= __USTACK6_END,
            "DSPR6 .heap overruns .ustack")
 
@@ -646,7 +646,7 @@ SECTIONS
         *(.lmudata)
         *(.lmudata.*)
     } > dsram6 AT> pfls6
-    
+
     CORE_SEC(.lmubss) : FLAGS(aw)
     {
         *(.lmubss)
@@ -729,7 +729,7 @@ SECTIONS
         *(.text_cpu6)
         *(.text_cpu6.*)
     } > pfls6
-    
+
     /*
      * Code executed before calling main extra section for C++ constructor init
      *  -------------------------Start-----------------------------------------
@@ -741,9 +741,9 @@ SECTIONS
         KEEP(*(.init*))
         PROVIDE(__init_end = .);
         . = ALIGN(8);
-    
+
     } > pfls6
-    
+
     .fini :
     {
         PROVIDE(__fini_start = .);
@@ -752,7 +752,7 @@ SECTIONS
         PROVIDE(__fini_end = .);
         . = ALIGN(8);
     } > pfls6
-    
+
     /*
      * Code executed before calling main extra section for C++ constructor init
      *  -------------------------End-----------------------------------------
@@ -764,8 +764,7 @@ SECTIONS
         *(.psram_text_cpu6.*)
         *(.cpu6_psram)
         *(.cpu6_psram.*)
-        /* wolfBoot RAMFUNCTION helpers (trigger/success trailer writes;
-         * copied at startup via the auto-generated __copy_table) */
+        /* wolfBoot flash drivers copied to PSPR at startup. */
         *(.ramcode)
         *(.ramcode.*)
     } > psram6 AT> pfls6
@@ -894,48 +893,30 @@ SECTIONS
 }
 
 /* Shared wolfHSM IPC buffer symbols.
- *
- * Physical memory is owned and reserved by the client image (CPU0's
- * DSPR0 - see tchsm-client/tchsm-client.ld `.hsmShmCoreBufs`
- * NOLOAD section). The server doesn't allocate anything here; it just
- * needs the same symbol *values* so port/tchsm_common.h's externs
- * resolve to the same physical addresses on both sides. Fixed
- * assignment is the most direct expression of that contract - if you
- * change the address on either side, change it here too. */
-_hsmShmCore0CommBufStart = 0x70018100;   /* APP0 - CPU0 DSPR0 */
+ * The client image reserves the memory.
+ * The server uses matching symbol values. */
+_hsmShmCore0CommBufStart = 0x70018100;   /* APP0 CPU0 DSPR0 */
 _hsmShmCore0CommBufEnd   = 0x70020000;
-_hsmShmCore1CommBufStart = 0x60018100;   /* APP1 - CPU1 DSPR1 (global alias) */
+_hsmShmCore1CommBufStart = 0x60018100;   /* APP1 CPU1 DSPR1 global alias */
 _hsmShmCore1CommBufEnd   = 0x60020000;
 
-/* Per-host-core boot/handshake status regions (tchsm_CoreStatus), 256 B
- * each, at the FRONT of each core's cross-core window (0x..018000) - the
- * range proven cross-core-writable; reserved by the client image. The
- * server reads/writes them (HSM-ready stamp) via the same symbol values. */
+/* Per-host-core boot and handshake status regions. */
 _hsmStatusCore0Start = 0x70018000;       /* CPU0 DSPR0 */
 _hsmStatusCore0End   = 0x70018100;
-_hsmStatusCore1Start = 0x60018000;       /* CPU1 DSPR1 (global alias) */
+_hsmStatusCore1Start = 0x60018000;       /* CPU1 DSPR1 global alias */
 _hsmStatusCore1End   = 0x60018100;
 
 /* CSRM-owned data-flash NVM for wolfHSM persistence.
- * Absolute symbols only. No NOLOAD reservation.
- * Align size and base changes with the BKALLOC check. */
+ * This 64 KiB region starts at 0xAE800000.
+ * Access goes through the CSRM command interface.
+ * These are absolute symbols, not a NOLOAD reservation.
+     * Align with tchsm_CsrmFlash_Init's BKALLOC check. */
 _csrmNvmStart = 0xAE800000;
 _csrmNvmEnd   = 0xAE810000;
 
-/* wolfHSM DMA window - see client linker comment for the design.
- *
- * The host image reserves the LMU non-cached window with a NOLOAD section
- * and opens LMU APU for CSRM over [_clientDmaWindowStart, _clientDmaWindowEnd)
- * at boot (port/client/tchsm_lmu_apu.c). The server image only needs the
- * window extents visible to port/server/tchsm_dma_cb.c, which validates the
- * absolute client address (LMU window OR a host DSPR range) and dereferences
- * it directly. There is no bounce pool. */
+/* wolfHSM DMA window.
+ * The host reserves the LMU window and opens LMU APU for CSRM.
+ * The server validates client addresses against these bounds.
+ * There is no bounce pool. */
 _clientDmaWindowStart = 0xB0410000;
 _clientDmaWindowEnd   = 0xB0480000;
-
-
-/* wolfBoot partition containment checks */
-ASSERT(LCF_STARTPTR_CPU6 == LCF_WB_APP_BASE,
-       "wolfBoot CSRM app entry does not match the configured partition address")
-ASSERT((ORIGIN(pfls6) + LENGTH(pfls6)) <= LCF_WB_APP_END,
-       "wolfBoot CSRM app flash carve overflows the BOOT partition")

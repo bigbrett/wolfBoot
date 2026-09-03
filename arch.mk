@@ -2360,46 +2360,44 @@ ifeq ($(ARCH), AURIX_TC3)
     endif # !AURIX_TC3_HSM
   endif
 
-  # TC4xx specific: wolfBoot on TriCore host CPU0 using the Infineon iLLD
-  # drivers and startup software from the out-of-tree wolfHSM TC4xx port
-  # (WOLFHSM_INFINEON_TC4XX). Only the open-source tricore-elf-gcc
-  # toolchain is supported.
+  # TC4xx wolfBoot on TriCore host CPU0 using the Infineon iLLD drivers
+  # and startup software from WOLFHSM_INFINEON_TC4XX.
+  # Only tricore-elf-gcc is supported.
   ifeq ($(TARGET), aurix_tc4xx)
     USE_GCC?=1
     ARCH_FLASH_OFFSET?=0x80000000
 
-    # Path to the wolfHSM TC4xx port root (contains drivers/, port/,
-    # device.mk). This tree lives inside the port as its wolfBoot/
-    # submodule; the port's top-level Makefile also exports this.
+    # wolfHSM TC4xx port root.
+    # This tree lives inside the port as its wolfBoot submodule.
     WOLFHSM_INFINEON_TC4XX?=$(abspath ..)
     TC4_LLD_DIR?=$(WOLFHSM_INFINEON_TC4XX)/drivers
     TC4_WB_DIR?=$(WOLFHSM_INFINEON_TC4XX)/port/wolfboot
 
-    # Derivative selection (DEVICE=TC4DA default): DEV_MCPU, DEV_MACRO,
-    # DEV_DERIV, DEV_XTAL_DEF and the load-bearing gcc-13 correctness
-    # flags all come from the port's single source of truth.
+    # Device selection from the port device.mk.
+    # Provides DEV_MCPU, DEV_MACRO, DEV_DERIV, DEV_XTAL_DEF,
+    # and GCC 13 workaround flags.
     include $(WOLFHSM_INFINEON_TC4XX)/device.mk
 
     CROSS_COMPILE?=tricore-elf-
 
     CFLAGS += -mcpu=$(DEV_MCPU) -D$(DEV_MACRO) $(DEV_XTAL_DEF) \
               $(DEV_GCC13_CFLAGS)
-    # NB: -ffunction-sections only, never -fdata-sections (see the
-    # DEV_GCC13_CFLAGS comment in device.mk: gcc-13 bare-names data
-    # sections, which escape the SSW clear/copy tables).
+    # Use -ffunction-sections only.
+    # DEV_GCC13_CFLAGS in device.mk explains why GCC 13
+    # builds disable -fdata-sections.
     CFLAGS += -Wall -fno-common -fstrict-volatile-bitfields \
               -ffunction-sections -fno-builtin -std=gnu99 \
               -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
               -DWOLFBOOT_LOADER_MAIN
-    # The top-level -Werror -Wextra meets vendor iLLD code here; demote
-    # the -Wextra classes the iLLD sources trip over.
+    # Vendor iLLD sources trip some -Wextra diagnostics.
+    # Demote those classes.
     CFLAGS += -Wno-missing-field-initializers -Wno-unused-parameter \
               -Wno-unused-variable -Wno-sign-compare -Wno-type-limits
 
-    # iLLD include forest (the tchsm-client Makefile's list verbatim,
-    # plus Flash/Std for the PFLASH command interface and the wolfBoot
-    # SSW config directory)
-    # SSW configuration (Ifx_Cfg.h + Cfg_Ssw) differs per flavor
+    # iLLD include paths.
+    # Matches the tchsm-client Makefile and adds Flash/Std plus
+    # the wolfBoot SSW config directory.
+    # SSW configuration differs per flavor.
     ifeq ($(AURIX_TC4_CSRM),1)
       CFLAGS += -I$(TC4_WB_DIR)/csrm -I$(TC4_WB_DIR)/csrm/Cfg_Ssw
     else
@@ -2476,27 +2474,66 @@ ifeq ($(ARCH), AURIX_TC3)
     # No TriCore asm in wolfCrypt
     MATH_OBJS+=$(WOLFBOOT_LIB_WOLFSSL)/wolfcrypt/src/sp_c32.o
 
-    # CSRM flavor (AURIX_TC4_CSRM=1): wolfBoot on CPU6 booting from the
-    # CSRM's own PFLASH bank via the CSCI. The CSRM has no FPU.
+    # wolfHSM support for TC4.
+    # Client mode offloads hash and verify to tchsm-server.
+    # The verify public key lives in server NVM.
+    ifneq ($(filter 1,$(WOLFHSM_CLIENT) $(WOLFHSM_SERVER)),)
+      # Common wolfHSM port files.
+      # Config comes from CFLAGS and options.mk.
+      # DMA lets the server read host flash directly.
+      CFLAGS += -I$(WOLFHSM_INFINEON_TC4XX)/port -DWOLFHSM_CFG_DMA \
+                -DWOLFHSM_CFG_NO_SYS_TIME
+      OBJS += $(WOLFHSM_INFINEON_TC4XX)/port/tchsm_hsmhost.o
+      # General wolfHSM files
+      OBJS += $(WOLFBOOT_LIB_WOLFHSM)/src/wh_transport_mem.o
+
+      # NVM image variables for the server key store.
+      # TC4 CSRM DF uses 64 KiB at 0xAE800000, erases to 0xFF, and
+      # programs 8-byte pages.
+      WH_NVM_BIN ?= whNvmImage.bin
+      WH_NVM_HEX ?= whNvmImage.hex
+      WH_NVM_PART_SIZE ?= 0x8000
+      WH_NVM_BASE_ADDRESS ?= 0xAE800000
+      WH_NVM_TOOL_FLAGS ?=
+      WH_NVM_HEX_ALIGN ?= 8
+      NVM_CONFIG ?= tools/scripts/tc4xx/wolfBoot-wolfHSM-keys.nvminit
+    endif
+
+    ifeq ($(WOLFHSM_CLIENT),1)
+      # Client transport bring-up files.
+      CFLAGS += -I$(WOLFHSM_INFINEON_TC4XX)/port/client
+      OBJS += $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_client.o \
+              $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_hh_host.o \
+              $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_spr_apu.o \
+              $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_dma_client.o \
+              $(WOLFHSM_INFINEON_TC4XX)/port/client/tchsm_time.o
+    endif
+
+    # CSRM flavor uses CPU6 and the CSRM PFLASH bank through CSCI.
+    # The CSRM has no FPU.
     ifeq ($(AURIX_TC4_CSRM),1)
       CFLAGS += -DWOLFBOOT_AURIX_TC4XX_CSRM -msoft-sp-float -msoft-dp-float
       LDFLAGS += -msoft-sp-float -msoft-dp-float
       LSCRIPT_IN=hal/aurix_tc4xx_csrm.ld
+      # Full-system CSRM wolfBoot leaves host release to tchsm-server.
+      ifeq ($(AURIX_TC4_FULLSYS),1)
+        CFLAGS += -DWOLFBOOT_AURIX_TC4XX_FULLSYS
+        # 64 KiB bootloader reservation.
+        LSCRIPT_IN=hal/aurix_tc4xx_csrm_fullsys.ld
+      endif
     endif
 
     LDFLAGS += -mcpu=$(DEV_MCPU) -Wl,--cref -Wl,-Map="wolfboot.map"
 
-    # Keep wolfboot.bin contiguous: the UCB/BMHD sections live at
-    # 0xAE4xxxxx and would otherwise stretch the raw binary across the
-    # whole address gap.
-    # .zdata/.sdata/.sdata4 are empty with the default code model but carry
-    # the CONTENTS flag at their RAM addresses, which would stretch the
-    # raw binary span.
+    # Make wolfboot.bin contiguous.
+    # UCB and BMHD sections live at 0xAE4xxxxx and would otherwise
+    # stretch the raw binary across the address gap.
+    # .zdata, .sdata, and .sdata4 are empty with the default code model
+    # but carry CONTENTS at RAM addresses. Remove them from the raw span.
     OBJCOPY_FLAGS+=-R '.bmhd*' -R '.usercfg*' -R '.csusercfg*' -R '.sdata4' -R '.sdata' -R '.zdata'
 
-    # iLLD startup software + drivers the HAL uses, compiled in place.
-    # Common set for both flavors; the startup software itself is
-    # flavor-specific below.
+    # iLLD startup software and drivers used by the HAL.
+    # Startup is flavor-specific below.
     TC4_LLD_SRCS := \
       $(wildcard $(TC4_LLD_DIR)/Infra/Platform/Compilers/*.c) \
       $(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Tricore/Ifx_Ssw_Infra.c \
@@ -2524,9 +2561,9 @@ ifeq ($(ARCH), AURIX_TC3)
               $(TC4_WB_DIR)/csrm/Cfg_Ssw/Ifx_Cfg_SswBmhdCs.o \
               $(TC4_WB_DIR)/csrm/tc4_wolfboot_csrm_main.o
     else
-      # Host CPU0 startup software + trap table. Only CPU0 startup is
-      # included: wolfBoot keeps CPU1..5 in reset (see
-      # port/wolfboot/Ifx_Cfg.h); the verified application starts them.
+      # Host CPU0 startup software and trap table.
+      # Include only CPU0 startup. wolfBoot leaves CPU1..5 in reset.
+      # The verified application starts them.
       TC4_LLD_SRCS += \
         $(TC4_LLD_DIR)/Infra/Ssw/TC4xx/Tricore/Ifx_Ssw_Tc0.c \
         $(wildcard $(TC4_LLD_DIR)/iLLD/TC4xx/Tricore/Cpu/Irq/*.c) \

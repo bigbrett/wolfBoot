@@ -1,17 +1,8 @@
-/* wolfBoot CSRM bootloader linker script for AURIX TC4xx (CPU6).
- * Derived from the wolfHSM tc4xx server LSL (Lcf_Gcc_Tricore_TcCs.lsl).
- * Differences from the application script:
- *  - pfls6 is restricted to the 96KB bootloader region ending below the
- *    wolfBoot BOOT partition (0x84018000)
- *  - the interrupt vector table moves inside that region
- *  - the start stub links at the cached alias so the binary image is
- *    contiguous (the CS_BMHD STAD 0xA4000000 executes the same flash
- *    through the non-cached alias; the stub only performs absolute jumps)
- *  - a .ramcode output section (CSRM PSPR, copied by the SSW via the
- *    auto-generated __copy_table) holds the RAMFUNCTION flash drivers:
- *    wolfBoot and the partitions share the single CSRM flash bank, so
- *    nothing may fetch from it while a program/erase sequence runs
- * Processed by the wolfBoot Makefile into config/target.ld. */
+/* wolfBoot CSRM bootloader linker script for AURIX TC4xx.
+ * CPU6 runs from the reserved CSRM flash region.
+ * Vectors stay inside that region.
+ * Flash helpers run from PSPR6 through .ramcode.
+ * The wolfBoot Makefile converts this to config/target.ld. */
 
 /* Default linker script, for normal executables */
 OUTPUT_FORMAT("elf32-tricore")
@@ -21,38 +12,15 @@ ENTRY(_START6)
 __TRICORE_DERIVATE_MEMORY_MAP__ = 0x390;
 
 LCF_CSA6_SIZE = 8k;
-/* 16k CSRM stack. Sized for the cert-manager verify frame
- * (root_cert[MAX_CERT_SIZE] = 4 KiB + DecodedCert ~4 KiB on the stack).
- * The CSRM-data-flash NVM backend (TCHSM_CFG_NVM_BACKEND_CSRM_DF) keeps
- * the 8 KiB RAMSIM array (tchsmFlashMem) out of DSPR6 .bss, leaving room.
- * .heap stays fixed 128k (load-bearing for ML-DSA-87 keygen). If .bss
- * ever pushes .heap back into .ustack, trim to 12-15k or apply a heap
- * lever below. */
+/* 16 KiB CSRM stack.
+ * Cert-manager verify needs about 8 KiB on stack.
+ * 128 KiB heap supports ML-DSA-87 keygen. */
 LCF_USTACK6_SIZE = 16k;
 LCF_ISTACK6_SIZE = 1k;
 
-/* 128 KiB heap on a 240 KiB DSPR6.
- *
- * Current invariants (re-derive before changing):
- *   - HEAP must be ≥ ML-DSA-87 keygen working-set under
- *     WOLFSSL_MLDSA_DYNAMIC_KEYS + WOLFSSL_MLDSA_MAKE_KEY_SMALL_MEM.
- *     128 KiB clears it; 120 KiB does not (measured: MEMORY_E from
- *     wc_MlDsaKey_MakeKey).
- *   - KEYCACHE_BIG_COUNT must be ≥ 2 - SignDma's internal re-import
- *     path can't evict an uncommitted prior import; a single BIG
- *     slot deadlocks.
- *   - WOLFSSL_MLDSA_DYNAMIC_KEYS + the three MLDSA SMALL_MEM flags
- *     are what makes "BIG_COUNT=2 AND heap=128 KiB" fit together;
- *     dropping any of them re-opens the MEMORY_E failure.
- *
- * If static allocations grow further (new PQ flavor, COMM_DATA_LEN
- * bumped again, extra cache slot), the cheap levers in order are:
- *   1. WOLFSSL_MLDSA_SIGN_SMALL_MEM_PRECALC (one alloc per sign
- *      instead of per-iteration - may also fix the SIGN-DMA
- *      latency variance).
- *   2. KEYCACHE_COUNT 16 → 12  (-1.3 KiB static).
- *   3. USTACK6 16 → 12 KiB     (-4 KiB; DYNAMIC_KEYS made the
- *                               keygen frame small enough). */
+/* 128 KiB heap on DSPR6.
+ * ML-DSA-87 keygen needs this with dynamic keys and small-memory options.
+ * KEYCACHE_BIG_COUNT needs at least 2 for SignDma re-import. */
 LCF_HEAP_SIZE = 128k;
 
 LCF_DSPR6_START = 0x10000000;
@@ -62,12 +30,9 @@ LCF_CSA6_OFFSET =    (LCF_DSPR6_SIZE - 1k - LCF_CSA6_SIZE);
 LCF_ISTACK6_OFFSET = (LCF_CSA6_OFFSET - 256 - LCF_ISTACK6_SIZE);
 LCF_USTACK6_OFFSET = (LCF_ISTACK6_OFFSET - 256 - LCF_USTACK6_SIZE);
 
-/* NOTE: there is intentionally no LCF_HEAP6_OFFSET. The .heap section is
- * NOT placed top-anchored at a fixed offset; it grows bottom-up right
- * after .bss (see the `.heap` section below, which sets __HEAP / __HEAP_END
- * from the current location counter). A precomputed heap offset would have
- * been dead - the runtime heap top is __HEAP_END, and the ASSERT after the
- * .heap section checks it against the ustack low edge __USTACK6_END. */
+/* No LCF_HEAP6_OFFSET.
+ * .heap grows bottom-up after .bss.
+ * The guard below checks __HEAP_END against __USTACK6_END. */
 
 LCF_INTVEC6_START = 0x84016000;
 
@@ -136,9 +101,8 @@ REGION_ALIAS( default_rom , pfls6)
     CORE_ID = GLOBAL ;
     SECTIONS
     {
-        /* Linked at the cached alias so the binary image is contiguous; the
-         * BMHD STAD (0xA4000000) executes the same flash through the
-         * non-cached alias, and the stub only performs absolute jumps. */
+        /* Link at the cached alias for a contiguous binary image.
+         * BMHD STAD executes the same flash through the non-cached alias. */
         .start_tc6 (LCF_STARTPTR_CPU6) : FLAGS(rxl) { KEEP (*(.start_cpu6)); } > pfls6
         /* wolfBoot's own image base (used by the self-update path) */
         PROVIDE(_start_text = LCF_STARTPTR_CPU6);
@@ -537,7 +501,7 @@ CORE_ID = GLOBAL;
 SECTIONS
 {
     /*Relative A0 Addressable Data, selectable with patterns and user defined sections*/
-        /*Note: A0 addressable area is common, to make the functions callable in any CPU*/
+        /* A0 addressable area is common to all CPUs. */
     /*Relative A0 Addressable Data, selectable by toolchain*/
     CORE_SEC(.sdata) : FLAGS(awsl)
     {
@@ -557,7 +521,7 @@ CORE_ID = GLOBAL;
 SECTIONS
 {
     /*Relative A1 Addressable Const, selectable with patterns and user defined sections*/
-        /*Note: A1 addressable area is common, to make the functions callable in any CPU*/
+        /* A1 addressable area is common to all CPUs. */
     /*Relative A1 Addressable Const, selectable by toolchain*/
     CORE_SEC(.sdata2) : FLAGS(arsl)
     {
@@ -673,11 +637,7 @@ SECTIONS
     __HEAP_END = .;
     } > default_ram
 
-    /* DSPR6 layout guard: the bottom-up .heap (ending at __HEAP_END) must
-     * not overrun the user stack, whose low edge is __USTACK6_END (placed
-     * top-anchored at LCF_DSPR6_START + LCF_USTACK6_OFFSET). If .bss + .heap
-     * ever grow past the stack the link fails here instead of producing an
-     * image that corrupts the stack at runtime. */
+    /* Heap stays below the user stack. */
     ASSERT(__HEAP_END <= __USTACK6_END,
            "DSPR6 .heap overruns .ustack")
 
@@ -804,9 +764,7 @@ SECTIONS
         *(.psram_text_cpu6.*)
         *(.cpu6_psram)
         *(.cpu6_psram.*)
-        /* wolfBoot RAMFUNCTION flash drivers: run from PSPR so no fetch
-         * hits the CSRM flash bank with a program/erase sequence in
-         * flight. Copied at startup via the auto-generated __copy_table. */
+        /* wolfBoot flash drivers copied to PSPR at startup. */
         *(.ramcode)
         *(.ramcode.*)
     } > psram6 AT> pfls6
@@ -831,12 +789,8 @@ SECTIONS
     } > default_rom
 
     /*
-     * C++ exception handling tables.  NOTE: gcc emits .eh_frame
-     * sections when compiling C sources with debugging enabled (-g).
-     * If you can be sure that your final application consists
-     * exclusively of C objects (i.e., no C++ objects), you may use
-     * the -R option of the "strip" and "objcopy" utilities to remove
-     * the .eh_frame section from the executable.
+     * gcc can emit .eh_frame when C files are compiled with -g.
+     * Strip it only when the image has no C++ objects.
      */
       .eh_frame : ALIGN(8)
 	  {
@@ -939,57 +893,30 @@ SECTIONS
 }
 
 /* Shared wolfHSM IPC buffer symbols.
- *
- * Physical memory is owned and reserved by the client image (CPU0's
- * DSPR0 - see tchsm-client/Lcf_Gcc_Tricore_Tc.lsl `.hsmShmCoreBufs`
- * NOLOAD section). The server doesn't allocate anything here; it just
- * needs the same symbol *values* so port/tchsm_common.h's externs
- * resolve to the same physical addresses on both sides. Fixed
- * assignment is the most direct expression of that contract - if you
- * change the address on either side, change it here too. */
-_hsmShmCore0CommBufStart = 0x70018100;   /* APP0 - CPU0 DSPR0 */
+ * The client image reserves the memory.
+ * The server uses matching symbol values. */
+_hsmShmCore0CommBufStart = 0x70018100;   /* APP0 CPU0 DSPR0 */
 _hsmShmCore0CommBufEnd   = 0x70020000;
-_hsmShmCore1CommBufStart = 0x60018100;   /* APP1 - CPU1 DSPR1 (global alias) */
+_hsmShmCore1CommBufStart = 0x60018100;   /* APP1 CPU1 DSPR1 global alias */
 _hsmShmCore1CommBufEnd   = 0x60020000;
 
-/* Per-host-core boot/handshake status regions (tchsm_CoreStatus), 256 B
- * each, at the FRONT of each core's cross-core window (0x..018000) - the
- * range proven cross-core-writable; reserved by the client image. The
- * server reads/writes them (HSM-ready stamp) via the same symbol values. */
+/* Per-host-core boot and handshake status regions. */
 _hsmStatusCore0Start = 0x70018000;       /* CPU0 DSPR0 */
 _hsmStatusCore0End   = 0x70018100;
-_hsmStatusCore1Start = 0x60018000;       /* CPU1 DSPR1 (global alias) */
+_hsmStatusCore1Start = 0x60018000;       /* CPU1 DSPR1 global alias */
 _hsmStatusCore1End   = 0x60018100;
 
-/* CSRM-owned data-flash NVM region for wolfHSM persistence.
- *
- * 64 KiB at 0xAE800000 carved out of the 1 MiB CSRM DF bank (logical
- * sectors 0..31 of 2 KiB each - see IfxFlashCsrm_cfg_TC4Dx.h). The
- * region is reachable only via the CSRM cmd interface (0xF80C0000)
- * driven by port/server/tchsm_csrm_flash.c.
- *
- * These are plain absolute-address symbols, NOT a NOLOAD reservation:
- * port/server/config/tchsm_server_cfg.c reads them as base/end of the
- * flash driver's region. The only thing currently preventing the
- * linker from placing code/data at 0xAE8xxxxx is the absence of a
- * MEMORY entry covering this address range. If you ever add a MEMORY
- * region overlapping it (e.g. to allow reads via the linker rather
- * than only through the cmd interface), wrap these symbols in a real
- * NOLOAD SECTION first to keep the linker out of the NVM region.
- *
- * If you change the size or base, also update tchsm_CsrmFlash_Init's
- * BKALLOC check (bit 17 == DCsrm - TC4Dx-specific). */
+/* CSRM-owned data-flash NVM for wolfHSM persistence.
+ * This 64 KiB region starts at 0xAE800000.
+ * Access goes through the CSRM command interface.
+ * These are absolute symbols, not a NOLOAD reservation.
+     * Align with tchsm_CsrmFlash_Init's BKALLOC check. */
 _csrmNvmStart = 0xAE800000;
 _csrmNvmEnd   = 0xAE810000;
 
-/* wolfHSM DMA window - see client linker comment for the design.
- *
- * The host image reserves the LMU non-cached window with a NOLOAD section
- * and opens LMU APU for CSRM over [_clientDmaWindowStart, _clientDmaWindowEnd)
- * at boot (port/client/tchsm_lmu_apu.c). The server image only needs the
- * window extents visible to port/server/tchsm_dma_cb.c, which validates the
- * absolute client address (LMU window OR a host DSPR range) and dereferences
- * it directly. There is no bounce pool. */
+/* wolfHSM DMA window.
+ * The host reserves the LMU window and opens LMU APU for CSRM.
+ * The server validates client addresses against these bounds.
+ * There is no bounce pool. */
 _clientDmaWindowStart = 0xB0410000;
 _clientDmaWindowEnd   = 0xB0480000;
-
