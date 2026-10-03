@@ -39,6 +39,7 @@
 #define NVM_CACHE_SIZE WOLFBOOT_SECTOR_SIZE
 #define FLASHBUFFER_SIZE WOLFBOOT_SECTOR_SIZE
 #define XMEMCPY(a, b, n) memcpy((a), (b), (n))
+#define NVM_CACHE_LOAD(src) XMEMCPY(NVM_CACHE, (void*)(src), NVM_CACHE_SIZE)
 
 /* The buffer under test (real: file-scope in src/libwolfboot.c). */
 static uint8_t NVM_CACHE[NVM_CACHE_SIZE];

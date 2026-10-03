@@ -71,20 +71,6 @@ void RAMFUNCTION WEAKFUNCTION wolfBoot_watchdog_feed(void)
 
 #include <stddef.h> /* for size_t */
 
-#ifdef EXT_ENCRYPTED
-static int encrypt_key_is_erased(const uint8_t *key, uint32_t len)
-{
-    const volatile uint8_t *vkey = key;
-    uint8_t diff = 0;
-    uint32_t i;
-
-    for (i = 0; i < len; i++)
-        diff |= vkey[i] ^ FLASH_BYTE_ERASED;
-
-    return diff == 0;
-}
-#endif
-
 #if defined(EXT_ENCRYPTED) && (defined(__WOLFBOOT) || defined(UNIT_TEST) || defined(MMU))
 #include "encrypt.h"
 static int encrypt_initialized = 0;
@@ -187,7 +173,7 @@ int wolfBoot_initialize_encryption(void)
 #endif
 
 #if defined(EXT_FLASH) && !defined(WOLFBOOT_NO_PARTITIONS) && \
-    !defined(CUSTOM_PARTITION_TRAILER)
+    !defined(CUSTOM_PARTITION_TRAILER) && !defined(NVM_FLASH_JOURNAL)
 static uint32_t ext_cache;
 #endif
 
@@ -262,6 +248,71 @@ int WEAKFUNCTION hal_dma_set_noncached(uintptr_t start, uintptr_t end)
     return -1;
 }
 
+/* Weak default erased check that compares a plain read with
+ * FLASH_BYTE_ERASED. A HAL overrides it where a plain read is not reliable. */
+int RAMFUNCTION WEAKFUNCTION hal_flash_is_erased(haladdr_t address, int len)
+{
+    const volatile uint8_t *p = (const volatile uint8_t *)(uintptr_t)address;
+    int i;
+
+    for (i = 0; i < len; i++) {
+        if (p[i] != FLASH_BYTE_ERASED)
+            return 0;
+    }
+    return 1;
+}
+
+#ifdef EXT_FLASH
+/* Weak default erased check for external flash, read through the HAL */
+int RAMFUNCTION WEAKFUNCTION ext_flash_is_erased(uintptr_t address, int len)
+{
+    uint8_t buf[32];
+    int n, i;
+
+    while (len > 0) {
+        n = (len > (int)sizeof(buf)) ? (int)sizeof(buf) : len;
+        if (ext_flash_read(address, buf, n) != n)
+            return -1;
+        for (i = 0; i < n; i++) {
+            if (buf[i] != FLASH_BYTE_ERASED)
+                return 0;
+        }
+        address += n;
+        len -= n;
+    }
+    return 1;
+}
+#endif
+
+#if defined(WOLFBOOT_PERSIST_FAILURE_STATUS) || defined(NVM_FLASH_JOURNAL)
+/* CRC32 (IEEE 802.3), bitwise to keep the code small */
+static uint32_t RAMFUNCTION wb_crc32(const void *data, uint32_t len)
+{
+    const uint8_t *p = (const uint8_t *)data;
+    uint32_t crc = 0xFFFFFFFFUL;
+    uint32_t i, j;
+    for (i = 0; i < len; i++) {
+        crc ^= p[i];
+        for (j = 0; j < 8; j++)
+            crc = (crc >> 1) ^ (0xEDB88320UL & (0U - (crc & 1U)));
+    }
+    return crc ^ 0xFFFFFFFFUL;
+}
+#endif
+
+#if (defined(NVM_FLASH_JOURNAL) || defined(NVM_FLASH_ECC)) && \
+    defined(WOLFBOOT_FIXED_PARTITIONS)
+static int RAMFUNCTION part_is_erased(uint8_t part, uintptr_t addr, int len)
+{
+#ifdef EXT_FLASH
+    if (PARTN_IS_EXT(part))
+        return ext_flash_is_erased(addr, len);
+#endif
+    (void)part;
+    return hal_flash_is_erased(addr, len);
+}
+#endif
+
 #ifdef NVM_FLASH_WRITEONCE
 /* Some internal FLASH memory models don't allow
  * multiple writes after erase in the same page/area.
@@ -295,9 +346,39 @@ static void RAMFUNCTION nvm_cache_scrub(void)
     for (i = 0; i < NVM_CACHE_SIZE; i++)
         p[i] = 0;
 }
+
+#ifdef NVM_FLASH_ECC
+/* Copy a trailer sector into NVM_CACHE. An erased sector is not read,
+ * because a read of erased ECC flash can return garbage. */
+static void RAMFUNCTION nvm_cache_load(uintptr_t src)
+{
+    if (hal_flash_is_erased(src, NVM_CACHE_SIZE) == 1)
+        XMEMSET(NVM_CACHE, FLASH_BYTE_ERASED, NVM_CACHE_SIZE);
+    else
+        XMEMCPY(NVM_CACHE, (void*)src, NVM_CACHE_SIZE);
+}
+#define NVM_CACHE_LOAD(src) nvm_cache_load((uintptr_t)(src))
+#else
+#define NVM_CACHE_LOAD(src) XMEMCPY(NVM_CACHE, (void*)(src), NVM_CACHE_SIZE)
+#endif
 static uint8_t get_base_offset(uint8_t *base, uintptr_t off)
 {
     return *(uint8_t*)((uintptr_t)base - off); /* ignore array bounds error */
+}
+
+static int RAMFUNCTION nvm_byte_is_erased(uint8_t *base, uintptr_t off)
+{
+    return hal_flash_is_erased((uintptr_t)base - off, 1) == 1;
+}
+
+/* Read the trailer magic at base - off without reading erased flash */
+static uint32_t RAMFUNCTION nvm_get_magic(uint8_t *base, uintptr_t off)
+{
+    uintptr_t addr = (uintptr_t)base - off;
+
+    if (hal_flash_is_erased(addr, sizeof(uint32_t)) == 1)
+        return FLASH_WORD_ERASED;
+    return *((uint32_t*)addr);
 }
 
 #ifdef __CCRX__
@@ -337,8 +418,8 @@ static int RAMFUNCTION nvm_select_fresh_sector(int part)
     }
 
     /* check magic in case the sector is corrupt */
-    word_0 = *((uint32_t*)((uintptr_t)base -  sizeof(uint32_t)));
-    word_1 = *((uint32_t*)((uintptr_t)base - (WOLFBOOT_SECTOR_SIZE + sizeof(uint32_t))));
+    word_0 = nvm_get_magic(base, sizeof(uint32_t));
+    word_1 = nvm_get_magic(base, WOLFBOOT_SECTOR_SIZE + sizeof(uint32_t));
 
     if (word_0 == WOLFBOOT_MAGIC_TRAIL && word_1 != WOLFBOOT_MAGIC_TRAIL) {
         sel = 0;
@@ -360,22 +441,22 @@ static int RAMFUNCTION nvm_select_fresh_sector(int part)
      * Sector flags begin from offset '5'.
      */
     for (off = 4; off < WOLFBOOT_SECTOR_SIZE; off++) {
-        volatile uint8_t byte_0 = get_base_offset(base, off);
-        volatile uint8_t byte_1 = get_base_offset(base, (WOLFBOOT_SECTOR_SIZE + off));
+        int erased_0 = nvm_byte_is_erased(base, off);
+        int erased_1 = nvm_byte_is_erased(base, WOLFBOOT_SECTOR_SIZE + off);
 
-        if (byte_0 == FLASH_BYTE_ERASED && byte_1 != FLASH_BYTE_ERASED) {
+        if (erased_0 && !erased_1) {
             sel = 1;
             break;
         }
-        else if (byte_0 != FLASH_BYTE_ERASED && byte_1 == FLASH_BYTE_ERASED) {
+        else if (!erased_0 && erased_1) {
             sel = 0;
             break;
         }
-        else if ((byte_0 == FLASH_BYTE_ERASED) &&
-                (byte_1 == FLASH_BYTE_ERASED)) {
+        else if (erased_0 && erased_1) {
             /* Examine previous position one byte ahead */
-            byte_0 = get_base_offset(base, (off - 1));
-            byte_1 = get_base_offset(base, ((WOLFBOOT_SECTOR_SIZE + off) - 1));
+            volatile uint8_t byte_0 = get_base_offset(base, (off - 1));
+            volatile uint8_t byte_1 = get_base_offset(base,
+                ((WOLFBOOT_SECTOR_SIZE + off) - 1));
 
             sel = FLAG_CMP(byte_0, byte_1);
             break;
@@ -384,8 +465,8 @@ static int RAMFUNCTION nvm_select_fresh_sector(int part)
 finish:
     /* Erase the non-selected partition, requires unlocked flash */
     addrErase -= WOLFBOOT_SECTOR_SIZE * (!sel);
-    if (*((uint32_t*)(addrErase + WOLFBOOT_SECTOR_SIZE - sizeof(uint32_t)))
-            != FLASH_WORD_ERASED) {
+    if (hal_flash_is_erased((uintptr_t)addrErase + WOLFBOOT_SECTOR_SIZE -
+            sizeof(uint32_t), sizeof(uint32_t)) != 1) {
         hal_flash_erase((uintptr_t)addrErase, WOLFBOOT_SECTOR_SIZE);
     }
     return sel;
@@ -410,7 +491,7 @@ static int RAMFUNCTION trailer_write(uint8_t part, uintptr_t addr, uint8_t val)
 
     nvm_cached_sector = nvm_select_fresh_sector(part);
     addr_read = addr_align - (nvm_cached_sector * NVM_CACHE_SIZE);
-    XMEMCPY(NVM_CACHE, (void*)addr_read, NVM_CACHE_SIZE);
+    NVM_CACHE_LOAD(addr_read);
     NVM_CACHE[addr_off] = val;
 
     /* Calculate write address */
@@ -462,7 +543,7 @@ static int RAMFUNCTION partition_magic_write(uint8_t part, uintptr_t addr)
     nvm_cached_sector = nvm_select_fresh_sector(part);
     addr_read = base - (nvm_cached_sector * NVM_CACHE_SIZE);
     addr_write = base - (!nvm_cached_sector * NVM_CACHE_SIZE);
-    XMEMCPY(NVM_CACHE, (void*)addr_read, NVM_CACHE_SIZE);
+    NVM_CACHE_LOAD(addr_read);
     XMEMCPY(NVM_CACHE + off, &wolfboot_magic_trail, sizeof(uint32_t));
     ret = hal_flash_write(addr_write, NVM_CACHE, WOLFBOOT_SECTOR_SIZE);
     if (ret != 0) {
@@ -517,6 +598,359 @@ static void RAMFUNCTION set_partition_magic(uint8_t part)
 {
     (void)part;
     return;
+}
+#ifdef __CCRX__
+#pragma section
+#endif
+#elif defined(NVM_FLASH_JOURNAL)
+#ifdef __CCRX__
+#pragma section FRAM
+#endif
+/* Trailer journal. Each trailer write appends a record to the trailer sector,
+ * so a flag change never erases the sector (see docs/compile.md). */
+
+/* Largest partition, in sectors */
+#if WOLFBOOT_PARTITION_UPDATE_SIZE > WOLFBOOT_PARTITION_SIZE
+#define JOURNAL_PART_SECTORS (WOLFBOOT_PARTITION_UPDATE_SIZE / WOLFBOOT_SECTOR_SIZE)
+#else
+#define JOURNAL_PART_SECTORS (WOLFBOOT_PARTITION_SIZE / WOLFBOOT_SECTOR_SIZE)
+#endif
+
+/* Size of the trailer window at the end of the sector. It holds the magic,
+ * the state and one flag byte for each two sectors. */
+#define JOURNAL_WINDOW (((4 + 1 + (JOURNAL_PART_SECTORS + 1) / 2) + 3) & ~3)
+
+/* One record per write unit, at least 16 bytes. Records fill the sector
+ * from its start and never reach the trailer window. */
+#if WOLFBOOT_FLASH_WRITE_UNIT > 16
+#define JOURNAL_SLOT_SIZE WOLFBOOT_FLASH_WRITE_UNIT
+#else
+#define JOURNAL_SLOT_SIZE 16
+#endif
+#define JOURNAL_SLOTS \
+    ((WOLFBOOT_SECTOR_SIZE - TRAILER_SKIP - JOURNAL_WINDOW) / JOURNAL_SLOT_SIZE)
+
+#if (WOLFBOOT_FLASH_WRITE_UNIT & (WOLFBOOT_FLASH_WRITE_UNIT - 1)) != 0
+#error "WOLFBOOT_FLASH_WRITE_UNIT must be a power of two"
+#endif
+/* An update logs magic, UPDATING, three flags per sector and FINAL_FLAGS */
+#if JOURNAL_SLOTS < (3 * (JOURNAL_PART_SECTORS - 1) + 3)
+#error "NVM_FLASH_JOURNAL: the trailer sector cannot log a full-partition update"
+#endif
+
+#define JOURNAL_TAG 0x4A01U /* 'J', format version 1 */
+
+struct journal_rec {
+    uint16_t tag;
+    uint16_t seq;    /* record number, from 0 after each erase */
+    uint16_t offset; /* first trailer window byte written */
+    uint16_t len;
+    uint8_t  data[4];
+    uint32_t crc;    /* CRC32 of the fields above */
+};
+#define JOURNAL_REC_CRC_LEN 12
+
+#define JOURNAL_UNLOADED 0
+#define JOURNAL_READY    1
+#define JOURNAL_ERASE    2 /* invalid log, erase before the next write */
+#define JOURNAL_COMPACT  3 /* in-place trailer, rewrite it as records */
+
+struct journal {
+    uint32_t  window[JOURNAL_WINDOW / 4]; /* RAM copy of the trailer window */
+    uintptr_t check_addr; /* stays programmed while the RAM copy is current */
+    uint16_t  check_len;
+    uint16_t  next_slot;
+    uint16_t  next_seq;
+    uint8_t   state;
+};
+static struct journal journals[2]; /* PART_BOOT, PART_UPDATE */
+
+static uintptr_t RAMFUNCTION journal_end(uint8_t part)
+{
+    return (part == PART_BOOT) ? (uintptr_t)PART_BOOT_ENDFLAGS :
+        (uintptr_t)PART_UPDATE_ENDFLAGS;
+}
+
+static uintptr_t RAMFUNCTION journal_base(uint8_t part)
+{
+    return ((journal_end(part) - 1) / WOLFBOOT_SECTOR_SIZE) *
+        WOLFBOOT_SECTOR_SIZE;
+}
+
+static int RAMFUNCTION journal_read(uint8_t part, uintptr_t addr, void *buf,
+    int len)
+{
+    uint8_t *dst = (uint8_t *)buf;
+#ifdef EXT_FLASH
+    if (PARTN_IS_EXT(part))
+        return (ext_flash_read(addr, dst, len) == len) ? 0 : -1;
+#endif
+    while (len > 0) {
+        int n = WOLFBOOT_FLASH_WRITE_UNIT -
+            (int)(addr % WOLFBOOT_FLASH_WRITE_UNIT);
+        if (n > len)
+            n = len;
+#ifdef NVM_FLASH_ECC
+        /* A read of an erased ECC unit can fault, so check it first */
+        if (hal_flash_is_erased(addr, n) == 1)
+            XMEMSET(dst, FLASH_BYTE_ERASED, n);
+        else
+#endif
+            XMEMCPY(dst, (void *)addr, n);
+        addr += n;
+        dst += n;
+        len -= n;
+    }
+    return 0;
+}
+
+static int RAMFUNCTION journal_flash_write(uint8_t part, uintptr_t addr,
+    const uint8_t *data, int len)
+{
+#ifdef EXT_FLASH
+    if (PARTN_IS_EXT(part))
+        return ext_flash_write(addr, data, len);
+#endif
+    return hal_flash_write(addr, data, len);
+}
+
+static int RAMFUNCTION journal_flash_erase(uint8_t part, uintptr_t addr,
+    int len)
+{
+#ifdef EXT_FLASH
+    if (PARTN_IS_EXT(part))
+        return ext_flash_erase(addr, len);
+#endif
+    return hal_flash_erase(addr, len);
+}
+
+static void RAMFUNCTION journal_reset(struct journal *j)
+{
+    XMEMSET(j->window, FLASH_BYTE_ERASED, JOURNAL_WINDOW);
+    j->check_len = 0;
+    j->next_slot = 0;
+    j->next_seq = 0;
+    j->state = JOURNAL_READY;
+}
+
+static int RAMFUNCTION journal_rec_ok(const struct journal_rec *rec)
+{
+    return (rec->tag == JOURNAL_TAG) && (rec->len >= 1) &&
+        (rec->len <= sizeof(rec->data)) &&
+        (rec->offset + rec->len <= JOURNAL_WINDOW) &&
+        (rec->crc == wb_crc32(rec, JOURNAL_REC_CRC_LEN));
+}
+
+/* Replay the trailer sector into the RAM window. If a seq number is missing,
+ * or more than one bad slot follows the last record, an erase was cut and the
+ * log reads as erased. */
+static void RAMFUNCTION journal_load(uint8_t part, struct journal *j)
+{
+    uintptr_t base = journal_base(part);
+    uintptr_t win = journal_end(part) - JOURNAL_WINDOW;
+    struct journal_rec rec;
+    uint32_t magic;
+    int slot, erased, last = -1, junk = 0;
+
+    journal_reset(j);
+    j->state = JOURNAL_UNLOADED;
+
+    /* A journal never writes the trailer window, so a magic there means
+     * the sector holds a trailer in the in-place format */
+    if (journal_read(part, win + JOURNAL_WINDOW - 4, &magic, 4) != 0)
+        return;
+    if (magic == WOLFBOOT_MAGIC_TRAIL) {
+        if (journal_read(part, win, j->window, JOURNAL_WINDOW) != 0)
+            return;
+        j->check_addr = win + JOURNAL_WINDOW - 4;
+        j->check_len = 4;
+        j->state = JOURNAL_COMPACT;
+        return;
+    }
+
+    for (slot = 0; slot < JOURNAL_SLOTS; slot++) {
+        uintptr_t addr = base + (uintptr_t)slot * JOURNAL_SLOT_SIZE;
+        erased = part_is_erased(part, addr, JOURNAL_SLOT_SIZE);
+        if (erased < 0)
+            return;
+        if (erased) {
+            /* Stop once the rest of the log is blank */
+            erased = part_is_erased(part, addr,
+                (JOURNAL_SLOTS - slot) * JOURNAL_SLOT_SIZE);
+            if (erased < 0)
+                return;
+            if (erased)
+                break;
+            continue;
+        }
+        if ((journal_read(part, addr, &rec, sizeof(rec)) != 0) ||
+                !journal_rec_ok(&rec)) {
+            junk++;
+            continue;
+        }
+        if (rec.seq != j->next_seq) {
+            junk = 2; /* a record is missing */
+            break;
+        }
+        XMEMCPY((uint8_t *)j->window + rec.offset, rec.data, rec.len);
+        j->next_seq++;
+        last = slot;
+        junk = 0;
+    }
+
+    if ((junk > 1) || ((last < 0) && (junk > 0))) {
+        journal_reset(j);
+        j->state = JOURNAL_ERASE;
+        return;
+    }
+    if (last >= 0) {
+        j->check_addr = base + (uintptr_t)last * JOURNAL_SLOT_SIZE;
+        j->check_len = JOURNAL_SLOT_SIZE;
+    }
+    /* A write cut by the last reset can still read as erased, so skip the
+     * slot after the last record */
+    j->next_slot = (uint16_t)(last + 2);
+    j->state = JOURNAL_READY;
+}
+
+static struct journal* RAMFUNCTION journal_of(uint8_t part)
+{
+    if (part == PART_BOOT)
+        return &journals[0];
+    if (part == PART_UPDATE)
+        return &journals[1];
+    return NULL;
+}
+
+/* Return the journal of a partition, reloaded if the sector was erased */
+static struct journal* RAMFUNCTION journal_get(uint8_t part)
+{
+    struct journal *j = journal_of(part);
+
+    if ((j != NULL) && ((j->state == JOURNAL_UNLOADED) ||
+            ((j->check_len != 0) &&
+            (part_is_erased(part, j->check_addr, j->check_len) == 1)))) {
+        journal_load(part, j);
+    }
+    return j;
+}
+
+/* Erase the trailer sector and start an empty log */
+static int RAMFUNCTION journal_erase(uint8_t part)
+{
+    struct journal *j = journal_of(part);
+    int ret;
+
+    if (j == NULL)
+        return -1;
+    ret = journal_flash_erase(part, journal_base(part), WOLFBOOT_SECTOR_SIZE);
+    journal_reset(j);
+    if (ret != 0)
+        j->state = JOURNAL_UNLOADED;
+    return ret;
+}
+
+/* Program one record into the next free slot and check it reads back. A
+ * slot that is not erased, or that fails, is skipped. */
+static int RAMFUNCTION journal_append(uint8_t part, struct journal *j,
+    uint16_t offset, const uint8_t *data, uint16_t len)
+{
+    union {
+        struct journal_rec rec;
+        uint8_t raw[JOURNAL_SLOT_SIZE];
+    } buf, chk;
+    uintptr_t base = journal_base(part);
+    int tries = 0;
+
+    XMEMSET(buf.raw, FLASH_BYTE_ERASED, sizeof(buf.raw));
+    buf.rec.tag = JOURNAL_TAG;
+    buf.rec.seq = j->next_seq;
+    buf.rec.offset = offset;
+    buf.rec.len = len;
+    XMEMCPY(buf.rec.data, data, len);
+    buf.rec.crc = wb_crc32(&buf.rec, JOURNAL_REC_CRC_LEN);
+
+    while ((j->next_slot < JOURNAL_SLOTS) && (tries < 3)) {
+        uintptr_t addr = base + (uintptr_t)j->next_slot * JOURNAL_SLOT_SIZE;
+        j->next_slot++;
+        if (part_is_erased(part, addr, JOURNAL_SLOT_SIZE) != 1)
+            continue;
+        tries++;
+        if ((journal_flash_write(part, addr, buf.raw, JOURNAL_SLOT_SIZE) != 0)
+                || (journal_read(part, addr, chk.raw, JOURNAL_SLOT_SIZE) != 0)
+                || (XMEMCMP(buf.raw, chk.raw, JOURNAL_SLOT_SIZE) != 0)) {
+            continue;
+        }
+        XMEMCPY((uint8_t *)j->window + offset, data, len);
+        j->next_seq++;
+        j->check_addr = addr;
+        j->check_len = JOURNAL_SLOT_SIZE;
+        return 0;
+    }
+    return -1;
+}
+
+/* Erase the sector and log the RAM window again, four bytes per record. The
+ * magic is the last group, so a cut leaves no trailer instead of a partial
+ * one. */
+static int RAMFUNCTION journal_compact(uint8_t part, struct journal *j)
+{
+    uint32_t window[JOURNAL_WINDOW / 4];
+    int i, k, ret;
+
+    XMEMCPY(window, j->window, JOURNAL_WINDOW);
+    ret = journal_erase(part);
+    for (i = 0; (ret == 0) && (i < JOURNAL_WINDOW); i += 4) {
+        const uint8_t *group = (const uint8_t *)window + i;
+        for (k = 0; k < 4; k++) {
+            if (group[k] != FLASH_BYTE_ERASED) {
+                ret = journal_append(part, j, (uint16_t)i, group, 4);
+                break;
+            }
+        }
+    }
+    return ret;
+}
+
+static int RAMFUNCTION journal_set(uint8_t part, uint16_t offset,
+    const uint8_t *data, uint16_t len)
+{
+    struct journal *j = journal_get(part);
+    int ret;
+
+    if ((j == NULL) || (j->state == JOURNAL_UNLOADED))
+        return -1;
+    if (j->state == JOURNAL_READY) {
+        ret = journal_append(part, j, offset, data, len);
+        if ((ret == 0) || (j->next_slot < JOURNAL_SLOTS))
+            return ret;
+    }
+    /* An invalid, in-place or full log starts again in an erased sector */
+    ret = journal_compact(part, j);
+    if (ret == 0)
+        ret = journal_append(part, j, offset, data, len);
+    return ret;
+}
+
+static uint8_t* RAMFUNCTION get_trailer_at(uint8_t part, uint32_t at)
+{
+    struct journal *j = journal_get(part);
+
+    if (j == NULL)
+        return NULL;
+    return (uint8_t *)j->window + JOURNAL_WINDOW - (sizeof(uint32_t) + at);
+}
+
+static void RAMFUNCTION set_trailer_at(uint8_t part, uint32_t at, uint8_t val)
+{
+    (void)journal_set(part, (uint16_t)(JOURNAL_WINDOW - (sizeof(uint32_t) + at)),
+        &val, 1);
+}
+
+static void RAMFUNCTION set_partition_magic(uint8_t part)
+{
+    (void)journal_set(part, JOURNAL_WINDOW - sizeof(uint32_t),
+        (const uint8_t *)&wolfboot_magic_trail, sizeof(uint32_t));
 }
 #ifdef __CCRX__
 #pragma section
@@ -893,7 +1327,9 @@ void RAMFUNCTION wolfBoot_erase_partition(uint8_t part)
 void RAMFUNCTION wolfBoot_update_trigger(void)
 {
     uint8_t st = IMG_STATE_UPDATING;
+#ifndef NVM_FLASH_JOURNAL
     uintptr_t lastSector = ((PART_UPDATE_ENDFLAGS - 1) / WOLFBOOT_SECTOR_SIZE) * WOLFBOOT_SECTOR_SIZE;
+#endif
 #ifdef NVM_FLASH_WRITEONCE
     uint8_t selSec = 0;
 #endif
@@ -905,6 +1341,11 @@ void RAMFUNCTION wolfBoot_update_trigger(void)
         hal_flash_unlock();
     }
 
+#ifdef NVM_FLASH_JOURNAL
+    /* The erase starts a new log without the flags of the previous update */
+    journal_erase(PART_UPDATE);
+    wolfBoot_set_partition_state(PART_UPDATE, st);
+#else
     /* NVM_FLASH_WRITEONCE needs erased flags since it selects the fresh
      * partition based on how many flags are non-erased
      * FLAGS_INVERT needs erased flags because the bin-assemble's fill byte may
@@ -923,8 +1364,7 @@ void RAMFUNCTION wolfBoot_update_trigger(void)
         offset -= (PART_BOOT_ENDFLAGS - PART_UPDATE_ENDFLAGS);
 #endif
         selSec = nvm_select_fresh_sector(PART_UPDATE);
-        XMEMCPY(NVM_CACHE, (uint8_t*)lastSector - WOLFBOOT_SECTOR_SIZE * selSec,
-            WOLFBOOT_SECTOR_SIZE);
+        NVM_CACHE_LOAD((uint8_t*)lastSector - WOLFBOOT_SECTOR_SIZE * selSec);
         /* write to the non selected sector */
         hal_flash_erase(lastSector - WOLFBOOT_SECTOR_SIZE * !selSec,
             WOLFBOOT_SECTOR_SIZE);
@@ -943,6 +1383,7 @@ void RAMFUNCTION wolfBoot_update_trigger(void)
         nvm_cache_scrub();
 #endif
     }
+#endif /* NVM_FLASH_JOURNAL */
 
     if (FLAGS_UPDATE_EXT()) {
         ext_flash_lock();
@@ -1025,7 +1466,12 @@ void RAMFUNCTION wolfBoot_success(void)
                              (haladdr_t)(i) * DIAG_SECTOR_SIZE)
 
 #ifndef WOLFBOOT_DIAGNOSTICS_RECORD_SIZE
+#if defined(NVM_FLASH_ECC) && (WOLFBOOT_FLASH_WRITE_UNIT > 16)
+/* ECC flash programs a unit once, so use one write unit per record */
+#define WOLFBOOT_DIAGNOSTICS_RECORD_SIZE WOLFBOOT_FLASH_WRITE_UNIT
+#else
 #define WOLFBOOT_DIAGNOSTICS_RECORD_SIZE 16U
+#endif
 #endif
 #define DIAG_HDR_SIZE       WOLFBOOT_DIAGNOSTICS_RECORD_SIZE
 #define DIAG_RECORD_SIZE    WOLFBOOT_DIAGNOSTICS_RECORD_SIZE
@@ -1045,24 +1491,18 @@ typedef char diag_header_size_check[
 typedef char diag_record_min_check[(DIAG_RECORD_SIZE >= 16U) ? 1 : -1];
 typedef char diag_slots_check[(DIAG_SLOTS_PER_SECTOR >= 1) ? 1 : -1];
 
-static uint32_t RAMFUNCTION diag_crc32(const void *data, uint32_t len)
-{
-    const uint8_t *p = (const uint8_t *)data;
-    uint32_t crc = 0xFFFFFFFFUL;
-    uint32_t i, j;
-    for (i = 0; i < len; i++) {
-        crc ^= p[i];
-        for (j = 0; j < 8; j++)
-            crc = (crc >> 1) ^ (0xEDB88320UL & (0U - (crc & 1U)));
-    }
-    return crc ^ 0xFFFFFFFFUL;
-}
-
 static int RAMFUNCTION diag_read(haladdr_t addr, void *buf, uint32_t len)
 {
 #if DIAG_IS_EXT
     return ext_flash_read(addr, (uint8_t *)buf, len);
 #else
+#ifdef NVM_FLASH_ECC
+    /* A read of erased ECC flash can fault, so check it first */
+    if (hal_flash_is_erased(addr, (int)len) == 1) {
+        XMEMSET(buf, FLASH_BYTE_ERASED, len);
+        return (int)len;
+    }
+#endif
     XMEMCPY(buf, (void *)(uintptr_t)addr, len);
     return (int)len;
 #endif
@@ -1077,7 +1517,7 @@ static int RAMFUNCTION diag_read_header(haladdr_t sector_addr,
         return -1;
     if (hdr->format_version != DIAG_FORMAT_VERSION)
         return -1;
-    if (diag_crc32(hdr, 12) != hdr->crc)
+    if (wb_crc32(hdr, 12) != hdr->crc)
         return -1;
     return 0;
 }
@@ -1089,7 +1529,7 @@ static int RAMFUNCTION diag_read_record(haladdr_t sector_addr, int slot,
         (haladdr_t)slot * DIAG_RECORD_SIZE;
     if (diag_read(addr, rec, sizeof(*rec)) != (int)sizeof(*rec))
         return -1;
-    if (diag_crc32(rec, 12) != rec->crc)
+    if (wb_crc32(rec, 12) != rec->crc)
         return -1;
     return 0;
 }
@@ -1196,7 +1636,7 @@ static int RAMFUNCTION diag_write_header(haladdr_t sector_addr, uint32_t generat
     hdr.magic = DIAG_HDR_MAGIC;
     hdr.generation = generation;
     hdr.format_version = DIAG_FORMAT_VERSION;
-    hdr.crc = diag_crc32(&hdr, 12);
+    hdr.crc = wb_crc32(&hdr, 12);
     XMEMSET(slot, 0xFF, sizeof(slot));
     XMEMCPY(slot, &hdr, sizeof(hdr));
     return diag_write(sector_addr, slot, DIAG_HDR_SIZE);
@@ -1220,17 +1660,13 @@ static uint32_t RAMFUNCTION diag_max_seq(int *count)
 
 static int RAMFUNCTION diag_slot_is_erased(haladdr_t sector_addr, int slot)
 {
-    uint8_t buf[DIAG_RECORD_SIZE];
-    uint32_t i;
     haladdr_t addr = sector_addr + DIAG_HDR_SIZE +
         (haladdr_t)slot * DIAG_RECORD_SIZE;
-    if (diag_read(addr, buf, DIAG_RECORD_SIZE) != (int)DIAG_RECORD_SIZE)
-        return 0;
-    for (i = 0; i < DIAG_RECORD_SIZE; i++) {
-        if (buf[i] != 0xFF)
-            return 0;
-    }
-    return 1;
+#if DIAG_IS_EXT
+    return ext_flash_is_erased(addr, DIAG_RECORD_SIZE) == 1;
+#else
+    return hal_flash_is_erased(addr, DIAG_RECORD_SIZE) == 1;
+#endif
 }
 
 int RAMFUNCTION wolfBoot_record_failure(uint8_t phase, uint8_t cause,
@@ -1281,7 +1717,7 @@ int RAMFUNCTION wolfBoot_record_failure(uint8_t phase, uint8_t cause,
     rec.cause = cause;
     rec.partition = partition;
     rec.fw_version = fw_version;
-    rec.crc = diag_crc32(&rec, 12);
+    rec.crc = wb_crc32(&rec, 12);
 
     XMEMSET(slot, 0xFF, sizeof(slot));
     XMEMCPY(slot, &rec, sizeof(rec));
@@ -1688,6 +2124,11 @@ uint32_t wolfBoot_get_blob_diffbase_version(uint8_t *blob)
  * NULL if the partition is invalid or empty.
  *
  */
+#ifdef NVM_FLASH_ECC
+/* Used in place of an erased header. It never matches the image magic. */
+static const uint32_t erased_hdr_word = FLASH_WORD_ERASED;
+#endif
+
 static uint8_t* wolfBoot_get_image_from_part(uint8_t part)
 {
     uint8_t *image = (uint8_t *)0x00000000; /* default to 0x0 base */
@@ -1698,6 +2139,11 @@ static uint8_t* wolfBoot_get_image_from_part(uint8_t part)
     else if (part == PART_UPDATE) {
         image = (uint8_t *)WOLFBOOT_PARTITION_UPDATE_ADDRESS;
     }
+#ifdef NVM_FLASH_ECC
+    if (((part == PART_BOOT) || (part == PART_UPDATE)) &&
+            (part_is_erased(part, (uintptr_t)image, sizeof(uint32_t)) == 1))
+        return (uint8_t *)&erased_hdr_word;
+#endif
 #ifdef EXT_FLASH
     if (PARTN_IS_EXT(part)) {
         ext_flash_check_read((uintptr_t)image, hdr_cpy, IMAGE_HEADER_SIZE);
@@ -1716,6 +2162,11 @@ uint8_t* wolfBoot_get_self_header(void)
     static uint8_t hdr_buf[IMAGE_HEADER_SIZE];
     uint32_t       magic;
 
+#ifdef NVM_FLASH_ECC
+    if (ext_flash_is_erased((uintptr_t)WOLFBOOT_PARTITION_SELF_HEADER_ADDRESS,
+            sizeof(uint32_t)) == 1)
+        return NULL;
+#endif
     ext_flash_read((uintptr_t)WOLFBOOT_PARTITION_SELF_HEADER_ADDRESS, hdr_buf,
                    IMAGE_HEADER_SIZE);
     magic = WOLFBOOT_HDR_GET_U32(hdr_buf);
@@ -1726,7 +2177,13 @@ uint8_t* wolfBoot_get_self_header(void)
     return hdr_buf;
 #else
     uint8_t* hdr   = (uint8_t*)WOLFBOOT_PARTITION_SELF_HEADER_ADDRESS;
-    uint32_t magic = WOLFBOOT_HDR_GET_U32(hdr);
+    uint32_t magic;
+
+#ifdef NVM_FLASH_ECC
+    if (hal_flash_is_erased((uintptr_t)hdr, sizeof(uint32_t)) == 1)
+        return NULL;
+#endif
+    magic = WOLFBOOT_HDR_GET_U32(hdr);
 
     if (magic != WOLFBOOT_MAGIC) {
         return NULL;
@@ -2181,7 +2638,8 @@ int RAMFUNCTION wolfBoot_erase_encrypt_key(void)
     mem -= (sel_sec * WOLFBOOT_SECTOR_SIZE);
 #endif
     XMEMSET(ff, FLASH_BYTE_ERASED, ENCRYPT_KEY_SIZE + ENCRYPT_NONCE_SIZE);
-    if (!encrypt_key_is_erased(mem, ENCRYPT_KEY_SIZE + ENCRYPT_NONCE_SIZE))
+    if (hal_flash_is_erased((uintptr_t)mem,
+            ENCRYPT_KEY_SIZE + ENCRYPT_NONCE_SIZE) != 1)
         ret = hal_set_key(ff, ff + ENCRYPT_KEY_SIZE);
     return ret;
 #endif

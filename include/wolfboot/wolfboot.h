@@ -631,6 +631,22 @@ extern "C" {
   #error "DELTA_UPDATES requires swap partition (incompatible with DISABLE_BACKUP)"
 #endif
 
+#if defined(NVM_FLASH_JOURNAL) && defined(NVM_FLASH_WRITEONCE)
+  #error "NVM_FLASH_JOURNAL and NVM_FLASH_WRITEONCE are mutually exclusive"
+#endif
+#if defined(NVM_FLASH_JOURNAL) && (defined(EXT_ENCRYPTED) || \
+    defined(FLAGS_HOME) || defined(CUSTOM_PARTITION_TRAILER) || \
+    defined(PULL_LINKER_DEFINES))
+  #error "NVM_FLASH_JOURNAL does not support EXT_ENCRYPTED, FLAGS_HOME, CUSTOM_PARTITION_TRAILER or PULL_LINKER_DEFINES"
+#endif
+#if defined(NVM_FLASH_ECC) && !defined(NVM_FLASH_JOURNAL) && \
+    !defined(NVM_FLASH_WRITEONCE)
+  #error "NVM_FLASH_ECC needs NVM_FLASH_JOURNAL or NVM_FLASH_WRITEONCE"
+#endif
+#if defined(NVM_FLASH_ECC) && (defined(DELTA_UPDATES) || defined(EXT_ENCRYPTED))
+  #error "NVM_FLASH_ECC does not support DELTA_UPDATES or EXT_ENCRYPTED yet"
+#endif
+
 #define PART_BOOT   0
 #define PART_UPDATE 1
 #define PART_SWAP   2

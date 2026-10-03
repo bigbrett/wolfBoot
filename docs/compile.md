@@ -286,6 +286,68 @@ To enable the workaround for 'write once' internal flash, compile with
 **warning** When this option is enabled, the fail-safe swap is not guaranteed, i.e. the microcontroller
 cannot be safely powered down or restarted during a swap operation.
 
+### Trailer journal for flash that cannot rewrite a flag
+
+By default, wolfBoot changes a partition state or a sector flag by programming one more byte over the
+trailer at the end of the partition. Flash with ECC (for example TC3xx/TC4xx PFLASH or STM32H7) cannot
+program a unit twice, so the HAL has to erase and rewrite the whole trailer sector for each flag. A reset
+in that window loses the trailer and can leave the device unbootable.
+
+To log trailer writes instead, compile with
+
+`NVM_FLASH_JOURNAL=1`
+
+Each trailer write is appended as a record to the partition's trailer sector, so a flag change is one
+write-unit program. The sector is only erased where wolfBoot already erases the trailer: the update
+trigger, the end of an update, and a partition erase. At the first trailer access after a reset, wolfBoot
+replays the records into a RAM copy of the trailer.
+
+- A record is 16 bytes, or one write unit if larger: tag, sequence number, offset and length of the
+  write, up to 4 data bytes, and a CRC32. Records fill the sector from its start and never reach the
+  trailer area at its end.
+- The valid records must carry every sequence number from 0. A slot that fails its check is skipped, but
+  more than one bad slot after the last record, or a missing record, means a cut erase: the log then
+  reads as erased, and the sector is erased before the next write.
+- After a reset, the slot after the last record is left unused, because a cut write can still read as
+  erased. Each record is read back after it is written, and moves to the next slot if it does not match.
+- The trailer sector must hold the log of a full-partition update: three records per sector plus three.
+  The build fails otherwise. With 16 KB sectors and 32-byte write units (TC3xx), that is 510 records for
+  up to 169 sectors.
+- A trailer in the in-place format is read as the starting state and rewritten as records by the first
+  write, so a field update of the bootloader keeps the update state.
+- The bootloader and the application must use the same trailer mode, because both write the trailer.
+- `NVM_FLASH_JOURNAL` cannot be combined with `NVM_FLASH_WRITEONCE`, `ENCRYPT`, `FLAGS_HOME` or
+  `CUSTOM_PARTITION_TRAILER`.
+
+Pick the trailer storage by the flash geometry. N is the number of sectors in the largest image.
+
+| Trailer storage | Option | Use when | Cost per flag write | Trailer sectors |
+|---|---|---|---|---|
+| In place (default) | none | flash can program a byte again (NOR) | one byte program | 1 |
+| Two copies | `NVM_FLASH_WRITEONCE=1` | write unit too large for a log, or cheap erases | 2 erases + 1 sector program | 2 |
+| Journal | `NVM_FLASH_JOURNAL=1` | sector / write unit >= 3N + 3, slow erases | 1 write-unit program | 1 |
+
+### ECC flash
+
+On ECC flash a unit can only be programmed once after an erase, and reading erased flash can fault or
+return garbage. To keep the update code within these rules, compile with
+
+`NVM_FLASH_ECC=1`
+
+together with `NVM_FLASH_JOURNAL=1` or `NVM_FLASH_WRITEONCE=1`, and set the write unit with
+`FLASH_WRITE_UNIT=<bytes>` unless the target sets `WOLFBOOT_FLASH_WRITE_UNIT` itself. Then:
+
+- Decisions about erased flash use the HAL erased check (see [HAL](HAL.md)), never data read back. An
+  erased image header means no image.
+- Writes cover whole write units, programmed once after a whole-sector erase. Sector copies stop at the
+  image's last write unit and leave erased source chunks erased.
+- The ELF scatter loader erases each sector under the segments once, before the first write to it, and
+  gathers a write unit shared by two segments in RAM. Segments must be in address order, and the sectors
+  they touch must hold nothing else.
+- The self-header update erases whole sectors, and diagnostics records take one write unit each.
+- `FLASHBUFFER_SIZE` and `IMAGE_HEADER_SIZE` must be multiples of the write unit.
+- `DELTA_UPDATES` and `ENCRYPT` are not supported yet.
+
 ### Allow version roll-back
 
 WolfBoot will not allow updates to a firmware with a version number smaller than the current one. To allow
@@ -332,10 +394,11 @@ The `EXT_FLASH` option can also be used if the target device requires special ha
 (e.g. word size requirements or other restrictions), regardless of whether the flash is internal or external.
 
 Note that the `EXT_FLASH` option is incompatible with the `NVM_FLASH_WRITEONCE` option. Targets that need
-both these options must implement the sector-based read-modify-erase-write sequence at the HAL layer.
+both use `NVM_FLASH_JOURNAL` instead, which works with external partitions.
 
 For an example of using `EXT_FLASH` to bypass read restrictions, (in this case, the inability to read from
-erased flash due to ECC errors) on a platform with write-once flash, see the [infineon tricore port](../hal/aurix_tc3xx.c).
+erased flash due to ECC errors) on a platform with write-once flash, with `NVM_FLASH_JOURNAL` and
+`NVM_FLASH_ECC`, see the [infineon tricore port](../hal/aurix_tc3xx.c).
 
 #### SPI devices
 

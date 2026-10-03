@@ -2425,6 +2425,9 @@ ifeq ($(ARCH), AURIX)
               -std=gnu99 -DPART_BOOT_EXT -DPART_UPDATE_EXT -DPART_SWAP_EXT \
               -DHAVE_TC3XX -DWOLFBOOT_LOADER_MAIN
 
+    # PFLASH is ECC flash, programmed in 32-byte pages
+    CFLAGS += -DWOLFBOOT_FLASH_WRITE_UNIT=32
+
     ifeq ($(HT_GCC),1)
       # Older HT GCC 4.6 flags designated/partial initializers
       CFLAGS += -Wno-missing-field-initializers
